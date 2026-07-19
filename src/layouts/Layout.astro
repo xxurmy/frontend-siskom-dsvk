@@ -1,23 +1,170 @@
-<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
-	</head>
-	<body>
-		<slot />
-	</body>
-</html>
+---
+// src/layout/Layout.astro
+// Layout utama aplikasi: menggabungkan Navbar + Sidebar + slot konten halaman
+// Import: import Layout from "../layout/Layout.astro";
 
-<style>
-	html,
-	body {
-		margin: 0;
-		width: 100%;
-		height: 100%;
-	}
-</style>
+import Navbar from "../components/layout/Navbar.astro";
+import Sidebar from "../components/layout/Sidebar.astro";
+
+interface Props {
+  pageTitle?: string;
+  navTitle?: string;
+  userName?: string;
+  userNim?: string;
+  userInitials?: string;
+}
+
+const {
+  pageTitle = "SISKOM DSVK IPB",
+  navTitle = "Jadwal Kolokium",
+  userName = "Rheynesta Hannover",
+  userNim = "J0403231008",
+  userInitials = "RH",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="id" class="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{pageTitle}</title>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"
+      rel="stylesheet"
+    />
+
+    <script is:inline src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config" is:inline>
+      try {
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                background: "#f8f9fa",
+                "inverse-surface": "#2e3132",
+                "surface-bright": "#f8f9fa",
+                secondary: "#1b6d24",
+                "inverse-on-surface": "#f0f1f2",
+                "secondary-fixed": "#a3f69c",
+                primary: "#00342b",
+                "ipb-blue": "#00467E",
+                "surface-variant": "#e1e3e4",
+                "on-error": "#ffffff",
+                "on-tertiary-fixed-variant": "#6d382a",
+                "on-primary": "#ffffff",
+                "on-secondary-container": "#217128",
+                "on-tertiary-container": "#e89f8c",
+                "inverse-primary": "#94d3c1",
+                "surface-dim": "#d9dadb",
+                "on-primary-container": "#7ebdac",
+                "on-surface": "#191c1d",
+                "on-background": "#191c1d",
+                "surface-container-highest": "#e1e3e4",
+                "on-primary-fixed-variant": "#065043",
+                error: "#ba1a1a",
+                "tertiary-fixed-dim": "#ffb5a1",
+                "primary-fixed-dim": "#94d3c1",
+                "surface-container": "#edeeef",
+                "surface-container-lowest": "#ffffff",
+                "on-tertiary-fixed": "#370e04",
+                "on-primary-fixed": "#00201a",
+                "surface-tint": "#29695b",
+                "secondary-container": "#a0f399",
+                surface: "#f8f9fa",
+                "outline-variant": "#bfc9c4",
+                "surface-dim-alt": "#e0e2e6",
+                outline: "#707975",
+                "tertiary-fixed": "#ffdbd1",
+                "error-container": "#ffdad6",
+                "on-secondary": "#ffffff",
+                tertiary: "#4e2013",
+                "tertiary-container": "#693527",
+                "on-error-container": "#93000a",
+                "surface-container-high": "#e7e8e9",
+                "on-surface-variant": "#3f4945",
+                "on-secondary-fixed": "#002204",
+                "primary-container": "#004d40",
+                "on-secondary-fixed-variant": "#005312",
+                "primary-fixed": "#afefdd",
+                "on-tertiary": "#ffffff",
+              },
+              borderRadius: {
+                DEFAULT: "0.125rem",
+                lg: "0.25rem",
+                xl: "0.5rem",
+                full: "0.75rem",
+              },
+              spacing: {
+                "sidebar-width": "260px",
+                "container-max": "1280px",
+                "stack-lg": "24px",
+                gutter: "24px",
+                "margin-desktop": "32px",
+                "margin-mobile": "16px",
+                "stack-sm": "8px",
+                "stack-md": "16px",
+              },
+              fontFamily: {
+                "headline-md-mobile": ["Inter"],
+                "display-lg": ["Inter"],
+                "body-sm": ["Inter"],
+                "label-md": ["Inter"],
+                "body-md": ["Inter"],
+                "title-lg": ["Inter"],
+                "headline-md": ["Inter"],
+              },
+              fontSize: {
+                "headline-md-mobile": ["20px", { lineHeight: "28px", fontWeight: "600" }],
+                "display-lg": [
+                  "32px",
+                  { lineHeight: "40px", letterSpacing: "-0.02em", fontWeight: "700" },
+                ],
+                "body-sm": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500" }],
+                "body-md": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                "title-lg": ["18px", { lineHeight: "24px", fontWeight: "600" }],
+                "headline-md": [
+                  "24px",
+                  { lineHeight: "32px", letterSpacing: "-0.01em", fontWeight: "600" },
+                ],
+              },
+            },
+          },
+        };
+      } catch (_e) {}
+    </script>
+  </head>
+
+  <body class="bg-background text-on-surface overflow-hidden">
+    <Navbar title={navTitle} />
+    <Sidebar userName={userName} userNim={userNim} userInitials={userInitials} />
+
+    <main class="ml-0 md:ml-[260px] pt-16 min-h-screen transition-all">
+      <div class="p-gutter max-w-container-max mx-auto h-[calc(100vh-100px)] flex flex-col">
+        <slot />
+
+        <footer class="mt-stack-lg py-4 border-t border-outline-variant/30 text-center md:text-left">
+          <p class="text-label-md text-on-surface-variant">
+            Copyright © 2026 <span class="text-ipb-blue font-bold">IPB University</span>. All rights
+            reserved.
+          </p>
+        </footer>
+      </div>
+    </main>
+
+    <!-- FAB untuk aksi cepat (konteks mobile) -->
+    <button
+      class="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-50"
+      type="button"
+    >
+      <span class="material-symbols-outlined">add</span>
+    </button>
+  </body>
+</html>
