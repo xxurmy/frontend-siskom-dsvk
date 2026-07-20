@@ -1,0 +1,187 @@
+---
+// src/pages/daftar-kolokium.astro
+// Halaman Daftar Kolokium — pakai Layout.astro yang sudah ada
+// (Navbar + Sidebar tidak dibuat ulang di sini).
+
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout pageTitle="Daftar Kolokium - SISKOM DSVK" navTitle="Daftar Kolokium">
+  <!-- Status Card -->
+  <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-8 mb-6 shadow-sm">
+      <div class="grid grid-cols-3 items-center">
+        <h2 class="font-title-lg text-title-lg text-on-surface">
+          Status Kolokium
+        </h2>
+
+        <div class="flex justify-center">
+          <span class="bg-outline text-white px-4 py-1.5 rounded-full font-body-sm text-body-sm">
+            Belum Mendaftar
+        </span>
+        </div>
+     </div>
+  </div>
+      
+
+  <!-- Form Card -->
+  <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+    <div class="p-8">
+      <form class="space-y-6">
+        <!-- Nama -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Nama</label>
+          <div class="md:col-span-2">
+            <input
+              type="text"
+              value="Rheynesta Hannover"
+              readonly
+              class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
+            />
+          </div>
+        </div>
+
+        <!-- NIM -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">NIM</label>
+          <div class="md:col-span-2">
+            <input
+              type="text"
+              value="J0403231008"
+              readonly
+              class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
+            />
+          </div>
+        </div>
+
+        <!-- Program Studi -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Program Studi</label>
+          <div class="md:col-span-2">
+            <input
+              type="text"
+              value="Teknologi Rekayasa Perangkat Lunak"
+              readonly
+              class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
+            />
+          </div>
+        </div>
+
+        <!-- Dosen Pembimbing Utama -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start pt-2">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium mt-2">
+            Dosen Pembimbing Utama
+          </label>
+          <div class="md:col-span-2">
+            <select
+              class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+            >
+              <option>...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Dosen Pembimbing Kedua -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium mt-2">
+            Dosen Pembimbing Kedua
+          </label>
+          <div class="md:col-span-2">
+            <select
+              class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+            >
+              <option>...</option>
+            </select>
+            <p class="mt-1 text-xs text-error">* Silahkan isi dosen pembimbing ke-2 jika ada</p>
+          </div>
+        </div>
+
+        <!-- Rencana Tugas Akhir -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium mt-2">
+            Rencana Tugas Akhir
+          </label>
+          <div class="md:col-span-2">
+            <textarea
+              rows="3"
+              class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+            ></textarea>
+            <p class="mt-1 text-xs text-error">
+              * Pengisian judul harus kapital di setiap awal kata kecuali kata penghubung
+            </p>
+          </div>
+        </div>
+
+        <!-- Lokasi Tugas Akhir -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Lokasi Tugas Akhir</label>
+          <div class="md:col-span-2">
+            <input
+              type="text"
+              class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+            />
+          </div>
+        </div>
+
+        <!-- Tanggal Kolokium -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Tanggal Kolokium</label>
+          <div class="md:col-span-2 relative">
+            <input
+              type="date"
+              class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm pr-10"
+            />
+          </div>
+        </div>
+
+        <!-- Waktu Kolokium -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Waktu Kolokium</label>
+          <div class="md:col-span-2">
+            <input
+              type="time"
+              class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+            />
+          </div>
+        </div>
+
+        <!-- Mahasiswa Pembahas -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-b border-outline-variant pb-6">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Mahasiswa Pembahas</label>
+          <div class="md:col-span-2">
+            <select
+              class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
+            >
+              <option>...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Read Only Info -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Dosen Moderator</label>
+          <div class="md:col-span-2">
+            <span class="text-on-surface-variant font-body-sm text-body-sm">(akan diisi oleh panitia)</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Ruangan</label>
+          <div class="md:col-span-2">
+            <span class="text-on-surface-variant font-body-sm text-body-sm">(akan diisi oleh panitia)</span>
+          </div>
+        </div>
+
+        <!-- Submit Action -->
+        <div class="pt-6">
+          <button
+            type="submit"
+            class="w-full bg-primary-container hover:bg-primary text-white font-medium py-3 px-4 rounded-md shadow-sm transition-colors duration-200 flex items-center justify-center gap-2"
+          >
+            <span class="material-symbols-outlined text-sm">save</span>
+            Kirim
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</Layout>

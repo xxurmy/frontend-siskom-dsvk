@@ -1,0 +1,113 @@
+---
+// src/pages/beranda.astro
+// Halaman dashboard/beranda mahasiswa — pakai Layout.astro yang sudah ada
+// (Navbar + Sidebar tidak dibuat ulang di sini).
+
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout pageTitle="Beranda" navTitle="Beranda">
+  <div class="max-w-6xl mx-auto space-y-8 w-full">
+    <!-- Profil + Status Card -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Kartu Profil -->
+      <div
+        class="lg:col-span-2 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-6 flex flex-col sm:flex-row items-center sm:items-start gap-6"
+      >
+        <div
+          class="w-24 h-24 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 border-4 border-white shadow-sm relative overflow-hidden"
+        >
+          <div class="absolute inset-0 flex items-end justify-center pb-2">
+            <div class="w-16 h-16 rounded-full bg-blue-200 flex flex-col items-center justify-end overflow-hidden">
+              <div class="w-8 h-8 rounded-full bg-blue-500 mb-1"></div>
+              <div class="w-12 h-6 rounded-t-full bg-blue-500"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-center sm:text-left flex-1">
+          <h2 class="text-2xl font-bold text-on-surface mb-3">Budi Santoso</h2>
+          <div class="space-y-2 text-sm text-on-surface-variant">
+            <div class="flex items-center justify-center sm:justify-start gap-2">
+              <span class="material-symbols-outlined text-base">badge</span>
+              <span>NIM: 202100123</span>
+            </div>
+            <div class="flex items-center justify-center sm:justify-start gap-2">
+              <span class="material-symbols-outlined text-base">business</span>
+              <span>Computer Science Faculty</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kartu Status Kolokium & Seminar -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:col-span-1">
+        <div
+          class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-5 flex flex-col justify-between h-full"
+        >
+          <div class="flex justify-between items-start mb-4">
+            <h3 class="font-semibold text-on-surface">Kolokium</h3>
+            <div
+              class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600"
+            >
+              <span class="material-symbols-outlined text-sm">school</span>
+            </div>
+          </div>
+          <div>
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+            >
+              Diterima
+            </span>
+          </div>
+        </div>
+
+        <div
+          class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-5 flex flex-col justify-between h-full"
+        >
+          <div class="flex justify-between items-start mb-4">
+            <h3 class="font-semibold text-on-surface">Seminar</h3>
+            <div
+              class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"
+            >
+              <span class="material-symbols-outlined text-sm">calendar_today</span>
+            </div>
+          </div>
+          <div>
+            <span
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-surface-container text-on-surface-variant"
+            >
+              Belum diterima
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kehadiran & Partisipasi -->
+    <div>
+      <h2 class="text-xl font-bold text-on-surface mb-4">Kehadiran &amp; Partisipasi</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div
+          class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-6 flex flex-col items-center justify-center text-center"
+        >
+          <div class="text-primary mb-3">
+            <span class="material-symbols-outlined text-4xl">groups</span>
+          </div>
+          <div class="text-5xl font-bold text-on-surface mb-2">12</div>
+          <div class="text-sm text-on-surface-variant">Kolokium Dihadiri</div>
+        </div>
+
+        <div
+          class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-6 flex flex-col items-center justify-center text-center"
+        >
+          <div class="text-primary mb-3">
+            <span class="material-symbols-outlined text-4xl">forum</span>
+          </div>
+          <div class="text-5xl font-bold text-on-surface mb-2">8</div>
+          <div class="text-sm text-on-surface-variant">Seminar Dihadiri</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

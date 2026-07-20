@@ -10,10 +10,29 @@ interface Props {
 }
 
 const {
-  userName = "Rheynesta Hannover",
-  userNim = "J0403231008",
+  userName = "Ahmad Fauzi",
+  userNim = "J3D1234567",
   userInitials = "RH",
 } = Astro.props;
+
+// Ambil path halaman yang sedang aktif buat nentuin menu mana yang di-highlight.
+const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+
+const isActive = (path: string) => currentPath === path;
+
+const kolokiumPaths = ["/jadwal-kolokium", "/daftar-kolokium"];
+const seminarPaths = ["/jadwal-seminar", "/daftar-seminar"];
+
+const isKolokiumGroupActive = kolokiumPaths.includes(currentPath);
+const isSeminarGroupActive = seminarPaths.includes(currentPath);
+
+// Class helper biar nggak nulis berkali-kali
+const topActiveClass = "text-primary font-bold bg-primary-fixed-dim/10";
+const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-container-high";
+
+const subActiveClass =
+  "text-on-primary-container font-bold bg-secondary-container border-l-4 border-secondary";
+const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium";
 ---
 
 <aside
@@ -27,12 +46,16 @@ const {
   </div>
 
   <nav class="flex-1 overflow-y-auto px-2 space-y-1">
+    <div class="px-4 py-2 text-label-md font-label-md text-outline uppercase tracking-widest flex items-center gap-2">
+      Navigation <span class="material-symbols-outlined text-[14px]">send</span>
+    </div>
+
     <!-- Beranda -->
     <a
-      href="#"
-      data-nav-item
-      data-nav-level="top"
-      class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high transition-colors rounded-lg group"
+      href="/home"
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
+        isActive("/home") ? topActiveClass : topDefaultClass
+      }`}
     >
       <span class="material-symbols-outlined group-hover:text-primary">home</span>
       <span class="font-label-md text-label-md">Beranda</span>
@@ -40,10 +63,10 @@ const {
 
     <!-- Biodata -->
     <a
-      href="#"
-      data-nav-item
-      data-nav-level="top"
-      class="flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high transition-colors rounded-lg group"
+      href="/biodata"
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
+        isActive("/biodata") ? topActiveClass : topDefaultClass
+      }`}
     >
       <span class="material-symbols-outlined group-hover:text-primary">person</span>
       <span class="font-label-md text-label-md">Biodata</span>
@@ -53,43 +76,57 @@ const {
     <div class="space-y-1" data-dropdown="kolokium">
       <button
         type="button"
-        data-nav-item
-        data-nav-level="top"
         data-dropdown-btn
-        class="w-full flex items-center justify-between px-4 py-3 text-primary font-bold bg-primary-fixed-dim/10 rounded-lg"
+        class={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+          isKolokiumGroupActive ? topActiveClass : topDefaultClass
+        }`}
       >
         <div class="flex items-center gap-3">
-          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">school</span>
+          <span
+            class="material-symbols-outlined"
+            style={`font-variation-settings: 'FILL' ${isKolokiumGroupActive ? 1 : 0};`}
+          >
+            school
+          </span>
           <span class="font-label-md text-label-md">Kolokium</span>
         </div>
         <span
           data-dropdown-chevron
           class="material-symbols-outlined text-sm transition-transform duration-200"
+          style={isKolokiumGroupActive ? "" : "transform: rotate(-90deg);"}
         >
           expand_more
         </span>
       </button>
 
-      <div data-dropdown-menu class="pl-12 space-y-1">
+      <div data-dropdown-menu class={`pl-12 space-y-1 ${isKolokiumGroupActive ? "" : "hidden"}`}>
         <a
-          href="#"
-          data-nav-item
-          data-nav-level="sub"
-          class="block px-4 py-2 text-on-primary-container font-bold bg-secondary-container border-l-4 border-secondary transition-all"
+          href="/jadwal-kolokium"
+          class={`block px-4 py-2 transition-all ${
+            isActive("/jadwal-kolokium") ? subActiveClass : subDefaultClass
+          }`}
         >
           <div class="flex items-center gap-3">
-            <span class="w-2 h-2 rounded-full border border-secondary"></span>
+            <span
+              class={`w-2 h-2 rounded-full border ${
+                isActive("/jadwal-kolokium") ? "border-secondary" : "border-outline"
+              }`}
+            ></span>
             <span class="font-label-md text-label-md">Jadwal Kolokium</span>
           </div>
         </a>
         <a
-          href="#"
-          data-nav-item
-          data-nav-level="sub"
-          class="block px-4 py-2 text-on-surface-variant hover:text-primary font-medium transition-colors"
+          href="/daftar-kolokium"
+          class={`block px-4 py-2 transition-all ${
+            isActive("/daftar-kolokium") ? subActiveClass : subDefaultClass
+          }`}
         >
           <div class="flex items-center gap-3">
-            <span class="w-2 h-2 rounded-full border border-outline"></span>
+            <span
+              class={`w-2 h-2 rounded-full border ${
+                isActive("/daftar-kolokium") ? "border-secondary" : "border-outline"
+              }`}
+            ></span>
             <span class="font-label-md text-label-md">Daftar Kolokium</span>
           </div>
         </a>
@@ -100,10 +137,10 @@ const {
     <div class="space-y-1" data-dropdown="seminar">
       <button
         type="button"
-        data-nav-item
-        data-nav-level="top"
         data-dropdown-btn
-        class="w-full flex items-center justify-between px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high transition-colors rounded-lg group"
+        class={`w-full flex items-center justify-between px-4 py-3 rounded-lg group transition-colors ${
+          isSeminarGroupActive ? topActiveClass : topDefaultClass
+        }`}
       >
         <div class="flex items-center gap-3">
           <span class="material-symbols-outlined group-hover:text-primary">co_present</span>
@@ -112,41 +149,49 @@ const {
         <span
           data-dropdown-chevron
           class="material-symbols-outlined text-sm transition-transform duration-200"
-          style="transform: rotate(-90deg);"
+          style={isSeminarGroupActive ? "" : "transform: rotate(-90deg);"}
         >
           expand_more
         </span>
       </button>
 
-      <div data-dropdown-menu class="pl-12 space-y-1 hidden">
+      <div data-dropdown-menu class={`pl-12 space-y-1 ${isSeminarGroupActive ? "" : "hidden"}`}>
         <a
-          href="#"
-          data-nav-item
-          data-nav-level="sub"
-          class="block px-4 py-2 text-on-surface-variant hover:text-primary font-medium transition-colors"
+          href="/jadwal-seminar"
+          class={`block px-4 py-2 transition-all ${
+            isActive("/jadwal-seminar") ? subActiveClass : subDefaultClass
+          }`}
         >
           <div class="flex items-center gap-3">
-            <span class="w-2 h-2 rounded-full border border-outline"></span>
+            <span
+              class={`w-2 h-2 rounded-full border ${
+                isActive("/jadwal-seminar") ? "border-secondary" : "border-outline"
+              }`}
+            ></span>
             <span class="font-label-md text-label-md">Jadwal Seminar</span>
           </div>
         </a>
         <a
-          href="#"
-          data-nav-item
-          data-nav-level="sub"
-          class="block px-4 py-2 text-on-surface-variant hover:text-primary font-medium transition-colors"
+          href="/daftar-seminar"
+          class={`block px-4 py-2 transition-all ${
+            isActive("/daftar-seminar") ? subActiveClass : subDefaultClass
+          }`}
         >
           <div class="flex items-center gap-3">
-            <span class="w-2 h-2 rounded-full border border-outline"></span>
+            <span
+              class={`w-2 h-2 rounded-full border ${
+                isActive("/daftar-seminar") ? "border-secondary" : "border-outline"
+              }`}
+            ></span>
             <span class="font-label-md text-label-md">Daftar Seminar</span>
           </div>
         </a>
       </div>
     </div>
 
-    <!-- Keluar (tidak ikut sistem active/switch) -->
+    <!-- Keluar -->
     <a
-      href="#"
+      href="/logout"
       class="flex items-center gap-3 px-4 py-3 text-error font-medium hover:bg-error-container/20 transition-colors rounded-lg group mt-auto"
     >
       <span class="material-symbols-outlined">logout</span>
@@ -167,58 +212,9 @@ const {
 </aside>
 
 <script>
-  // Class default (non-aktif) untuk tiap level nav, dipakai untuk reset sebelum
-  // menandai item yang baru diklik sebagai aktif.
-  const TOP_DEFAULT_CLASSES = [
-    "text-on-surface-variant",
-    "font-medium",
-    "hover:bg-surface-container-high",
-  ];
-  const TOP_ACTIVE_CLASSES = ["text-primary", "font-bold", "bg-primary-fixed-dim/10"];
-
-  const SUB_DEFAULT_CLASSES = ["text-on-surface-variant", "hover:text-primary", "font-medium"];
-  const SUB_ACTIVE_CLASSES = [
-    "text-on-primary-container",
-    "font-bold",
-    "bg-secondary-container",
-    "border-l-4",
-    "border-secondary",
-  ];
-
-  function setActive(el: HTMLElement) {
-    // Reset semua nav-item ke style default sesuai levelnya masing-masing
-    document.querySelectorAll<HTMLElement>("[data-nav-item]").forEach((item) => {
-      const itemIsTop = item.dataset.navLevel === "top";
-      const activeClasses = itemIsTop ? TOP_ACTIVE_CLASSES : SUB_ACTIVE_CLASSES;
-      const defaultClasses = itemIsTop ? TOP_DEFAULT_CLASSES : SUB_DEFAULT_CLASSES;
-
-      item.classList.remove(...activeClasses);
-      item.classList.add(...defaultClasses);
-    });
-
-    // Tandai item yang baru diklik sebagai aktif
-    const isTop = el.dataset.navLevel === "top";
-    const activeClasses = isTop ? TOP_ACTIVE_CLASSES : SUB_ACTIVE_CLASSES;
-    const defaultClasses = isTop ? TOP_DEFAULT_CLASSES : SUB_DEFAULT_CLASSES;
-    el.classList.remove(...defaultClasses);
-    el.classList.add(...activeClasses);
-  }
-
-  function initSidebarNav() {
-    const navItems = document.querySelectorAll<HTMLElement>("[data-nav-item]");
-
-    navItems.forEach((item) => {
-      item.addEventListener("click", (e) => {
-        // Tombol dropdown (Kolokium/Seminar) cuma buka/tutup submenu,
-        // bukan pindah halaman, jadi diserahkan ke handler dropdown di bawah.
-        if (item.hasAttribute("data-dropdown-btn")) return;
-
-        e.preventDefault();
-        setActive(item);
-      });
-    });
-  }
-
+  // Dropdown expand/collapse untuk grup Kolokium & Seminar.
+  // Active state menu sekarang ditentukan di server (Astro.url.pathname),
+  // jadi script ini cuma ngurus buka/tutup submenu, bukan ganti-ganti style aktif.
   function initDropdowns() {
     document.querySelectorAll<HTMLElement>("[data-dropdown]").forEach((group) => {
       const btn = group.querySelector<HTMLElement>("[data-dropdown-btn]");
@@ -262,7 +258,6 @@ const {
   }
 
   function initAll() {
-    initSidebarNav();
     initDropdowns();
     initSidebarToggle();
   }

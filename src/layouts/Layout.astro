@@ -16,7 +16,7 @@ interface Props {
 
 const {
   pageTitle = "SISKOM DSVK IPB",
-  navTitle = "Jadwal Kolokium",
+  navTitle = "SISKOM DSVK IPB",
   userName = "Rheynesta Hannover",
   userNim = "J0403231008",
   userInitials = "RH",
@@ -142,20 +142,13 @@ const {
     </script>
   </head>
 
-  <body class="bg-background text-on-surface overflow-hidden">
+  <body class="bg-background text-on-surface">
     <Navbar title={navTitle} />
     <Sidebar userName={userName} userNim={userNim} userInitials={userInitials} />
 
     <main class="ml-0 md:ml-[260px] pt-16 min-h-screen transition-all">
-      <div class="p-gutter max-w-container-max mx-auto h-[calc(100vh-100px)] flex flex-col">
+      <div class="p-gutter max-w-container-max mx-auto min-h-[calc(100vh-100px)] flex flex-col">
         <slot />
-
-        <footer class="mt-stack-lg py-4 border-t border-outline-variant/30 text-center md:text-left">
-          <p class="text-label-md text-on-surface-variant">
-            Copyright © 2026 <span class="text-ipb-blue font-bold">IPB University</span>. All rights
-            reserved.
-          </p>
-        </footer>
       </div>
     </main>
 
