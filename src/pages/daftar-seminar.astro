@@ -1,17 +1,17 @@
 ---
-// src/pages/daftar-kolokium.astro
-// Halaman Daftar Kolokium — pakai Layout.astro yang sudah ada
+// src/pages/daftar-seminar.astro
+// Halaman Daftar Seminar — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini).
 
 import Layout from "../layouts/Layout.astro";
 ---
 
-<Layout pageTitle="Daftar Kolokium - SISKOM DSVK" navTitle="Daftar Kolokium">
+<Layout pageTitle="Daftar Seminar - SISKOM DSVK" navTitle="Daftar Seminar">
   <!-- Status Card -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-8 mb-6 shadow-sm">
       <div class="grid grid-cols-3 items-center">
         <h2 class="font-title-lg text-title-lg text-on-surface">
-          Status Kolokium
+          Status Seminar
         </h2>
 
         <div class="flex justify-center">
@@ -19,7 +19,7 @@ import Layout from "../layouts/Layout.astro";
             Belum Mendaftar
         </span>
         </div>
-     </div>
+      </div>
   </div>
       
 
@@ -122,9 +122,9 @@ import Layout from "../layouts/Layout.astro";
           </div>
         </div>
 
-        <!-- Tanggal Kolokium -->
+        <!-- Tanggal Seminar -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Tanggal Kolokium</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Tanggal Seminar</label>
           <div class="md:col-span-2 relative">
             <input
               type="date"
@@ -134,9 +134,9 @@ import Layout from "../layouts/Layout.astro";
           </div>
         </div>
 
-        <!-- Waktu Kolokium -->
+        <!-- Waktu Seminar -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Waktu Kolokium</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">Waktu Seminar</label>
           <div class="md:col-span-2 relative">
             <input
               type="time"
