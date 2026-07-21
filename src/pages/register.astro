@@ -1,0 +1,123 @@
+---
+// src/pages/login.astro
+// Halaman login SISKOM DSVK — dibuat berdiri sendiri (bukan pakai Layout.astro)
+// karena desainnya beda total: nggak ada sidebar, navbar-nya juga beda.
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SISKOM DSVK - Login</title>
+
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+    />
+
+    <script is:inline src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config" is:inline>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              "brand-green": "#1B4332",
+              "nav-bg": "#BEE1E6",
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+
+  <body class="min-h-screen flex flex-col antialiased text-gray-900 bg-[#FAFAFA] font-sans">
+    <!-- BEGIN: Navbar -->
+    <header
+      class="shadow-sm w-full py-4 px-6 flex justify-between items-center bg-[#00467E]"
+      data-purpose="top-navigation"
+    >
+      <!-- Brand Logo/Text -->
+      <div class="text-white font-bold text-xl tracking-wide uppercase">SISKOM DSVK IPB</div>
+
+      <!-- Register Button -->
+      <a
+        href="#"
+        class="bg-brand-green hover:bg-[#123023] text-white px-5 py-2 rounded text-sm font-semibold transition-colors duration-200"
+      >
+        Register
+      </a>
+    </header>
+    <!-- END: Navbar -->
+
+    <!-- BEGIN: Main Content Area -->
+    <main class="flex-grow flex items-center justify-center p-4 min-h-screen">
+      <!-- Login Card Container -->
+      <div
+        class="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] w-full max-w-md p-8 sm:p-10"
+        data-purpose="login-form-card"
+      >
+        <!-- Card Title -->
+        <h1 class="text-center text-xl font-bold mb-8 text-black tracking-tight">
+          SISKOM DSVK IPB
+        </h1>
+
+        <!-- Login Form -->
+        <form method="POST" action="#" class="space-y-6">
+          <!-- Username Field -->
+          <div>
+            <label for="username" class="sr-only">Username</label>
+            <div class="relative">
+              <input
+                type="text"
+                id="username"
+                name="username"
+                placeholder="Username"
+                required
+                class="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm font-semibold text-gray-700 bg-gray-50/50"
+              />
+            </div>
+          </div>
+
+          <!-- Password Field -->
+          <div>
+            <label for="password" class="sr-only">Password</label>
+            <div class="relative">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Password"
+                required
+                class="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-green focus:border-brand-green sm:text-sm font-semibold text-gray-700 bg-gray-50/50"
+              />
+            </div>
+          </div>
+
+          <!-- Forgot Password Link -->
+          <div class="flex items-center justify-start mt-2">
+            <div class="text-sm">
+              <a href="#" class="font-medium text-blue-500 hover:text-blue-600">
+                Forgot Password?
+              </a>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="pt-2">
+            <button
+              type="submit"
+              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-brand-green hover:bg-[#123023] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-colors duration-200"
+            >
+              Login
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+    <!-- END: Main Content Area -->
+  </body>
+</html>

@@ -4,7 +4,8 @@
 // Import: import Layout from "../layout/Layout.astro";
 
 import Navbar from "../components/layout/Navbar.astro";
-import Sidebar from "../components/layout/Sidebar.astro";
+import SidebarDosen from "../components/layout/SidebarDosen.astro";
+import SidebarMahasiswa from "../components/layout/SidebarMahasiswa.astro";
 
 interface Props {
   pageTitle?: string;
@@ -12,6 +13,7 @@ interface Props {
   userName?: string;
   userNim?: string;
   userInitials?: string;
+  userRole?: "mahasiswa" | "dosen"; // <-- penentu sidebar mana yang tampil
 }
 
 const {
@@ -20,6 +22,7 @@ const {
   userName = "Rheynesta Hannover",
   userNim = "J0403231008",
   userInitials = "RH",
+  userRole = "mahasiswa",
 } = Astro.props;
 ---
 
@@ -144,7 +147,12 @@ const {
 
   <body class="bg-background text-on-surface">
     <Navbar title={navTitle} />
-    <Sidebar userName={userName} userNim={userNim} userInitials={userInitials} />
+
+    {userRole === "dosen" ? (
+      <SidebarDosen userName={userName} userNim={userNim} userInitials={userInitials} />
+    ) : (
+      <SidebarMahasiswa userName={userName} userNim={userNim} userInitials={userInitials} />
+    )}
 
     <main class="ml-0 md:ml-[260px] pt-16 min-h-screen transition-all">
       <div class="p-gutter max-w-container-max mx-auto min-h-[calc(100vh-100px)] flex flex-col">
