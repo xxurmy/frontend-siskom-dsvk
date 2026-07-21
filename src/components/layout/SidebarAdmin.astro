@@ -1,0 +1,168 @@
+---
+// src/layout/Sidebar.astro
+// Komponen sidebar navigasi SISKOM DSVK IPB
+// Import: import Sidebar from "../layout/Sidebar.astro";
+
+interface Props {
+  userName?: string;
+  userNim?: string;
+  userInitials?: string;
+}
+
+const {
+  userName = "Ahmad Fauzi",
+  userNim = "J3D1234567",
+  userInitials = "RH",
+} = Astro.props;
+
+// Ambil path halaman yang sedang aktif buat nentuin menu mana yang di-highlight.
+const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+
+const isActive = (path: string) => currentPath === path;
+
+const kolokiumPaths = ["/jadwal-kolokium", "/daftar-kolokium"];
+const seminarPaths = ["/jadwal-seminar", "/daftar-seminar"];
+
+const isKolokiumGroupActive = kolokiumPaths.includes(currentPath);
+const isSeminarGroupActive = seminarPaths.includes(currentPath);
+
+// Class helper biar nggak nulis berkali-kali
+const topActiveClass = "text-primary font-bold bg-primary-fixed-dim/10";
+const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-container-high";
+
+const subActiveClass =
+  "text-on-primary-container font-bold bg-secondary-container border-l-4 border-secondary";
+const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium";
+---
+
+<aside
+  id="app-sidebar"
+  class="fixed left-0 top-0 h-full w-[260px] flex flex-col pt-20 border-r border-outline-variant z-40 bg-surface-container-lowest transition-transform -translate-x-full md:translate-x-0"
+>
+  <div class="px-6 mb-8">
+    <h2 class="font-title-lg text-title-lg font-extrabold text-primary tracking-tighter">
+      SISKOM DSVK IPB
+    </h2>
+  </div>
+
+  <nav class="flex-1 overflow-y-auto px-2 space-y-1">
+
+    <!-- Beranda -->
+    <a
+      href="/admin/home"
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
+        isActive("/admin/home") ? topActiveClass : topDefaultClass
+      }`}
+    >
+      <span class="material-symbols-outlined group-hover:text-primary">home</span>
+      <span class="font-label-md text-label-md">Beranda</span>
+    </a>
+
+    <!-- Biodata -->
+    <a
+      href="/admin/biodata"
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
+        isActive("/admin/biodata") ? topActiveClass : topDefaultClass
+      }`}
+    >
+      <span class="material-symbols-outlined group-hover:text-primary">person</span>
+      <span class="font-label-md text-label-md">Biodata</span>
+    </a>
+
+    <!-- Kolokium (Dropdown) -->
+        <a
+      href="/admin/jadwal-kolokium"
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
+        isActive("/admin/jadwal-kolokium") ? topActiveClass : topDefaultClass
+      }`}
+    >
+      <span class="material-symbols-outlined group-hover:text-primary">school</span>
+      <span class="font-label-md text-label-md">Jadwal Kolokium</span>
+    </a>
+
+       <a
+      href="/admin/jadwal-seminar"
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
+        isActive("/admin/jadwal-seminar") ? topActiveClass : topDefaultClass
+      }`}
+    >
+      <span class="material-symbols-outlined group-hover:text-primary">co_present</span>
+      <span class="font-label-md text-label-md">Jadwal Seminar</span>
+    </a>
+
+    <!-- Keluar -->
+    <a
+      href="/logout"
+      class="flex items-center gap-3 px-4 py-3 text-error font-medium hover:bg-error-container/20 transition-colors rounded-lg group mt-auto"
+    >
+      <span class="material-symbols-outlined">logout</span>
+      <span class="font-label-md text-label-md">Keluar</span>
+    </a>
+  </nav>
+
+  <!-- User Info di Bawah Sidebar (konteks mobile) -->
+  <div class="p-4 border-t border-outline-variant flex items-center gap-3">
+    <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold">
+      {userInitials}
+    </div>
+    <div>
+      <p class="font-label-md text-label-md text-on-surface font-bold">{userName}</p>
+      <p class="text-[10px] text-on-surface-variant">{userNim}</p>
+    </div>
+  </div>
+</aside>
+
+<script>
+  // Dropdown expand/collapse untuk grup Kolokium & Seminar.
+  // Active state menu sekarang ditentukan di server (Astro.url.pathname),
+  // jadi script ini cuma ngurus buka/tutup submenu, bukan ganti-ganti style aktif.
+  function initDropdowns() {
+    document.querySelectorAll<HTMLElement>("[data-dropdown]").forEach((group) => {
+      const btn = group.querySelector<HTMLElement>("[data-dropdown-btn]");
+      const menu = group.querySelector<HTMLElement>("[data-dropdown-menu]");
+      const chevron = group.querySelector<HTMLElement>("[data-dropdown-chevron]");
+      if (!btn || !menu || !chevron) return;
+
+      let isOpen = !menu.classList.contains("hidden");
+
+      btn.addEventListener("click", () => {
+        isOpen = !isOpen;
+        menu.classList.toggle("hidden", !isOpen);
+        chevron.style.transform = isOpen ? "rotate(0deg)" : "rotate(-90deg)";
+      });
+    });
+  }
+
+  function initSidebarToggle() {
+    // Toggle sidebar untuk mobile, dipicu oleh tombol dengan id="sidebar-menu-btn"
+    // yang ada di Navbar.
+    const menuBtn = document.getElementById("sidebar-menu-btn");
+    const sidebar = document.getElementById("app-sidebar");
+    if (!menuBtn || !sidebar) return;
+
+    let isOpen = false;
+
+    menuBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      isOpen = !isOpen;
+      sidebar.classList.toggle("-translate-x-full", !isOpen);
+      sidebar.classList.toggle("translate-x-0", isOpen);
+    });
+
+    document.addEventListener("click", (e) => {
+      if (isOpen && !sidebar.contains(e.target as Node) && !menuBtn.contains(e.target as Node)) {
+        sidebar.classList.add("-translate-x-full");
+        sidebar.classList.remove("translate-x-0");
+        isOpen = false;
+      }
+    });
+  }
+
+  function initAll() {
+    initDropdowns();
+    initSidebarToggle();
+  }
+
+  initAll();
+  document.addEventListener("astro:page-load", initAll);
+</script>

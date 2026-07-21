@@ -4,6 +4,7 @@
 // Import: import Layout from "../layout/Layout.astro";
 
 import Navbar from "../components/layout/Navbar.astro";
+import SidebarAdmin from "../components/layout/SidebarAdmin.astro";
 import SidebarDosen from "../components/layout/SidebarDosen.astro";
 import SidebarMahasiswa from "../components/layout/SidebarMahasiswa.astro";
 
@@ -13,7 +14,7 @@ interface Props {
   userName?: string;
   userNim?: string;
   userInitials?: string;
-  userRole?: "mahasiswa" | "dosen"; // <-- penentu sidebar mana yang tampil
+  userRole?: "mahasiswa" | "dosen" | "admin"; // <-- penentu sidebar mana yang tampil
 }
 
 const {
@@ -148,7 +149,9 @@ const {
   <body class="bg-background text-on-surface">
     <Navbar title={navTitle} />
 
-    {userRole === "dosen" ? (
+    {userRole === "admin" ? (
+      <SidebarAdmin userName={userName} userNim={userNim} userInitials={userInitials} />
+    ) : userRole === "dosen" ? (
       <SidebarDosen userName={userName} userNim={userNim} userInitials={userInitials} />
     ) : (
       <SidebarMahasiswa userName={userName} userNim={userNim} userInitials={userInitials} />
