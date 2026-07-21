@@ -1,0 +1,117 @@
+---
+// src/pages/admin-dashboard.astro
+// Halaman dashboard Admin — pakai Layout.astro yang sudah ada
+// (Navbar + Sidebar tidak dibuat ulang di sini).
+
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout userRole="admin" pageTitle="SISKOM DSVK IPB - Admin Dashboard" navTitle="Beranda">
+  <div class="max-w-container-max mx-auto w-full" id="admin-dashboard">
+    <!-- Header Section -->
+    <header class="mb-4">
+      <h2 class="font-display-lg text-display-lg text-primary tracking-tight">Dashboard Overview</h2>
+      <div class="h-1 w-16 bg-ipb-blue mt-2 rounded-full"></div>
+    </header>
+
+    <!-- Bento Grid Stats Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Card 1: Total Colloquiums -->
+      <section class="dashboard-card bg-white rounded-xl border border-outline-variant p-4 flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.03)] hover:border-ipb-blue transition-all">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Colloquiums</h3>
+          <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-ipb-blue">school</span>
+          </div>
+        </div>
+        <div class="mb-4">
+          <p class="font-display-lg text-[32px] font-bold text-primary">142</p>
+        </div>
+        <div class="mt-auto grid grid-cols-2 pt-4 border-t border-outline-variant/30">
+          <div class="border-r border-outline-variant/30 pr-4">
+            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Accepted</p>
+            <p class="font-title-lg text-secondary text-[20px] font-bold">98</p>
+          </div>
+          <div class="pl-6">
+            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Pending</p>
+            <p class="font-title-lg text-tertiary-container text-[20px] font-bold">44</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 2: Total Seminars -->
+      <section class="dashboard-card bg-white rounded-xl border border-outline-variant p-4 flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.03)] hover:border-ipb-blue transition-all">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Seminars</h3>
+          <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-ipb-blue">event_available</span>
+          </div>
+        </div>
+        <div class="mb-4">
+          <p class="font-display-lg text-[32px] font-bold text-primary">86</p>
+        </div>
+        <div class="mt-auto grid grid-cols-2 pt-4 border-t border-outline-variant/30">
+          <div class="border-r border-outline-variant/30 pr-4">
+            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Accepted</p>
+            <p class="font-title-lg text-secondary text-[20px] font-bold">62</p>
+          </div>
+          <div class="pl-6">
+            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Pending</p>
+            <p class="font-title-lg text-tertiary-container text-[20px] font-bold">24</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 3: Total Akun Mahasiswa -->
+      <section class="dashboard-card bg-white rounded-xl border border-outline-variant p-4 flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.03)] hover:border-ipb-blue transition-all min-h-[130px]">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Akun Mahasiswa</h3>
+          <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-ipb-blue">group</span>
+          </div>
+        </div>
+        <div class="mt-auto">
+          <p class="font-display-lg text-[32px] font-bold text-primary">142</p>
+          <p class="font-body-sm text-on-surface-variant/60">Registered students in the system</p>
+        </div>
+      </section>
+
+      <!-- Card 4: Total Akun Dosen -->
+      <section class="dashboard-card bg-white rounded-xl border border-outline-variant p-4 flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.03)] hover:border-ipb-blue transition-all min-h-[130px]">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Akun Dosen</h3>
+          <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-ipb-blue">assignment_ind</span>
+          </div>
+        </div>
+        <div class="mt-auto">
+          <p class="font-display-lg text-[32px] font-bold text-primary">86</p>
+          <p class="font-body-sm text-on-surface-variant/60">Active faculty members</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Visual Polish: Decorative Element -->
+  <div class="fixed -bottom-24 -right-24 w-96 h-96 bg-primary/5 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+  <div class="fixed top-1/4 -left-12 w-64 h-64 bg-ipb-blue/5 rounded-full blur-[80px] pointer-events-none -z-10"></div>
+
+  <script>
+    // Micro-interaction hover buat card dashboard.
+    // Di-scope ke #admin-dashboard aja biar nggak ikut nempel ke
+    // elemen <section> lain di luar halaman ini (misal kalau ada di Layout/Sidebar).
+    function initDashboardCardHover() {
+      document.querySelectorAll<HTMLElement>("#admin-dashboard .dashboard-card").forEach((card) => {
+        card.addEventListener("mouseenter", () => {
+          card.style.transform = "translateY(-4px)";
+        });
+        card.addEventListener("mouseleave", () => {
+          card.style.transform = "translateY(0)";
+        });
+      });
+    }
+
+    initDashboardCardHover();
+    document.addEventListener("astro:page-load", initDashboardCardHover);
+  </script>
+</Layout>

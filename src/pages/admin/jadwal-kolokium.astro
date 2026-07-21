@@ -9,14 +9,9 @@ import Layout from "../../layouts/Layout.astro";
 <Layout userRole="admin" pageTitle="Jadwal Kolokium - SISKOM DSVK" navTitle="Jadwal Kolokium">
   <!-- Content Card -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
-    <!-- Table Header Actions -->
-    <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant">
-      <div class="space-y-1">
-        <h2 class="font-headline-md text-headline-md text-primary font-bold">JADWAL KOLOKIUM</h2>
-        <p class="text-body-sm text-on-surface-variant">
-          Menampilkan jadwal kolokium mahasiswa aktif program studi.
-        </p>
-      </div>
+    <!-- Table Header -->
+    <div class="p-6 flex flex-col items-center justify-center border-b border-outline-variant">
+      <h2 class="font-headline-md text-headline-md text-primary font-bold tracking-wide">TABEL KOLOKIUM</h2>
     </div>
 
     <!-- Search and Entries Filter -->
@@ -30,14 +25,11 @@ import Layout from "../../layouts/Layout.astro";
         </select>
         <span>entries</span>
       </div>
-      <div class="relative">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg">
-          search
-        </span>
+      <div class="flex items-center gap-2">
+        <span class="text-body-sm text-on-surface-variant">Search:</span>
         <input
           type="text"
-          placeholder="Search data..."
-          class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+          class="px-3 py-1 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
         />
       </div>
     </div>
@@ -51,34 +43,43 @@ import Layout from "../../layouts/Layout.astro";
               No <span class="material-symbols-outlined text-[12px]">unfold_more</span>
             </th>
             <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Nama <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              NIM <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Prodi <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Dosen Pembimbing <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Judul <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Lokasi <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
               Tanggal <span class="material-symbols-outlined text-[12px]">unfold_more</span>
             </th>
             <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
               Waktu <span class="material-symbols-outlined text-[12px]">unfold_more</span>
             </th>
             <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Mahasiswa Pembahas <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Moderator <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
               Ruangan <span class="material-symbols-outlined text-[12px]">unfold_more</span>
             </th>
             <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Nama Pemrasaran <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+              Status
             </th>
             <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Nim Pemrasaran
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Prodi
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Judul
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Jumlah Forum
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Dosen Pembimbing
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Moderator
+              Aksi
             </th>
           </tr>
         </thead>
@@ -86,62 +87,142 @@ import Layout from "../../layouts/Layout.astro";
           <!-- Row 1 -->
           <tr class="table-row-hover transition-colors">
             <td class="px-4 py-4 text-body-sm">1</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Amalina Febrianti</td>
-            <td class="px-4 py-4 text-body-sm">J0412221168</td>
+            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Amalina Febrianti</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0412221168</td>
             <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Betty Marita Soebrata, MSi</td>
             <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Batang Manta Dalam Produksi...</td>
-            <td class="px-4 py-4 text-body-sm text-center">15</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">09:00 AM</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zoom</td>
+            <td class="px-4 py-4 text-body-sm">
+              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-green-600 whitespace-nowrap">Sudah diterima</span>
+            </td>
+            <td class="px-4 py-4 text-body-sm">
+              <div class="flex items-center gap-2">
+                <button class="text-blue-600 hover:text-blue-800">
+                  <span class="material-symbols-outlined text-lg">edit</span>
+                </button>
+                <button class="text-red-600 hover:text-red-800">
+                  <span class="material-symbols-outlined text-lg">delete</span>
+                </button>
+              </div>
+            </td>
           </tr>
           <!-- Row 2 -->
           <tr class="table-row-hover transition-colors">
             <td class="px-4 py-4 text-body-sm">2</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zeta B09</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Muhammad Ferdiansyah</td>
-            <td class="px-4 py-4 text-body-sm">J0412221099</td>
+            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Muhammad Ferdiansyah</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0412221099</td>
             <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Atep Dian Supardan, S.Si, M.Si</td>
             <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Ekstrak Tanin Sebagai Antioksidan...</td>
-            <td class="px-4 py-4 text-body-sm text-center">22</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">10:00 AM</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Mohamad Alief Ramdhan, S.Si., M.Si</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Mohamad Alief Ramdhan, S.Si., M.Si</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zeta B09</td>
+            <td class="px-4 py-4 text-body-sm">
+              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-amber-500 whitespace-nowrap">Belum diterima</span>
+            </td>
+            <td class="px-4 py-4 text-body-sm">
+              <div class="flex items-center gap-2">
+                <button class="text-blue-600 hover:text-blue-800">
+                  <span class="material-symbols-outlined text-lg">edit</span>
+                </button>
+                <button class="text-red-600 hover:text-red-800">
+                  <span class="material-symbols-outlined text-lg">delete</span>
+                </button>
+              </div>
+            </td>
           </tr>
           <!-- Row 3 -->
           <tr class="table-row-hover transition-colors">
             <td class="px-4 py-4 text-body-sm">3</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Selasa, 7 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">08:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom meeting</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Hendri Salman</td>
-            <td class="px-4 py-4 text-body-sm">J1409221008</td>
+            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Hendri Salman</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J1409221008</td>
             <td class="px-4 py-4 text-body-sm whitespace-nowrap">Teknologi dan Manajemen Ternak</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Annisa Hakim, S.Pt.,M.Si</td>
             <td class="px-4 py-4 text-body-sm min-w-[200px]">Preferensi Masyarakat Terhadap Olahan Susu...</td>
-            <td class="px-4 py-4 text-body-sm text-center">30</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Selasa, 7 Juli 2026</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">08:00 AM</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Tera Fit Rayani, S.Pt., M.Si</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Tera Fit Rayani, S.Pt., M.Si</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zoom meeting</td>
+            <td class="px-4 py-4 text-body-sm">
+              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-amber-500 whitespace-nowrap">Belum diterima</span>
+            </td>
+            <td class="px-4 py-4 text-body-sm">
+              <div class="flex items-center gap-2">
+                <button class="text-blue-600 hover:text-blue-800">
+                  <span class="material-symbols-outlined text-lg">edit</span>
+                </button>
+                <button class="text-red-600 hover:text-red-800">
+                  <span class="material-symbols-outlined text-lg">delete</span>
+                </button>
+              </div>
+            </td>
           </tr>
           <!-- Row 4 -->
           <tr class="table-row-hover transition-colors">
             <td class="px-4 py-4 text-body-sm">4</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Room 1</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Yasmin Nurannajmi</td>
-            <td class="px-4 py-4 text-body-sm">J0401221267</td>
+            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Yasmin Nurannajmi</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0401221267</td>
             <td class="px-4 py-4 text-body-sm whitespace-nowrap">Komunikasi Digital dan Media</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Ir. Aceng Hidayat, MT.</td>
             <td class="px-4 py-4 text-body-sm min-w-[200px]">PEMANFAATAN FITUR SHOPEE LIVE BAGI UMKM...</td>
-            <td class="px-4 py-4 text-body-sm text-center">45</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">09:00 AM</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Fahmi Fuad Cholagi, S.I.Kom, M.Si</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Fahmi Fuad Cholagi, S.I.Kom, M.Si</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Room 1</td>
+            <td class="px-4 py-4 text-body-sm">
+              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-green-600 whitespace-nowrap">Sudah diterima</span>
+            </td>
+            <td class="px-4 py-4 text-body-sm">
+              <div class="flex items-center gap-2">
+                <button class="text-blue-600 hover:text-blue-800">
+                  <span class="material-symbols-outlined text-lg">edit</span>
+                </button>
+                <button class="text-red-600 hover:text-red-800">
+                  <span class="material-symbols-outlined text-lg">delete</span>
+                </button>
+              </div>
+            </td>
           </tr>
           <!-- Row 5 -->
           <tr class="table-row-hover transition-colors">
             <td class="px-4 py-4 text-body-sm">5</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Siti Shifa Inayah</td>
-            <td class="px-4 py-4 text-body-sm">J0412221151</td>
+            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Siti Shifa Inayah</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0412221151</td>
             <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Trivadila S.Si., M.Si., Ph.D.</td>
             <td class="px-4 py-4 text-body-sm min-w-[200px]">Evaluasi Ketahanan Kinerja Mesin HPLC...</td>
-            <td class="px-4 py-4 text-body-sm text-center">18</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">10:00 AM</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zoom</td>
+            <td class="px-4 py-4 text-body-sm">
+              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-green-600 whitespace-nowrap">Sudah diterima</span>
+            </td>
+            <td class="px-4 py-4 text-body-sm">
+              <div class="flex items-center gap-2">
+                <button class="text-blue-600 hover:text-blue-800">
+                  <span class="material-symbols-outlined text-lg">edit</span>
+                </button>
+                <button class="text-red-600 hover:text-red-800">
+                  <span class="material-symbols-outlined text-lg">delete</span>
+                </button>
+              </div>
+            </td>
           </tr>
         </tbody>
       </table>
