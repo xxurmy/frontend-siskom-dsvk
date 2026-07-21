@@ -52,9 +52,9 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
 
     <!-- Beranda -->
     <a
-      href="/home"
+      href="/mahasiswa/home"
       class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
-        isActive("/home") ? topActiveClass : topDefaultClass
+        isActive("/mahasiswa/home") ? topActiveClass : topDefaultClass
       }`}
     >
       <span class="material-symbols-outlined group-hover:text-primary">home</span>
@@ -63,9 +63,9 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
 
     <!-- Biodata -->
     <a
-      href="/biodata"
+      href="/mahasiswa/biodata"
       class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
-        isActive("/biodata") ? topActiveClass : topDefaultClass
+        isActive("/mahasiswa/biodata") ? topActiveClass : topDefaultClass
       }`}
     >
       <span class="material-symbols-outlined group-hover:text-primary">person</span>
@@ -101,30 +101,30 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
 
       <div data-dropdown-menu class={`pl-12 space-y-1 ${isKolokiumGroupActive ? "" : "hidden"}`}>
         <a
-          href="/jadwal-kolokium"
+          href="/mahasiswa/jadwal-kolokium"
           class={`block px-4 py-2 transition-all ${
-            isActive("/jadwal-kolokium") ? subActiveClass : subDefaultClass
+            isActive("/mahasiswa/jadwal-kolokium") ? subActiveClass : subDefaultClass
           }`}
         >
           <div class="flex items-center gap-3">
             <span
               class={`w-2 h-2 rounded-full border ${
-                isActive("/jadwal-kolokium") ? "border-secondary" : "border-outline"
+                isActive("/mahasiswa/jadwal-kolokium") ? "border-secondary" : "border-outline"
               }`}
             ></span>
             <span class="font-label-md text-label-md">Jadwal Kolokium</span>
           </div>
         </a>
         <a
-          href="/daftar-kolokium"
+          href="/mahasiswa/daftar-kolokium"
           class={`block px-4 py-2 transition-all ${
-            isActive("/daftar-kolokium") ? subActiveClass : subDefaultClass
+            isActive("/mahasiswa/daftar-kolokium") ? subActiveClass : subDefaultClass
           }`}
         >
           <div class="flex items-center gap-3">
             <span
               class={`w-2 h-2 rounded-full border ${
-                isActive("/daftar-kolokium") ? "border-secondary" : "border-outline"
+                isActive("/mahasiswa/daftar-kolokium") ? "border-secondary" : "border-outline"
               }`}
             ></span>
             <span class="font-label-md text-label-md">Daftar Kolokium</span>
@@ -157,30 +157,30 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
 
       <div data-dropdown-menu class={`pl-12 space-y-1 ${isSeminarGroupActive ? "" : "hidden"}`}>
         <a
-          href="/jadwal-seminar"
+          href="/mahasiswa/jadwal-seminar"
           class={`block px-4 py-2 transition-all ${
-            isActive("/jadwal-seminar") ? subActiveClass : subDefaultClass
+            isActive("/mahasiswa/jadwal-seminar") ? subActiveClass : subDefaultClass
           }`}
         >
           <div class="flex items-center gap-3">
             <span
               class={`w-2 h-2 rounded-full border ${
-                isActive("/jadwal-seminar") ? "border-secondary" : "border-outline"
+                isActive("/mahasiswa/jadwal-seminar") ? "border-secondary" : "border-outline"
               }`}
             ></span>
             <span class="font-label-md text-label-md">Jadwal Seminar</span>
           </div>
         </a>
         <a
-          href="/daftar-seminar"
+          href="/mahasiswa/daftar-seminar"
           class={`block px-4 py-2 transition-all ${
-            isActive("/daftar-seminar") ? subActiveClass : subDefaultClass
+            isActive("/mahasiswa/daftar-seminar") ? subActiveClass : subDefaultClass
           }`}
         >
           <div class="flex items-center gap-3">
             <span
               class={`w-2 h-2 rounded-full border ${
-                isActive("/daftar-seminar") ? "border-secondary" : "border-outline"
+                isActive("/mahasiswa/daftar-seminar") ? "border-secondary" : "border-outline"
               }`}
             ></span>
             <span class="font-label-md text-label-md">Daftar Seminar</span>
