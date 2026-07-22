@@ -7,202 +7,121 @@ import Layout from "../../layouts/Layout.astro";
 ---
 
 <Layout userRole="mahasiswa" pageTitle="Jadwal Seminar - SISKOM DSVK" navTitle="Jadwal Seminar">
-  <!-- Warning/Notice Bar -->
-  <div class="bg-error-container/30 border-l-4 border-error p-4 mb-stack-lg animate-pulse">
-    <p class="text-error font-medium text-body-sm flex items-center gap-2">
-      <span class="material-symbols-outlined text-lg">info</span>
-      * Pendaftaran dibuka H-1 jadwal seminar dan tidak bisa mendaftar lebih dari satu seminar di waktu yang bersamaan
-    </p>
-  </div>
-
-  <!-- Content Card -->
-  <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
-    <!-- Table Header Actions -->
-    <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant">
-      <div class="space-y-1">
-        <h2 class="font-headline-md text-headline-md text-primary font-bold">JADWAL SEMINAR</h2>
-        <p class="text-body-sm text-on-surface-variant">
-          Menampilkan jadwal seminar mahasiswa aktif program studi.
-        </p>
-      </div>
-      <button
-        type="button"
-        class="bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-primary transition-all active:scale-95 shadow-md"
-      >
-        <span class="material-symbols-outlined">badge</span>
-        Lihat Kartu Seminar
-      </button>
+  <div id="jadwal-seminar-page">
+    <!-- Warning/Notice Bar -->
+    <div class="bg-error-container/30 border-l-4 border-error p-4 mb-stack-lg animate-pulse">
+      <p class="text-error font-medium text-body-sm flex items-center gap-2">
+        <span class="material-symbols-outlined text-lg">info</span>
+        * Pendaftaran dibuka H-1 jadwal seminar dan tidak bisa mendaftar lebih dari satu seminar di waktu yang bersamaan
+      </p>
     </div>
 
-    <!-- Search and Entries Filter -->
-    <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low/50">
-      <div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
-        <span>Show</span>
-        <select class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary">
-          <option>5</option>
-          <option>10</option>
-          <option>25</option>
-        </select>
-        <span>entries</span>
-      </div>
-      <div class="relative">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg">
-          search
-        </span>
-        <input
-          type="text"
-          placeholder="Search data..."
-          class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
-        />
-      </div>
-    </div>
+    <!-- Pesan status (error / sukses aksi daftar & batal) -->
+    <p id="jadwal-message" class="hidden mb-stack-lg text-body-sm rounded-lg px-4 py-3"></p>
 
-    <!-- Table Container -->
-    <div class="flex-1 overflow-x-auto custom-scrollbar">
-      <table class="w-full text-left border-collapse">
-        <thead class="bg-surface-container-high sticky top-0 z-10">
-          <tr>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              No <span class="material-symbols-outlined text-[12px]">unfold_more</span>
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Kehadiran
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Tanggal <span class="material-symbols-outlined text-[12px]">unfold_more</span>
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Waktu <span class="material-symbols-outlined text-[12px]">unfold_more</span>
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Ruangan <span class="material-symbols-outlined text-[12px]">unfold_more</span>
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Nama Pemrasaran <span class="material-symbols-outlined text-[12px]">unfold_more</span>
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Nim Pemrasaran
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Prodi
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Judul
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Jumlah Forum
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Dosen Pembimbing
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Moderator
-            </th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-outline-variant/30">
-          <!-- Row 1 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">1</td>
-            <td class="px-4 py-4">
-              <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
-                <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
-              </span>
-            </td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Amalina Febrianti</td>
-            <td class="px-4 py-4 text-body-sm">J0412221168</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Batang Manta Dalam Produksi...</td>
-            <td class="px-4 py-4 text-body-sm text-center">15</td>
-          </tr>
-          <!-- Row 2 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">2</td>
-            <td class="px-4 py-4">
-              <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
-                <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
-              </span>
-            </td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zeta B09</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Muhammad Ferdiansyah</td>
-            <td class="px-4 py-4 text-body-sm">J0412221099</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Ekstrak Tanin Sebagai Antioksidan...</td>
-            <td class="px-4 py-4 text-body-sm text-center">22</td>
-          </tr>
-          <!-- Row 3 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">3</td>
-            <td class="px-4 py-4">
-              <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
-                <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
-              </span>
-            </td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Selasa, 7 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">08:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom meeting</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Hendri Salman</td>
-            <td class="px-4 py-4 text-body-sm">J1409221008</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Teknologi dan Manajemen Ternak</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Preferensi Masyarakat Terhadap Olahan Susu...</td>
-            <td class="px-4 py-4 text-body-sm text-center">30</td>
-          </tr>
-          <!-- Row 4 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">4</td>
-            <td class="px-4 py-4">
-              <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
-                <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
-              </span>
-            </td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Room 1</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Yasmin Nurannajmi</td>
-            <td class="px-4 py-4 text-body-sm">J0401221267</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Komunikasi Digital dan Media</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">PEMANFAATAN FITUR SHOPEE LIVE BAGI UMKM...</td>
-            <td class="px-4 py-4 text-body-sm text-center">45</td>
-          </tr>
-          <!-- Row 5 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">5</td>
-            <td class="px-4 py-4">
-              <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
-                <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
-              </span>
-            </td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Siti Shifa Inayah</td>
-            <td class="px-4 py-4 text-body-sm">J0412221151</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Evaluasi Ketahanan Kinerja Mesin HPLC...</td>
-            <td class="px-4 py-4 text-body-sm text-center">18</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- Content Card -->
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+      <!-- Table Header Actions -->
+      <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant">
+        <div class="space-y-1">
+          <h2 class="font-headline-md text-headline-md text-primary font-bold">JADWAL SEMINAR</h2>
+          <p class="text-body-sm text-on-surface-variant">
+            Menampilkan jadwal seminar mahasiswa aktif program studi.
+          </p>
+        </div>
+        <a
+          href="/kartu-seminar"
+          class="bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-primary transition-all active:scale-95 shadow-md"
+        >
+          <span class="material-symbols-outlined">badge</span>
+          Lihat Kartu Seminar
+        </a>
+      </div>
 
-    <!-- Pagination Footer -->
-    <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
-      <p class="text-body-sm text-on-surface-variant">Showing 1 to 5 of 4,492 entries</p>
-      <div class="flex items-center gap-1">
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">First</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">«</button>
-        <button class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold">1</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">2</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">3</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">4</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">»</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">Last</button>
+      <!-- Search and Entries Filter -->
+      <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low/50">
+        <div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
+          <span>Show</span>
+          <select id="entries-per-page" class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+          </select>
+          <span>entries</span>
+        </div>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg">
+            search
+          </span>
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Search data..."
+            class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+          />
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="flex-1 overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-surface-container-high sticky top-0 z-10">
+            <tr>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                No
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Kehadiran
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Tanggal
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Waktu
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Ruangan
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Nama Pemrasaran
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Nim Pemrasaran
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Prodi
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Judul
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Jumlah Forum
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Dosen Pembimbing
+              </th>
+              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+                Moderator
+              </th>
+            </tr>
+          </thead>
+          <tbody id="seminar-tbody" class="divide-y divide-outline-variant/30">
+            <tr>
+              <td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">
+                Memuat data...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
+        <p id="entries-info" class="text-body-sm text-on-surface-variant">Memuat...</p>
+        <div id="pagination-buttons" class="flex items-center gap-1"></div>
       </div>
     </div>
   </div>
+
+<script src="../../scripts/api/mahasiswa/jadwal-seminar.ts"></script>
 </Layout>
