@@ -13,6 +13,7 @@ interface Props {
   navTitle?: string;
   userName?: string;
   userNim?: string;
+  userNip?: string;
   userInitials?: string;
   userRole?: "mahasiswa" | "dosen" | "admin"; // <-- penentu sidebar mana yang tampil
 }
@@ -20,9 +21,10 @@ interface Props {
 const {
   pageTitle = "SISKOM DSVK IPB",
   navTitle = "SISKOM DSVK IPB",
-  userName = "Rheynesta Hannover",
-  userNim = "J0403231008",
-  userInitials = "RH",
+  userName = "Memuat...",
+  userNim = "Memuat...",
+  userNip = "Memuat...",
+  userInitials = "?",
   userRole = "mahasiswa",
 } = Astro.props;
 ---
@@ -173,9 +175,9 @@ const {
     <Navbar title={navTitle} />
 
     {userRole === "admin" ? (
-      <SidebarAdmin userName={userName} userNim={userNim} userInitials={userInitials} />
+      <SidebarAdmin userName={userName} userInitials={userInitials} />
     ) : userRole === "dosen" ? (
-      <SidebarDosen userName={userName} userNim={userNim} userInitials={userInitials} />
+      <SidebarDosen userName={userName} userNip={userNip} userInitials={userInitials} />
     ) : (
       <SidebarMahasiswa userName={userName} userNim={userNim} userInitials={userInitials} />
     )}

@@ -1,18 +1,18 @@
 ---
-// src/layout/Sidebar.astro
-// Komponen sidebar navigasi SISKOM DSVK IPB
-// Import: import Sidebar from "../layout/Sidebar.astro";
+// src/components/layout/SidebarDosen.astro
+// Komponen sidebar navigasi SISKOM DSVK IPB — khusus role dosen.
+// Import: import SidebarDosen from "../components/layout/SidebarDosen.astro";
 
 interface Props {
   userName?: string;
-  userNim?: string;
+  userNip?: string;
   userInitials?: string;
 }
 
 const {
-  userName = "Ahmad Fauzi",
-  userNim = "J3D1234567",
-  userInitials = "RH",
+  userName = "Memuat...",
+  userNip = "Memuat...",
+  userInitials = "?",
 } = Astro.props;
 
 // Ambil path halaman yang sedang aktif buat nentuin menu mana yang di-highlight.
@@ -20,19 +20,9 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 
 const isActive = (path: string) => currentPath === path;
 
-const kolokiumPaths = ["/jadwal-kolokium", "/daftar-kolokium"];
-const seminarPaths = ["/jadwal-seminar", "/daftar-seminar"];
-
-const isKolokiumGroupActive = kolokiumPaths.includes(currentPath);
-const isSeminarGroupActive = seminarPaths.includes(currentPath);
-
 // Class helper biar nggak nulis berkali-kali
 const topActiveClass = "text-primary font-bold bg-primary-fixed-dim/10";
 const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-container-high";
-
-const subActiveClass =
-  "text-on-primary-container font-bold bg-secondary-container border-l-4 border-secondary";
-const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium";
 ---
 
 <aside
@@ -102,39 +92,25 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
   </nav>
 
   <!-- User Info di Bawah Sidebar (konteks mobile) -->
+  <!-- Dosen: nama + NIP -->
   <div class="p-4 border-t border-outline-variant flex items-center gap-3">
     <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold">
-      {userInitials}
+      <span id="sidebar-user-initials">{userInitials}</span>
     </div>
     <div>
-      <p class="font-label-md text-label-md text-on-surface font-bold">{userName}</p>
-      <p class="text-[10px] text-on-surface-variant">{userNim}</p>
+      <p id="sidebar-user-name" class="font-label-md text-label-md text-on-surface font-bold">
+        {userName}
+      </p>
+      <p id="sidebar-user-secondary" class="text-[10px] text-on-surface-variant">
+        {userNip}
+      </p>
     </div>
   </div>
 </aside>
 
 <script>
   import { initLogoutButtons } from "../../scripts/api/logout.ts";
-
-  // Dropdown expand/collapse untuk grup Kolokium & Seminar.
-  // Active state menu sekarang ditentukan di server (Astro.url.pathname),
-  // jadi script ini cuma ngurus buka/tutup submenu, bukan ganti-ganti style aktif.
-  function initDropdowns() {
-    document.querySelectorAll<HTMLElement>("[data-dropdown]").forEach((group) => {
-      const btn = group.querySelector<HTMLElement>("[data-dropdown-btn]");
-      const menu = group.querySelector<HTMLElement>("[data-dropdown-menu]");
-      const chevron = group.querySelector<HTMLElement>("[data-dropdown-chevron]");
-      if (!btn || !menu || !chevron) return;
-
-      let isOpen = !menu.classList.contains("hidden");
-
-      btn.addEventListener("click", () => {
-        isOpen = !isOpen;
-        menu.classList.toggle("hidden", !isOpen);
-        chevron.style.transform = isOpen ? "rotate(0deg)" : "rotate(-90deg)";
-      });
-    });
-  }
+  import { initSidebarProfile } from "../../scripts/api/sidebar-profile.ts";
 
   function initSidebarToggle() {
     // Toggle sidebar untuk mobile, dipicu oleh tombol dengan id="sidebar-menu-btn"
@@ -162,9 +138,9 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
   }
 
   function initAll() {
-    initDropdowns();
     initSidebarToggle();
     initLogoutButtons();
+    initSidebarProfile("nip");
   }
 
   initAll();
