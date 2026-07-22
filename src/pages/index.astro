@@ -57,8 +57,14 @@
           SISKOM DSVK IPB
         </h1>
 
+        <!-- Pesan error -->
+        <div
+          id="login-error"
+          class="hidden mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-4 py-2"
+        ></div>
+
         <!-- Login Form -->
-        <form method="POST" action="#" class="space-y-6">
+        <form id="login-form" method="POST" action="#" class="space-y-6">
           <!-- Username Field -->
           <div>
             <label for="username" class="sr-only">Username</label>
@@ -102,12 +108,13 @@
           <div class="pt-2">
             <button
               type="submit"
-              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-brand-green hover:bg-[#123023] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-colors duration-200"
+              id="login-submit"
+              class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-bold text-white bg-brand-green hover:bg-[#123023] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-green transition-colors duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Login
             </button>
           </div>
-          
+
           <div class="flex items-center gap-3 pt-1">
             <a
               href="/register?role=mahasiswa"
@@ -126,5 +133,7 @@
       </div>
     </main>
     <!-- END: Main Content Area -->
+
+    <script src="../scripts/login.ts"></script>
   </body>
 </html>
