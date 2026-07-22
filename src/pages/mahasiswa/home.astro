@@ -26,15 +26,15 @@ import Layout from "../../layouts/Layout.astro";
         </div>
 
         <div class="text-center sm:text-left flex-1">
-          <h2 class="text-2xl font-bold text-on-surface mb-3">Budi Santoso</h2>
+          <h2 id="profil-nama" class="text-2xl font-bold text-on-surface mb-3">Memuat...</h2>
           <div class="space-y-2 text-sm text-on-surface-variant">
             <div class="flex items-center justify-center sm:justify-start gap-2">
               <span class="material-symbols-outlined text-base">badge</span>
-              <span>NIM: 202100123</span>
+              <span id="profil-nim">NIM: -</span>
             </div>
             <div class="flex items-center justify-center sm:justify-start gap-2">
               <span class="material-symbols-outlined text-base">business</span>
-              <span>Computer Science Faculty</span>
+              <span id="profil-prodi">-</span>
             </div>
           </div>
         </div>
@@ -55,9 +55,10 @@ import Layout from "../../layouts/Layout.astro";
           </div>
           <div>
             <span
-              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+              id="status-kolokium"
+              class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-surface-container text-on-surface-variant"
             >
-              Diterima
+              Memuat...
             </span>
           </div>
         </div>
@@ -75,9 +76,10 @@ import Layout from "../../layouts/Layout.astro";
           </div>
           <div>
             <span
+              id="status-seminar"
               class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-surface-container text-on-surface-variant"
             >
-              Belum diterima
+              Memuat...
             </span>
           </div>
         </div>
@@ -94,7 +96,7 @@ import Layout from "../../layouts/Layout.astro";
           <div class="text-primary mb-3">
             <span class="material-symbols-outlined text-4xl">groups</span>
           </div>
-          <div class="text-5xl font-bold text-on-surface mb-2">12</div>
+          <div id="count-kolokium-dihadiri" class="text-5xl font-bold text-on-surface mb-2">-</div>
           <div class="text-sm text-on-surface-variant">Kolokium Dihadiri</div>
         </div>
 
@@ -104,10 +106,12 @@ import Layout from "../../layouts/Layout.astro";
           <div class="text-primary mb-3">
             <span class="material-symbols-outlined text-4xl">forum</span>
           </div>
-          <div class="text-5xl font-bold text-on-surface mb-2">8</div>
+          <div id="count-seminar-dihadiri" class="text-5xl font-bold text-on-surface mb-2">-</div>
           <div class="text-sm text-on-surface-variant">Seminar Dihadiri</div>
         </div>
       </div>
     </div>
   </div>
 </Layout>
+
+<script src="../../scripts/api/mahasiswa/home.ts"></script>
