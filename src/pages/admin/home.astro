@@ -1,5 +1,5 @@
 ---
-// src/pages/admin-dashboard.astro
+// src/pages/admin/home.astro
 // Halaman dashboard Admin — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini).
 
@@ -19,22 +19,22 @@ import Layout from "../../layouts/Layout.astro";
       <!-- Card 1: Total Colloquiums -->
       <section class="dashboard-card bg-white rounded-xl border border-outline-variant p-4 flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.03)] hover:border-ipb-blue transition-all">
         <div class="flex justify-between items-start mb-3">
-          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Colloquiums</h3>
+          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Kolokium</h3>
           <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
             <span class="material-symbols-outlined text-ipb-blue">school</span>
           </div>
         </div>
         <div class="mb-4">
-          <p class="font-display-lg text-[32px] font-bold text-primary">142</p>
+          <p id="stat-kolokium-total" class="font-display-lg text-[32px] font-bold text-primary">-</p>
         </div>
         <div class="mt-auto grid grid-cols-2 pt-4 border-t border-outline-variant/30">
           <div class="border-r border-outline-variant/30 pr-4">
-            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Accepted</p>
-            <p class="font-title-lg text-secondary text-[20px] font-bold">98</p>
+            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Diterima</p>
+            <p id="stat-kolokium-accepted" class="font-title-lg text-secondary text-[20px] font-bold">-</p>
           </div>
           <div class="pl-6">
             <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Pending</p>
-            <p class="font-title-lg text-tertiary-container text-[20px] font-bold">44</p>
+            <p id="stat-kolokium-pending" class="font-title-lg text-tertiary-container text-[20px] font-bold">-</p>
           </div>
         </div>
       </section>
@@ -42,22 +42,22 @@ import Layout from "../../layouts/Layout.astro";
       <!-- Card 2: Total Seminars -->
       <section class="dashboard-card bg-white rounded-xl border border-outline-variant p-4 flex flex-col shadow-[0px_4px_12px_rgba(0,0,0,0.03)] hover:border-ipb-blue transition-all">
         <div class="flex justify-between items-start mb-3">
-          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Seminars</h3>
+          <h3 class="font-title-lg text-title-lg text-on-surface-variant">Total Seminar</h3>
           <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
             <span class="material-symbols-outlined text-ipb-blue">event_available</span>
           </div>
         </div>
         <div class="mb-4">
-          <p class="font-display-lg text-[32px] font-bold text-primary">86</p>
+          <p id="stat-seminar-total" class="font-display-lg text-[32px] font-bold text-primary">-</p>
         </div>
         <div class="mt-auto grid grid-cols-2 pt-4 border-t border-outline-variant/30">
           <div class="border-r border-outline-variant/30 pr-4">
-            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Accepted</p>
-            <p class="font-title-lg text-secondary text-[20px] font-bold">62</p>
+            <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Diterima</p>
+            <p id="stat-seminar-accepted" class="font-title-lg text-secondary text-[20px] font-bold">-</p>
           </div>
           <div class="pl-6">
             <p class="font-label-md text-[11px] uppercase tracking-wider text-on-surface-variant/60 mb-1">Pending</p>
-            <p class="font-title-lg text-tertiary-container text-[20px] font-bold">24</p>
+            <p id="stat-seminar-pending" class="font-title-lg text-tertiary-container text-[20px] font-bold">-</p>
           </div>
         </div>
       </section>
@@ -71,8 +71,8 @@ import Layout from "../../layouts/Layout.astro";
           </div>
         </div>
         <div class="mt-auto">
-          <p class="font-display-lg text-[32px] font-bold text-primary">142</p>
-          <p class="font-body-sm text-on-surface-variant/60">Registered students in the system</p>
+          <p id="stat-akun-mahasiswa" class="font-display-lg text-[32px] font-bold text-primary">-</p>
+          <p class="font-body-sm text-on-surface-variant/60">Mahasiswa terdaftar dalam sistem</p>
         </div>
       </section>
 
@@ -85,8 +85,8 @@ import Layout from "../../layouts/Layout.astro";
           </div>
         </div>
         <div class="mt-auto">
-          <p class="font-display-lg text-[32px] font-bold text-primary">86</p>
-          <p class="font-body-sm text-on-surface-variant/60">Active faculty members</p>
+          <p id="stat-akun-dosen" class="font-display-lg text-[32px] font-bold text-primary">-</p>
+          <p class="font-body-sm text-on-surface-variant/60">Dosen aktif dalam sistem</p>
         </div>
       </section>
     </div>
@@ -114,4 +114,6 @@ import Layout from "../../layouts/Layout.astro";
     initDashboardCardHover();
     document.addEventListener("astro:page-load", initDashboardCardHover);
   </script>
+
+  <script src="../../scripts/api/admin/home.ts"></script>
 </Layout>
