@@ -1,5 +1,5 @@
 ---
-// src/pages/dosen-dashboard.astro
+// src/pages/dosen/home.astro
 // Halaman dashboard Dosen — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini).
 
@@ -15,18 +15,23 @@ import Layout from "../../layouts/Layout.astro";
         <div class="flex items-center gap-6 mb-6">
           <div class="w-20 h-20 rounded-full border-4 border-surface-container-low overflow-hidden shrink-0">
             <img
+              id="profile-foto"
               src="https://www.gstatic.com/labs-code/stitch/stitch-placeholder-300x300.svg"
-              alt="Dr. Andi Wijaya"
+              alt="Foto profil dosen"
               class="w-full h-full object-cover"
             />
           </div>
           <div>
-            <h2 class="font-headline-md text-headline-md text-on-surface mb-1">Dr. Andi Wijaya</h2>
+            <h2 id="profile-nama" class="font-headline-md text-headline-md text-on-surface mb-1">
+              Memuat...
+            </h2>
           </div>
         </div>
         <div class="bg-surface-container-low rounded-lg p-4 border border-outline-variant/50">
           <span class="font-label-md text-label-md text-on-surface-variant block mb-1">NIP</span>
-          <span class="font-body-md text-body-md text-on-surface font-medium">198505121990031001</span>
+          <span id="profile-nip" class="font-body-md text-body-md text-on-surface font-medium">
+            Memuat...
+          </span>
         </div>
       </div>
 
@@ -50,7 +55,7 @@ import Layout from "../../layouts/Layout.astro";
 
         <!-- Angka di bawah -->
         <div class="flex items-baseline gap-2 mt-3">
-          <span class="font-display-lg text-display-lg text-[#00467E]">48</span>
+          <span id="stat-kolokium-dihadiri" class="font-display-lg text-display-lg text-[#00467E]">-</span>
           <span class="font-body-sm text-body-sm text-on-surface-variant">
             kolokium
           </span>
@@ -75,7 +80,7 @@ import Layout from "../../layouts/Layout.astro";
 
         <!-- Angka di bawah -->
         <div class="flex items-baseline gap-2 mt-3">
-          <span class="font-display-lg text-display-lg text-[#00467E]">14</span>
+          <span id="stat-seminar-dihadiri" class="font-display-lg text-display-lg text-[#00467E]">-</span>
           <span class="font-body-sm text-body-sm text-on-surface-variant">
             seminar
           </span>
@@ -104,7 +109,7 @@ import Layout from "../../layouts/Layout.astro";
               </span>
             </div>
             <div class="text-center mb-6">
-              <span class="font-display-lg text-display-lg text-[#D32F2F] block">12</span>
+              <span id="urgent-kolokium-count" class="font-display-lg text-display-lg text-[#D32F2F] block">-</span>
               <span class="font-body-sm text-body-sm text-on-surface-variant">Belum ditanda tangani</span>
             </div>
             <button
@@ -132,7 +137,7 @@ import Layout from "../../layouts/Layout.astro";
               </span>
             </div>
             <div class="text-center mb-6">
-              <span class="font-display-lg text-display-lg text-[#D32F2F] block">12</span>
+              <span id="urgent-seminar-count" class="font-display-lg text-display-lg text-[#D32F2F] block">-</span>
               <span class="font-body-sm text-body-sm text-on-surface-variant">Belum ditanda tangani</span>
             </div>
             <button
@@ -153,33 +158,12 @@ import Layout from "../../layouts/Layout.astro";
             Lihat Semua <span class="material-symbols-outlined text-sm">arrow_forward</span>
           </a>
         </div>
-        <ul class="flex-1 overflow-y-auto">
-          <!-- Schedule Item 1 -->
-          <li class="p-4 border-b border-outline-variant flex items-start gap-4 hover:bg-surface-container-low transition-colors">
-            <div class="w-10 h-10 rounded-full bg-[#E8F5E9] text-[#4CAF50] flex items-center justify-center shrink-0">
-              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
-            </div>
-            <div>
-              <p class="font-body-md text-body-md text-on-surface font-medium mb-1">Kolokium: Budi Santoso</p>
-              <p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2">
-                Oct 24, 2023 <span class="w-1 h-1 rounded-full bg-outline"></span> 10:00 AM
-              </p>
-            </div>
-          </li>
-          <!-- Schedule Item 2 -->
-          <li class="p-4 flex items-start gap-4 hover:bg-surface-container-low transition-colors">
-            <div class="w-10 h-10 rounded-full bg-[#FFF3E0] text-[#FF9800] flex items-center justify-center shrink-0">
-              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">schedule</span>
-            </div>
-            <div>
-              <p class="font-body-md text-body-md text-on-surface font-medium mb-1">Seminar: Siti Aminah</p>
-              <p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-2">
-                Oct 26, 2023 <span class="w-1 h-1 rounded-full bg-outline"></span> 13:00 PM
-              </p>
-            </div>
-          </li>
+        <ul id="jadwal-list" class="flex-1 overflow-y-auto">
+          <li class="p-4 text-center text-sm text-on-surface-variant">Memuat jadwal...</li>
         </ul>
       </div>
     </div>
   </div>
+
+  <script src="../../scripts/api/dosen/home.ts"></script>
 </Layout>

@@ -186,13 +186,14 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
     </div>
 
     <!-- Keluar -->
-    <a
-      href="/logout"
-      class="flex items-center gap-3 px-4 py-3 text-error font-medium hover:bg-error-container/20 transition-colors rounded-lg group mt-auto"
+    <button
+      type="button"
+      data-logout
+      class="flex items-center gap-3 px-4 py-3 text-error font-medium hover:bg-error-container/20 transition-colors rounded-lg group mt-auto w-full text-left bg-transparent border-0 cursor-pointer"
     >
       <span class="material-symbols-outlined">logout</span>
       <span class="font-label-md text-label-md">Keluar</span>
-    </a>
+    </button>
   </nav>
 
   <!-- User Info di Bawah Sidebar (konteks mobile) -->
@@ -208,6 +209,8 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
 </aside>
 
 <script>
+  import { initLogoutButtons } from "../../scripts/api/logout.ts";
+
   // Dropdown expand/collapse untuk grup Kolokium & Seminar.
   // Active state menu sekarang ditentukan di server (Astro.url.pathname),
   // jadi script ini cuma ngurus buka/tutup submenu, bukan ganti-ganti style aktif.
@@ -256,6 +259,7 @@ const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium"
   function initAll() {
     initDropdowns();
     initSidebarToggle();
+    initLogoutButtons();
   }
 
   initAll();
