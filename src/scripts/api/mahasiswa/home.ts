@@ -103,7 +103,9 @@ interface KartuSeminarListResponse {
 // ------------------------------------------------------------------
 // Konfigurasi
 // ------------------------------------------------------------------
-const pageEl = document.getElementById("beranda-page") as HTMLElement | null;
+// PENTING: nama env HARUS berprefix PUBLIC_ (mis. PUBLIC_BASE_URL) supaya
+// terbaca di client-side. Astro hanya meng-expose env yang berprefix
+// PUBLIC_ ke kode yang berjalan di browser.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
 
