@@ -34,6 +34,29 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{pageTitle}</title>
 
+    <!-- Role guard (early check): jalan sebelum body dirender, supaya konten
+         halaman yang salah role tidak sempat "kelihatan sekilas" sebelum redirect. -->
+    <script define:vars={{ userRole }} is:inline>
+      (function () {
+        try {
+          var token = localStorage.getItem("auth_token");
+          var raw = localStorage.getItem("auth_user");
+          var user = raw ? JSON.parse(raw) : null;
+
+          if (!token || !user || !user.role) {
+            window.location.replace("/login");
+            return;
+          }
+          if (user.role !== userRole) {
+            window.location.replace("/unassigned");
+          }
+        } catch (e) {
+          // Kalau ada error parsing, biarkan halaman render normal —
+          // guard di akhir <body> akan tetap jalan sebagai fallback.
+        }
+      })();
+    </script>
+
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
@@ -146,7 +169,7 @@ const {
     </script>
   </head>
 
-  <body class="bg-background text-on-surface">
+  <body class="bg-background text-on-surface" data-user-role={userRole}>
     <Navbar title={navTitle} />
 
     {userRole === "admin" ? (
@@ -170,5 +193,29 @@ const {
     >
       <span class="material-symbols-outlined">add</span>
     </button>
+
+    <!-- Role guard: pastikan role user yang login sesuai userRole halaman ini -->
+    <script>
+      import { guardRole } from "../scripts/role-guard.ts";
+
+      function runRoleGuard() {
+        const role = document.body.dataset.userRole as
+          | "admin"
+          | "dosen"
+          | "mahasiswa"
+          | undefined;
+
+        if (role) {
+          guardRole(role);
+        }
+      }
+
+      // Jalan saat halaman pertama kali dibuka
+      runRoleGuard();
+
+      // Jalan lagi setiap kali navigasi via View Transitions (astro:page-load),
+      // karena navigasi client-side tidak reload <script> di Layout secara otomatis.
+      document.addEventListener("astro:page-load", runRoleGuard);
+    </script>
   </body>
 </html>
