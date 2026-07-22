@@ -12,7 +12,7 @@ interface StoredUser {
   [key: string]: unknown;
 }
 
-const UNASSIGNED_PATH = "/unassigned";
+const UNASSIGNED_PATH = "/denied";
 const LOGIN_PATH = "/login";
 
 function getStoredUser(): StoredUser | null {
@@ -41,7 +41,7 @@ export function guardRole(requiredRole: Role): void {
     return;
   }
 
-  // Sudah login tapi role tidak cocok -> lempar ke halaman unassigned
+  // Sudah login tapi role tidak cocok -> lempar ke halaman denied
   if (user.role !== requiredRole) {
     window.location.href = UNASSIGNED_PATH;
     return;

@@ -48,7 +48,7 @@ const {
             return;
           }
           if (user.role !== userRole) {
-            window.location.replace("/unassigned");
+            window.location.replace("/denied");
           }
         } catch (e) {
           // Kalau ada error parsing, biarkan halaman render normal —
