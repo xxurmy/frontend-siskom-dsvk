@@ -97,7 +97,10 @@ import Layout from "../../layouts/Layout.astro";
         </p>
       </div>
 
-      <form class="p-6 space-y-5 max-w-xl">
+      <form id="ubah-password-form" class="p-6 space-y-5 max-w-xl">
+        <!-- Pesan status (diisi oleh change-password.ts) -->
+        <p id="password-form-message" class="hidden text-body-sm font-medium"></p>
+
         <!-- Current Password -->
         <div class="space-y-1.5">
           <label for="current-password" class="text-label-md font-medium text-on-surface">
@@ -177,6 +180,7 @@ import Layout from "../../layouts/Layout.astro";
         <div class="pt-2 flex items-center gap-3">
           <button
             type="submit"
+            id="ubah-password-submit"
             class="px-5 py-2.5 bg-ipb-blue text-white text-label-md font-bold rounded-lg hover:opacity-90 transition-opacity"
           >
             Ubah Password
@@ -195,5 +199,10 @@ import Layout from "../../layouts/Layout.astro";
 
   <script>
     import "../../scripts/profile-admin.ts";
+  </script>
+
+  <script>
+    // Ubah Password — script generik (juga dipakai di halaman profil dosen/mahasiswa)
+    import "../../scripts/api/change-password.ts";
   </script>
 </Layout>

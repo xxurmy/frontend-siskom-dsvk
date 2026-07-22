@@ -1,15 +1,16 @@
-// src/scripts/password-mahasiswa.ts
-// Logic untuk halaman "Ubah Password":
-// 1) toggle show/hide tiap input password
-// 2) submit form -> POST /auth/change-password
+// src/scripts/api/change-password.ts
+// Logic untuk form "Ubah Password" — generik untuk semua role (admin, dosen,
+// mahasiswa), karena AuthController::changePassword tidak mengecek role sama
+// sekali, cuma butuh token valid.
 //
-// baseUrl diambil dari data-base-url di elemen #ubah-password-page
-// (lihat profil-admin.astro), karena define:vars Astro tidak bisa
-// dipakai di script eksternal.
+// Dipakai di halaman profil admin/dosen/mahasiswa mana pun, asal form-nya
+// pakai id yang sama:
+// - form: #ubah-password-form
+// - input: #current-password, #new-password, #confirm-password
+// - submit button: #ubah-password-submit
+// - pesan status: #password-form-message
+// - tombol show/hide: class="toggle-password" + data-target="<id-input>"
 
-// ------------------------------------------------------------------
-// Tipe data (disesuaikan dengan AuthController::changePassword)
-// ------------------------------------------------------------------
 interface ChangePasswordSuccessResponse {
   message: string;
 }
@@ -19,37 +20,14 @@ interface ChangePasswordErrorResponse {
   errors?: Record<string, string[]>;
 }
 
-// ------------------------------------------------------------------
-// Konfigurasi
-// ------------------------------------------------------------------
-// PENTING: nama env HARUS berprefix PUBLIC_ (mis. PUBLIC_BASE_URL) supaya
-// terbaca di client-side. Astro hanya meng-expose env yang berprefix
-// PUBLIC_ ke kode yang berjalan di browser.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
-const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
+const TOKEN_KEY = "auth_token";
 
-// ------------------------------------------------------------------
-// Toggle show/hide password
-// ------------------------------------------------------------------
-function initTogglePassword(): void {
-  const buttons = document.querySelectorAll<HTMLButtonElement>(".toggle-password");
-
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const targetId = btn.dataset.target;
-      if (!targetId) return;
-
-      const input = document.getElementById(targetId) as HTMLInputElement | null;
-      const icon = btn.querySelector(".material-symbols-outlined");
-      if (!input || !icon) return;
-
-      const isHidden = input.type === "password";
-      input.type = isHidden ? "text" : "password";
-      icon.textContent = isHidden ? "visibility_off" : "visibility";
-      btn.setAttribute("aria-label", isHidden ? "Sembunyikan password" : "Tampilkan password");
-    });
-  });
-}
+// CATATAN: toggle show/hide password & live-validation kecocokan password
+// SUDAH ditangani oleh script lain (mis. profile-admin.ts + modul bersama
+// src/scripts/password/password.ts). File ini SENGAJA tidak punya logic
+// toggle sendiri, supaya tidak dobel-attach listener ke tombol yang sama
+// (dobel listener bikin toggle kelihatan "nggak ngefek" saat diklik).
 
 // ------------------------------------------------------------------
 // Helper tampilkan pesan status di bawah form
@@ -77,6 +55,9 @@ function initSubmitForm(): void {
   const form = document.getElementById("ubah-password-form") as HTMLFormElement | null;
   const submitBtn = document.getElementById("ubah-password-submit") as HTMLButtonElement | null;
   if (!form) return;
+
+  if (form.dataset.submitBound === "true") return;
+  form.dataset.submitBound = "true";
 
   form.addEventListener("submit", async (e: SubmitEvent) => {
     e.preventDefault();
@@ -128,7 +109,10 @@ function initSubmitForm(): void {
       });
 
       if (res.status === 401) {
-        window.location.href = "/denied";
+        // Token invalid/expired -> konsisten dengan script lain: lempar ke /login
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_user");
+        window.location.href = "/login";
         return;
       }
 
@@ -162,9 +146,14 @@ function initSubmitForm(): void {
 }
 
 // ------------------------------------------------------------------
-// Jalankan saat halaman siap
+// Init — dipanggil langsung (BUKAN nunggu DOMContentLoaded), karena script
+// module Astro sudah jalan setelah HTML di-parse. DOMContentLoaded bisa
+// sudah lewat duluan sebelum listener sempat terpasang, jadi form nggak
+// akan pernah bisa disubmit tanpa error apapun.
 // ------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", () => {
-  initTogglePassword();
+function initChangePasswordPage(): void {
   initSubmitForm();
-});
+}
+
+initChangePasswordPage();
+document.addEventListener("astro:page-load", initChangePasswordPage);
