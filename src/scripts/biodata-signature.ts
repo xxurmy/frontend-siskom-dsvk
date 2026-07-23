@@ -4,6 +4,21 @@
 // - Tombol "Hapus"          -> bersihkan kanvas
 // - Tombol "Lihat Tampilan" -> tampilkan hasil gambar ke area Preview
 // - Tombol "Unggah Gambar"  -> upload file gambar tanda tangan, gambar ke kanvas
+//
+// PENTING: file ini TIDAK mengirim apapun ke API. Baik gambar manual maupun
+// hasil upload, keduanya cuma "menggambar" ke <canvas>. Pengiriman ke server
+// baru terjadi saat tombol "Simpan" utama diklik (lihat biodata-*-api.ts),
+// yang membaca hasil canvas lewat window.getSignatureDataUrl().
+
+declare global {
+  interface Window {
+    getSignatureDataUrl?: () => string | null;
+  }
+}
+
+// Baris ini WAJIB ada — memaksa file ini dianggap "module" oleh TypeScript
+// (bukan "script" biasa), karena `declare global` cuma valid di dalam module.
+export {};
 
 function initSignaturePad() {
   const canvas = document.getElementById("signature-pad") as HTMLCanvasElement | null;
@@ -12,10 +27,14 @@ function initSignaturePad() {
   const previewBtn = document.getElementById("signature-preview-btn");
   const uploadBtn = document.getElementById("signature-upload-btn");
   const uploadInput = document.getElementById("signature-upload-input") as HTMLInputElement | null;
-  const previewImg = document.querySelector<HTMLImageElement>(
-    'img[alt="Signature Preview"]'
-  );
-  const previewWrapper = previewImg?.parentElement ?? null;
+
+  // FIX: cari elemen preview via id (stabil), bukan via alt text.
+  // Sebelumnya pakai `document.querySelector('img[alt="Signature Preview"]')`,
+  // padahal atribut alt di markup .astro adalah "Preview Tanda Tangan" —
+  // jadi elemen ini selalu null dan preview tidak pernah ter-update.
+  const previewImg = document.getElementById(
+    "biodata-tandatangan-preview"
+  ) as HTMLImageElement | null;
 
   if (!canvas || !container || !clearBtn || !previewBtn || !uploadBtn || !uploadInput) return;
 
@@ -24,6 +43,10 @@ function initSignaturePad() {
 
   let isDrawing = false;
   let hasDrawn = false;
+
+  // Expose ke window supaya script API (biodata-*-api.ts) bisa ambil hasil
+  // canvas saat tombol "Simpan" utama diklik, tanpa perlu import lintas modul.
+  window.getSignatureDataUrl = () => (hasDrawn ? canvas!.toDataURL("image/png") : null);
 
   // Samakan resolusi kanvas dengan ukuran tampilnya biar gambar nggak buram/gepeng
   function resizeCanvas() {
@@ -98,10 +121,10 @@ function initSignaturePad() {
     const dataUrl = canvas!.toDataURL("image/png");
     if (previewImg) {
       previewImg.src = dataUrl;
+      // FIX: lepas efek blur/opacity langsung dari parent <div> pembungkus img,
+      // sesuai struktur markup: <div class="... opacity-50 blur-[1px]"><img .../></div>
+      previewImg.parentElement?.classList.remove("opacity-50", "blur-[1px]");
     }
-    previewWrapper?.parentElement
-      ?.querySelector<HTMLDivElement>("div.opacity-50")
-      ?.classList.remove("opacity-50", "blur-[1px]");
   });
 
   // Tombol Unggah Gambar -> pilih file, gambar ke kanvas
