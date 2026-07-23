@@ -1,0 +1,210 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout userRole="mahasiswa" pageTitle="Kartu Kolokium - SISKOM DSVK" navTitle="Jadwal Kolokium">
+  <!-- Action -->
+  <div class="flex justify-end mb-6">
+    <a
+      href="/jadwal-kolokium"
+      class="bg-[#ffc107] hover:brightness-95 text-on-surface px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all active:scale-95"
+    >
+      <span class="material-symbols-outlined">arrow_back</span>
+      Kembali
+    </a>
+  </div>
+
+  <!-- Main Card -->
+  <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+
+    <!-- Header -->
+    <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant">
+      <div class="space-y-1">
+        <h2 class="font-headline-md text-headline-md text-primary font-bold">
+          KARTU KOLOKIUM
+        </h2>
+        <p class="text-body-sm text-on-surface-variant">
+          Daftar kehadiran kolokium yang telah Anda ikuti.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-primary transition-all active:scale-95 shadow-md"
+      >
+        <span class="material-symbols-outlined">
+          download
+        </span>
+        Download Kartu Kolokium
+      </button>
+    </div>
+
+    <!-- Search -->
+    <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low/50">
+
+      <div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
+        <span>Show</span>
+
+        <select class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary">
+          <option>10</option>
+          <option>25</option>
+          <option>50</option>
+        </select>
+
+        <span>entries</span>
+      </div>
+
+      <div class="relative">
+        <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg">
+          search
+        </span>
+
+        <input
+          type="text"
+          placeholder="Search data..."
+          class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+        />
+      </div>
+
+    </div>
+
+    <!-- Table -->
+    <div class="flex-1 overflow-x-auto custom-scrollbar">
+
+      <table class="w-full text-left border-collapse">
+
+        <thead class="bg-surface-container-high sticky top-0 z-10">
+          <tr>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Hari / Tanggal
+              <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Waktu
+              <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Nama Pemrasaran
+              <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              NIM
+              <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Prodi
+              <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Moderator
+              <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Paraf
+            </th>
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant text-center whitespace-nowrap">
+              Batalkan
+            </th>
+
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-outline-variant/30">
+
+          <tr class="table-row-hover transition-colors">
+
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">
+              Rabu, 12 November 2025
+            </td>
+
+            <td class="px-4 py-4 text-body-sm">
+              14:00
+            </td>
+
+            <td class="px-4 py-4 text-body-sm font-medium">
+              RANGGA WASITA NINGRAT
+            </td>
+
+            <td class="px-4 py-4 text-body-sm">
+              J0403221112
+            </td>
+
+            <td class="px-4 py-4 text-body-sm whitespace-nowrap">
+              Teknologi Rekayasa Perangkat Lunak
+            </td>
+
+            <td class="px-4 py-4 text-body-sm">
+              Nur Azizah, S.Si., M.Si.
+            </td>
+
+            <td class="px-4 py-4">
+              <span class="bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1 rounded-full text-[12px] font-bold whitespace-nowrap">
+              <span >
+                Sudah ditanda tangan
+              </span>
+              </span>
+            </td>
+
+            <td class="px-4 py-4 text-center">
+              <button
+                class="text-error hover:scale-110 transition-transform"
+              >
+                <span class="material-symbols-outlined">
+                  delete
+                </span>
+              </button>
+            </td>
+
+          </tr>
+
+          <!-- Copy baris ini untuk data lainnya -->
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <!-- Pagination -->
+    <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
+
+      <p class="text-body-sm text-on-surface-variant">
+        Showing 1 to 3 of 3 entries
+      </p>
+
+      <div class="flex items-center gap-1">
+
+        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
+          First
+        </button>
+
+        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
+          «
+        </button>
+
+        <button class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold">
+          1
+        </button>
+
+        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
+          »
+        </button>
+
+        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
+          Last
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+</Layout>
