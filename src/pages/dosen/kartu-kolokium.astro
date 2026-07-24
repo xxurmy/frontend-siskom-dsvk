@@ -114,76 +114,12 @@ import Layout from "../../layouts/Layout.astro";
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-outline-variant/30">
-
-          <tr class="table-row-hover transition-colors">
-
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">
-              Rabu, 12 November 2025
+        <tbody id="kartu-kolokium-tbody" class="divide-y divide-outline-variant/30">
+          <tr>
+            <td colspan="10" class="px-4 py-8 text-center text-body-sm text-on-surface-variant">
+              Memuat data...
             </td>
-
-            <td class="px-4 py-4 text-body-sm">
-              14:00
-            </td>
-
-            <td class="px-4 py-4 text-body-sm font-medium">
-              RANGGA WASITA NINGRAT
-            </td>
-
-            <td class="px-4 py-4 text-body-sm">
-              J0403221112
-            </td>
-
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">
-              Teknologi Rekayasa Perangkat Lunak
-            </td>
-
-            <td class="px-4 py-4 text-body-sm">
-              Nur Azizah, S.Si., M.Si.
-            </td>
-            <td class="px-4 py-4 text-body-sm">
-              Rangga Wasita Ningrat
-            </td>
-              <td class="px-4 py-4 text-body-sm">
-              J0403221112
-            </td>
-
-            <td class="px-4 py-4">
-              <span class="bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1 rounded-full text-[12px] font-bold whitespace-nowrap">
-              <span >
-                Sudah ditanda tangan
-              </span>
-              </span>
-            </td>
-
-            <td class="px-4 py-4">
-              <div class="flex justify-center gap-2">
-
-                <button
-                  class="text-secondary hover:bg-secondary/10 rounded-lg p-2 transition-colors"
-                  title="Tandatangani"
-                >
-                  <span class="material-symbols-outlined">
-                    draw
-                  </span>
-                </button>
-
-                <button
-                  class="text-error hover:bg-error/10 rounded-lg p-2 transition-colors"
-                  title="Tidak Hadir"
-                >
-                  <span class="material-symbols-outlined">
-                    person_off
-                  </span>
-                </button>
-
-              </div>
-            </td>
-
           </tr>
-
-          <!-- Copy baris ini untuk data lainnya -->
-
         </tbody>
 
       </table>
@@ -224,4 +160,6 @@ import Layout from "../../layouts/Layout.astro";
     </div>
 
   </div>
+
+  <script src="../../scripts/api/dosen/kartu-kolokium.ts"></script>
 </Layout>
