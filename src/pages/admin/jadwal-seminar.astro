@@ -1,12 +1,12 @@
 ---
-// src/pages/jadwal-kolokium.astro
-// Halaman Jadwal Kolokium — pakai Layout.astro yang sudah ada
+// src/pages/jadwal-seminar.astro
+// Halaman Jadwal Seminar — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini; footer juga sudah ada di Layout).
 
 import Layout from "../../layouts/Layout.astro";
 ---
 
-<Layout userRole="admin" pageTitle="Jadwal Kolokium - SISKOM DSVK" navTitle="Jadwal Kolokium">
+<Layout userRole="admin" pageTitle="Jadwal Seminar - SISKOM DSVK" navTitle="Jadwal Seminar">
   <!-- Content Card -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
     <!-- Table Header -->
@@ -83,145 +83,10 @@ import Layout from "../../layouts/Layout.astro";
             </th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-outline-variant/30">
-          <!-- Row 1 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">1</td>
-            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Amalina Febrianti</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0412221168</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Betty Marita Soebrata, MSi</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Batang Manta Dalam Produksi...</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zoom</td>
-            <td class="px-4 py-4 text-body-sm">
-              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-green-600 whitespace-nowrap">Sudah diterima</span>
-            </td>
-            <td class="px-4 py-4 text-body-sm">
-              <div class="flex items-center gap-2">
-                <button class="text-blue-600 hover:text-blue-800">
-                  <span class="material-symbols-outlined text-lg">edit</span>
-                </button>
-                <button class="text-red-600 hover:text-red-800">
-                  <span class="material-symbols-outlined text-lg">delete</span>
-                </button>
-              </div>
-            </td>
-          </tr>
-          <!-- Row 2 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">2</td>
-            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Muhammad Ferdiansyah</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0412221099</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Atep Dian Supardan, S.Si, M.Si</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Ekstrak Tanin Sebagai Antioksidan...</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Mohamad Alief Ramdhan, S.Si., M.Si</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Mohamad Alief Ramdhan, S.Si., M.Si</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zeta B09</td>
-            <td class="px-4 py-4 text-body-sm">
-              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-amber-500 whitespace-nowrap">Belum diterima</span>
-            </td>
-            <td class="px-4 py-4 text-body-sm">
-              <div class="flex items-center gap-2">
-                <button class="text-blue-600 hover:text-blue-800">
-                  <span class="material-symbols-outlined text-lg">edit</span>
-                </button>
-                <button class="text-red-600 hover:text-red-800">
-                  <span class="material-symbols-outlined text-lg">delete</span>
-                </button>
-              </div>
-            </td>
-          </tr>
-          <!-- Row 3 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">3</td>
-            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Hendri Salman</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J1409221008</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Teknologi dan Manajemen Ternak</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Annisa Hakim, S.Pt.,M.Si</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Preferensi Masyarakat Terhadap Olahan Susu...</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Selasa, 7 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">08:00 AM</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Tera Fit Rayani, S.Pt., M.Si</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Tera Fit Rayani, S.Pt., M.Si</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zoom meeting</td>
-            <td class="px-4 py-4 text-body-sm">
-              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-amber-500 whitespace-nowrap">Belum diterima</span>
-            </td>
-            <td class="px-4 py-4 text-body-sm">
-              <div class="flex items-center gap-2">
-                <button class="text-blue-600 hover:text-blue-800">
-                  <span class="material-symbols-outlined text-lg">edit</span>
-                </button>
-                <button class="text-red-600 hover:text-red-800">
-                  <span class="material-symbols-outlined text-lg">delete</span>
-                </button>
-              </div>
-            </td>
-          </tr>
-          <!-- Row 4 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">4</td>
-            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Yasmin Nurannajmi</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0401221267</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Komunikasi Digital dan Media</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Ir. Aceng Hidayat, MT.</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">PEMANFAATAN FITUR SHOPEE LIVE BAGI UMKM...</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Fahmi Fuad Cholagi, S.I.Kom, M.Si</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Fahmi Fuad Cholagi, S.I.Kom, M.Si</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Room 1</td>
-            <td class="px-4 py-4 text-body-sm">
-              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-green-600 whitespace-nowrap">Sudah diterima</span>
-            </td>
-            <td class="px-4 py-4 text-body-sm">
-              <div class="flex items-center gap-2">
-                <button class="text-blue-600 hover:text-blue-800">
-                  <span class="material-symbols-outlined text-lg">edit</span>
-                </button>
-                <button class="text-red-600 hover:text-red-800">
-                  <span class="material-symbols-outlined text-lg">delete</span>
-                </button>
-              </div>
-            </td>
-          </tr>
-          <!-- Row 5 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">5</td>
-            <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">Siti Shifa Inayah</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">J0412221151</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Trivadila S.Si., M.Si., Ph.D.</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Evaluasi Ketahanan Kinerja Mesin HPLC...</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Bogor</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Dr. Romario Abdullah</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Zoom</td>
-            <td class="px-4 py-4 text-body-sm">
-              <span class="px-2 py-1 rounded text-white text-xs font-medium bg-green-600 whitespace-nowrap">Sudah diterima</span>
-            </td>
-            <td class="px-4 py-4 text-body-sm">
-              <div class="flex items-center gap-2">
-                <button class="text-blue-600 hover:text-blue-800">
-                  <span class="material-symbols-outlined text-lg">edit</span>
-                </button>
-                <button class="text-red-600 hover:text-red-800">
-                  <span class="material-symbols-outlined text-lg">delete</span>
-                </button>
-              </div>
+        <tbody id="jadwal-seminar-tbody" class="divide-y divide-outline-variant/30">
+          <tr>
+            <td colspan="14" class="px-4 py-8 text-center text-body-sm text-on-surface-variant">
+              Memuat data...
             </td>
           </tr>
         </tbody>
@@ -230,17 +95,16 @@ import Layout from "../../layouts/Layout.astro";
 
     <!-- Pagination Footer -->
     <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
-      <p class="text-body-sm text-on-surface-variant">Showing 1 to 5 of 4,492 entries</p>
+      <p id="jadwal-seminar-pagination-info" class="text-body-sm text-on-surface-variant">Memuat data...</p>
       <div class="flex items-center gap-1">
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">First</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">«</button>
-        <button class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold">1</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">2</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">3</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">4</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">»</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">Last</button>
+        <button id="jadwal-seminar-first-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">First</button>
+        <button id="jadwal-seminar-prev-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">«</button>
+        <span id="jadwal-seminar-page-label" class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold whitespace-nowrap">1 / 1</span>
+        <button id="jadwal-seminar-next-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">»</button>
+        <button id="jadwal-seminar-last-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Last</button>
       </div>
     </div>
   </div>
+
+  <script src="../../scripts/api/admin/jadwal-seminar.ts"></script>
 </Layout>
