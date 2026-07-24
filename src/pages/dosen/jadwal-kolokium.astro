@@ -17,7 +17,7 @@ import Layout from "../../layouts/Layout.astro";
           Menampilkan jadwal kolokium mahasiswa aktif program studi.
         </p>
       </div>
-      <a href="/dosen/kartu-kolokium"> 
+      <a href="/dosen/kartu-kolokium">
       <button
         type="button"
         class="bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-primary transition-all active:scale-95 shadow-md"
@@ -32,9 +32,9 @@ import Layout from "../../layouts/Layout.astro";
     <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low/50">
       <div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
         <span>Show</span>
-        <select class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary">
+        <select id="entries-select" class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary" title="Belum aktif — backend belum mendukung per_page dinamis">
           <option>5</option>
-          <option>10</option>
+          <option selected>10</option>
           <option>25</option>
         </select>
         <span>entries</span>
@@ -44,6 +44,7 @@ import Layout from "../../layouts/Layout.astro";
           search
         </span>
         <input
+          id="search-input"
           type="text"
           placeholder="Search data..."
           class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
@@ -91,66 +92,9 @@ import Layout from "../../layouts/Layout.astro";
             </th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-outline-variant/30">
-          <!-- Row 1 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">1</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Amalina Febrianti</td>
-            <td class="px-4 py-4 text-body-sm">J0412221168</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Batang Manta Dalam Produksi...</td>
-            <td class="px-4 py-4 text-body-sm text-center">15</td>
-          </tr>
-          <!-- Row 2 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">2</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Rabu, 8 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zeta B09</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Muhammad Ferdiansyah</td>
-            <td class="px-4 py-4 text-body-sm">J0412221099</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Pemanfaatan Ekstrak Tanin Sebagai Antioksidan...</td>
-            <td class="px-4 py-4 text-body-sm text-center">22</td>
-          </tr>
-          <!-- Row 3 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">3</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Selasa, 7 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">08:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom meeting</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Hendri Salman</td>
-            <td class="px-4 py-4 text-body-sm">J1409221008</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Teknologi dan Manajemen Ternak</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Preferensi Masyarakat Terhadap Olahan Susu...</td>
-            <td class="px-4 py-4 text-body-sm text-center">30</td>
-          </tr>
-          <!-- Row 4 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">4</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">09:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Room 1</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Yasmin Nurannajmi</td>
-            <td class="px-4 py-4 text-body-sm">J0401221267</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Komunikasi Digital dan Media</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">PEMANFAATAN FITUR SHOPEE LIVE BAGI UMKM...</td>
-            <td class="px-4 py-4 text-body-sm text-center">45</td>
-          </tr>
-          <!-- Row 5 -->
-          <tr class="table-row-hover transition-colors">
-            <td class="px-4 py-4 text-body-sm">5</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Senin, 6 Juli 2026</td>
-            <td class="px-4 py-4 text-body-sm">10:00 AM</td>
-            <td class="px-4 py-4 text-body-sm">Zoom</td>
-            <td class="px-4 py-4 text-body-sm font-medium">Siti Shifa Inayah</td>
-            <td class="px-4 py-4 text-body-sm">J0412221151</td>
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">Analisis Kimia</td>
-            <td class="px-4 py-4 text-body-sm min-w-[200px]">Evaluasi Ketahanan Kinerja Mesin HPLC...</td>
-            <td class="px-4 py-4 text-body-sm text-center">18</td>
+        <tbody id="kolokium-table-body" class="divide-y divide-outline-variant/30">
+          <tr>
+            <td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td>
           </tr>
         </tbody>
       </table>
@@ -158,17 +102,10 @@ import Layout from "../../layouts/Layout.astro";
 
     <!-- Pagination Footer -->
     <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
-      <p class="text-body-sm text-on-surface-variant">Showing 1 to 5 of 4,492 entries</p>
-      <div class="flex items-center gap-1">
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">First</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">«</button>
-        <button class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold">1</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">2</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">3</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">4</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">»</button>
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">Last</button>
-      </div>
+      <p id="pagination-info" class="text-body-sm text-on-surface-variant">Memuat...</p>
+      <div id="pagination-buttons" class="flex items-center gap-1"></div>
     </div>
   </div>
+
+  <script src="../../scripts/api/dosen/jadwal-kolokium.ts"></script>
 </Layout>
