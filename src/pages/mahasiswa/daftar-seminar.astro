@@ -2,6 +2,7 @@
 // src/pages/daftar-seminar.astro
 // Halaman Daftar Seminar — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini).
+// Logic fetch/render ada di ../../scripts/daftar-seminar.ts (lihat <script> di bawah).
 
 import Layout from "../../layouts/Layout.astro";
 ---
@@ -15,25 +16,30 @@ import Layout from "../../layouts/Layout.astro";
         </h2>
 
         <div class="flex justify-center">
-          <span class="bg-outline text-white px-4 py-1.5 rounded-full font-body-sm text-body-sm">
+          <span id="status-badge" class="bg-outline text-white px-4 py-1.5 rounded-full font-body-sm text-body-sm">
             Belum Mendaftar
         </span>
         </div>
       </div>
   </div>
-      
+
+  <!-- Pesan sukses/error -->
+  <div
+    id="daftar-seminar-message"
+    class="hidden mb-6 px-4 py-3 rounded-md font-body-sm text-body-sm"
+  ></div>
 
   <!-- Form Card -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
     <div class="p-8">
-      <form class="space-y-6">
+      <form id="form-daftar-seminar" class="space-y-6">
         <!-- Nama -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Nama</label>
           <div class="md:col-span-2">
             <input
+              id="input-nama"
               type="text"
-              value="Rheynesta Hannover"
               readonly
               class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
             />
@@ -45,8 +51,8 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">NIM</label>
           <div class="md:col-span-2">
             <input
+              id="input-nim"
               type="text"
-              value="J0403231008"
               readonly
               class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
             />
@@ -58,8 +64,8 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Program Studi</label>
           <div class="md:col-span-2">
             <input
+              id="input-prodi"
               type="text"
-              value="Teknologi Rekayasa Perangkat Lunak"
               readonly
               class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
             />
@@ -73,10 +79,10 @@ import Layout from "../../layouts/Layout.astro";
           </label>
           <div class="md:col-span-2">
             <select
+              id="select-pembimbing-utama"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
               <option value="">-- Pilih Dosen Pembimbing Utama --</option>
-              <option>...</option>
             </select>
           </div>
         </div>
@@ -88,10 +94,10 @@ import Layout from "../../layouts/Layout.astro";
           </label>
           <div class="md:col-span-2">
             <select
+              id="select-pembimbing-kedua"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
               <option value="">-- Pilih Dosen Pembimbing Kedua --</option>
-              <option>...</option>
             </select>
             <p class="mt-1 text-xs text-error">* Silahkan isi dosen pembimbing ke-2 jika ada</p>
           </div>
@@ -104,6 +110,7 @@ import Layout from "../../layouts/Layout.astro";
           </label>
           <div class="md:col-span-2">
             <textarea
+              id="input-judul"
               rows="3"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             ></textarea>
@@ -118,6 +125,7 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Lokasi Tugas Akhir</label>
           <div class="md:col-span-2">
             <input
+              id="input-lokasi"
               type="text"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             />
@@ -129,6 +137,7 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Tanggal Seminar</label>
           <div class="md:col-span-2 relative">
             <input
+              id="input-tanggal"
               type="date"
               onclick="this.showPicker()"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm cursor-pointer"
@@ -141,6 +150,7 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Waktu Seminar</label>
           <div class="md:col-span-2 relative">
             <input
+              id="input-waktu"
               type="time"
               onclick="this.showPicker()"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm cursor-pointer"
@@ -153,10 +163,10 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Mahasiswa Pembahas</label>
           <div class="md:col-span-2">
             <select
+              id="select-pembahas"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
               <option value="">-- Pilih Mahasiswa Pembahas --</option>
-              <option>...</option>
             </select>
           </div>
         </div>
@@ -179,6 +189,7 @@ import Layout from "../../layouts/Layout.astro";
         <!-- Submit Action -->
         <div class="pt-6">
           <button
+            id="btn-submit-seminar"
             type="submit"
             class="w-full bg-primary-container hover:bg-primary text-white font-medium py-3 px-4 rounded-md shadow-sm transition-colors duration-200 flex items-center justify-center gap-2"
           >
@@ -190,3 +201,5 @@ import Layout from "../../layouts/Layout.astro";
     </div>
   </div>
 </Layout>
+
+<script src="../../scripts/api/mahasiswa/Daftarseminar.ts"></script>
