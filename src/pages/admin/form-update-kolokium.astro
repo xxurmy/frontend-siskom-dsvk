@@ -1,7 +1,9 @@
 ---
-// src/pages/daftar-kolokium.astro
+// src/pages/update-kolokium.astro
 // Halaman Update Kolokium (Admin) — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini).
+// Logic fetch/render ada di ../../scripts/form-update-kolokium.ts (lihat <script> di bawah).
+// Halaman ini butuh query string ?id=<id_kolokium>, mis. /update-kolokium?id=3
 
 import Layout from "../../layouts/Layout.astro";
 ---
@@ -34,19 +36,24 @@ import Layout from "../../layouts/Layout.astro";
         </div>
       </div>
   </div>
-      
+
+  <!-- Pesan sukses/error -->
+  <div
+    id="update-kolokium-message"
+    class="hidden mb-6 px-4 py-3 rounded-md font-body-sm text-body-sm"
+  ></div>
 
   <!-- Form Card -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
     <div class="p-8">
-      <form class="space-y-6">
+      <form id="form-update-kolokium" class="space-y-6">
         <!-- Nama -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Nama</label>
           <div class="md:col-span-2">
             <input
+              id="input-nama"
               type="text"
-              value="Rheynesta Hannover"
               readonly
               class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
             />
@@ -58,8 +65,8 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">NIM</label>
           <div class="md:col-span-2">
             <input
+              id="input-nim"
               type="text"
-              value="J0403231008"
               readonly
               class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
             />
@@ -71,8 +78,8 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Program Studi</label>
           <div class="md:col-span-2">
             <input
+              id="input-prodi"
               type="text"
-              value="Teknologi Rekayasa Perangkat Lunak"
               readonly
               class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm"
             />
@@ -86,9 +93,10 @@ import Layout from "../../layouts/Layout.astro";
           </label>
           <div class="md:col-span-2">
             <select
+              id="select-pembimbing-utama"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
-              <option>...</option>
+              <option value="">-- Pilih Dosen Pembimbing Utama --</option>
             </select>
           </div>
         </div>
@@ -100,11 +108,13 @@ import Layout from "../../layouts/Layout.astro";
           </label>
           <div class="md:col-span-2">
             <select
+              id="select-pembimbing-kedua"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
-              <option>...</option>
+              <option value="">-- Pilih Dosen Pembimbing Kedua --</option>
             </select>
             <p class="mt-1 text-xs text-error">* Silahkan isi dosen pembimbing ke-2 jika ada</p>
+            <p id="current-pembimbing-note" class="mt-1 text-xs text-on-surface-variant"></p>
           </div>
         </div>
 
@@ -115,6 +125,7 @@ import Layout from "../../layouts/Layout.astro";
           </label>
           <div class="md:col-span-2">
             <textarea
+              id="input-judul"
               rows="3"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             ></textarea>
@@ -129,6 +140,7 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Lokasi Tugas Akhir</label>
           <div class="md:col-span-2">
             <input
+              id="input-lokasi"
               type="text"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             />
@@ -140,6 +152,7 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Tanggal Kolokium</label>
           <div class="md:col-span-2 relative">
             <input
+              id="input-tanggal"
               type="date"
               onclick="this.showPicker()"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm cursor-pointer"
@@ -152,6 +165,7 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Waktu Kolokium</label>
           <div class="md:col-span-2 relative">
             <input
+              id="input-waktu"
               type="time"
               onclick="this.showPicker()"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm cursor-pointer"
@@ -164,9 +178,10 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Mahasiswa Pembahas</label>
           <div class="md:col-span-2">
             <select
+              id="select-pembahas"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
-              <option>...</option>
+              <option value="">-- Pilih Mahasiswa Pembahas --</option>
             </select>
           </div>
         </div>
@@ -176,10 +191,10 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Dosen Moderator</label>
           <div class="md:col-span-2">
             <select
+              id="select-moderator"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
               <option value="">-- Pilih Dosen Moderator --</option>
-              <option>...</option>
             </select>
           </div>
         </div>
@@ -189,6 +204,7 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium">Ruangan</label>
           <div class="md:col-span-2">
             <input
+              id="input-ruangan"
               type="text"
               placeholder="Contoh: Ruang A101"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
@@ -199,6 +215,7 @@ import Layout from "../../layouts/Layout.astro";
         <!-- Submit Action -->
         <div class="pt-6">
           <button
+            id="btn-submit-kolokium"
             type="submit"
             class="w-full bg-primary-container hover:bg-primary text-white font-medium py-3 px-4 rounded-md shadow-sm transition-colors duration-200 flex items-center justify-center gap-2"
           >
@@ -209,24 +226,6 @@ import Layout from "../../layouts/Layout.astro";
       </form>
     </div>
   </div>
-
-  <script>
-    const statusColors: Record<string, string> = {
-      pending: "bg-amber-500",
-      approved: "bg-green-600",
-      rejected: "bg-red-600",
-    };
-
-    function updateStatusColor(select: HTMLSelectElement) {
-      Object.values(statusColors).forEach((cls) => select.classList.remove(cls));
-      const color = statusColors[select.value] ?? statusColors.pending;
-      select.classList.add(color);
-    }
-
-    const statusSelect = document.getElementById("status_kolokium") as HTMLSelectElement | null;
-    if (statusSelect) {
-      updateStatusColor(statusSelect);
-      statusSelect.addEventListener("change", () => updateStatusColor(statusSelect));
-    }
-  </script>
 </Layout>
+
+  <script src="../../scripts/api/admin/form-update-kolokium.ts"></script>
