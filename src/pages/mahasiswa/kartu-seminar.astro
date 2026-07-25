@@ -14,6 +14,9 @@ import Layout from "../../layouts/Layout.astro";
     </a>
   </div>
 
+  <!-- Pesan status (sukses/error) -->
+  <div id="kartu-message" class="hidden mb-4 px-4 py-3 rounded-lg text-body-sm font-medium"></div>
+
   <!-- Main Card -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
 
@@ -29,6 +32,7 @@ import Layout from "../../layouts/Layout.astro";
       </div>
 
       <button
+        id="download-btn"
         type="button"
         class="bg-primary-container text-on-primary px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 hover:bg-primary transition-all active:scale-95 shadow-md"
       >
@@ -45,10 +49,10 @@ import Layout from "../../layouts/Layout.astro";
       <div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
         <span>Show</span>
 
-        <select class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary">
-          <option>10</option>
-          <option>25</option>
-          <option>50</option>
+        <select id="entries-per-page" class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
         </select>
 
         <span>entries</span>
@@ -60,6 +64,7 @@ import Layout from "../../layouts/Layout.astro";
         </span>
 
         <input
+          id="search-input"
           type="text"
           placeholder="Search data..."
           class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
@@ -117,56 +122,12 @@ import Layout from "../../layouts/Layout.astro";
           </tr>
         </thead>
 
-        <tbody class="divide-y divide-outline-variant/30">
-
-          <tr class="table-row-hover transition-colors">
-
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">
-              Rabu, 12 November 2025
+        <tbody id="kartu-tbody" class="divide-y divide-outline-variant/30">
+          <tr>
+            <td colspan="8" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">
+              Memuat data...
             </td>
-
-            <td class="px-4 py-4 text-body-sm">
-              14:00
-            </td>
-
-            <td class="px-4 py-4 text-body-sm font-medium">
-              RANGGA WASITA NINGRAT
-            </td>
-
-            <td class="px-4 py-4 text-body-sm">
-              J0403221112
-            </td>
-
-            <td class="px-4 py-4 text-body-sm whitespace-nowrap">
-              Teknologi Rekayasa Perangkat Lunak
-            </td>
-
-            <td class="px-4 py-4 text-body-sm">
-              Nur Azizah, S.Si., M.Si.
-            </td>
-
-            <td class="px-4 py-4">
-              <span class="bg-secondary/10 text-secondary border border-secondary/20 px-3 py-1 rounded-full text-[12px] font-bold whitespace-nowrap">
-              <span >
-                Sudah ditanda tangan
-              </span>
-              </span>
-            </td>
-
-            <td class="px-4 py-4 text-center">
-              <button
-                class="text-error hover:scale-110 transition-transform"
-              >
-                <span class="material-symbols-outlined">
-                  delete
-                </span>
-              </button>
-            </td>
-
           </tr>
-
-          <!-- Copy baris ini untuk data lainnya -->
-
         </tbody>
 
       </table>
@@ -176,35 +137,17 @@ import Layout from "../../layouts/Layout.astro";
     <!-- Pagination -->
     <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
 
-      <p class="text-body-sm text-on-surface-variant">
-        Showing 1 to 3 of 3 entries
+      <p id="entries-info" class="text-body-sm text-on-surface-variant">
+        Showing 0 to 0 of 0 entries
       </p>
 
-      <div class="flex items-center gap-1">
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          First
-        </button>
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          «
-        </button>
-
-        <button class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold">
-          1
-        </button>
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          »
-        </button>
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          Last
-        </button>
-
+      <div id="pagination-buttons" class="flex items-center gap-1">
+        <!-- Tombol First/«/nomor halaman/»/Last digenerate otomatis oleh script -->
       </div>
 
     </div>
 
   </div>
 </Layout>
+
+<script src="../../scripts/api/mahasiswa/Kartuseminar.ts"></script>
