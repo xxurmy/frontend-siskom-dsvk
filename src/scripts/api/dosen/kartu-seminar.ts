@@ -1,6 +1,6 @@
 // src/scripts/api/dosen/kartu-seminar.ts
-// GET  /auth/kartu-seminar/my                 -> daftar kartu seminar yang dimoderatori dosen ini
-// PATCH /auth/kartu-seminar/{id}/status-paraf  -> ubah status jadi 'signed' atau 'absent'
+// GET   /auth/kartu-seminar/my?page=N&search=...  -> daftar kartu seminar yang dimoderatori dosen ini (paginated)
+// PATCH /auth/kartu-seminar/{id}/status-paraf      -> ubah status jadi 'signed' atau 'absent'
 //
 // Aturan tombol aksi (sesuai status):
 // - pending -> tombol "Tandatangani" & "Tidak Hadir" sama-sama muncul
@@ -8,6 +8,11 @@
 //              (dosen masih bisa mengubah dari absent -> signed)
 // - signed  -> kedua tombol hilang (status final, tidak bisa diubah lagi;
 //              backend juga sudah menolak perubahan lain saat statusparaf sudah signed)
+//
+// SEARCH: input #kartu-seminar-search dikirim ke backend lewat query param
+// `search` (di-debounce 400ms), backend nge-LIKE ke nama/nim pemrasaran,
+// prodi, moderator, serta nama/nim forum. Kalau hasil kosong SAAT sedang
+// search, tampilkan pesan khusus yang beda dari pesan "belum ada data" biasa.
 
 interface KartuSeminar {
   id: number;
@@ -28,9 +33,19 @@ interface KartuSeminar {
   statusparaf: "pending" | "signed" | "absent";
 }
 
+interface PaginatedResponse<T> {
+  current_page: number;
+  data: T[];
+  from: number | null;
+  to: number | null;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
 interface KartuSeminarListResponse {
   message: string;
-  kartu_seminars: KartuSeminar[];
+  kartu_seminars: PaginatedResponse<KartuSeminar>;
 }
 
 interface UpdateStatusParafResponse {
@@ -47,6 +62,7 @@ const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const TBODY_ID = "kartu-seminar-tbody";
 const COLSPAN = 10;
+const SEARCH_DEBOUNCE_MS = 400;
 
 const STATUS_LABEL: Record<KartuSeminar["statusparaf"], string> = {
   pending: "Belum ditanda tangani",
@@ -59,6 +75,10 @@ const STATUS_BADGE_CLASS: Record<KartuSeminar["statusparaf"], string> = {
   signed: "bg-secondary/10 text-secondary border border-secondary/20",
   absent: "bg-error/10 text-error border border-error/20",
 };
+
+let currentPage = 1;
+let currentSearch = "";
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -167,19 +187,76 @@ function renderMessageRow(message: string, variant: "info" | "error" = "info"): 
   `;
 }
 
-function renderTable(items: KartuSeminar[]): void {
+function renderTable(data: PaginatedResponse<KartuSeminar>): void {
   const tbody = document.getElementById(TBODY_ID);
   if (!tbody) return;
 
-  if (items.length === 0) {
-    renderMessageRow("Belum ada data kartu seminar.");
+  if (data.data.length === 0) {
+    if (currentSearch) {
+      renderMessageRow(`Tidak ditemukan hasil untuk pencarian "${currentSearch}".`);
+    } else {
+      renderMessageRow("Belum ada data kartu seminar.");
+    }
     return;
   }
 
-  tbody.innerHTML = items.map(renderRow).join("");
+  tbody.innerHTML = data.data.map(renderRow).join("");
 }
 
-async function loadKartuSeminar(): Promise<void> {
+function renderPaginationInfo(data: PaginatedResponse<KartuSeminar>): void {
+  const infoEl = document.getElementById("kartu-seminar-pagination-info");
+  if (infoEl) {
+    if (data.total === 0) {
+      infoEl.textContent = currentSearch
+        ? `Tidak ada hasil untuk "${currentSearch}"`
+        : "Tidak ada data.";
+    } else {
+      infoEl.textContent = `Showing ${data.from ?? 0} to ${data.to ?? 0} of ${data.total} entries`;
+    }
+  }
+
+  const container = document.getElementById("kartu-seminar-pagination-buttons");
+  if (!container) return;
+
+  const { current_page, last_page } = data;
+
+  const btnClass =
+    "px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent";
+  const activeBtnClass = "px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold";
+
+  // Tampilkan maksimal 4 nomor halaman di sekitar halaman aktif
+  const pageNumbers: number[] = [];
+  const startPage = Math.max(1, current_page - 1);
+  const endPage = Math.min(last_page, startPage + 3);
+  for (let p = startPage; p <= endPage; p++) pageNumbers.push(p);
+
+  const numberButtons = pageNumbers
+    .map((p) =>
+      p === current_page
+        ? `<button class="${activeBtnClass}" disabled>${p}</button>`
+        : `<button class="${btnClass}" data-page="${p}">${p}</button>`
+    )
+    .join("");
+
+  container.innerHTML = `
+    <button class="${btnClass}" data-page="1" ${current_page === 1 ? "disabled" : ""}>First</button>
+    <button class="${btnClass}" data-page="${current_page - 1}" ${current_page === 1 ? "disabled" : ""}>&laquo;</button>
+    ${numberButtons}
+    <button class="${btnClass}" data-page="${current_page + 1}" ${current_page === last_page ? "disabled" : ""}>&raquo;</button>
+    <button class="${btnClass}" data-page="${last_page}" ${current_page === last_page ? "disabled" : ""}>Last</button>
+  `;
+
+  container.querySelectorAll<HTMLButtonElement>("button[data-page]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const page = Number(btn.dataset.page);
+      if (!Number.isNaN(page) && page >= 1 && page <= last_page) {
+        loadKartuSeminar(page);
+      }
+    });
+  });
+}
+
+async function loadKartuSeminar(page = 1): Promise<void> {
   const token = getToken();
   if (!token) {
     window.location.href = "/login";
@@ -188,8 +265,13 @@ async function loadKartuSeminar(): Promise<void> {
 
   renderMessageRow("Memuat data...");
 
+  const params = new URLSearchParams({ page: String(page) });
+  if (currentSearch) {
+    params.set("search", currentSearch);
+  }
+
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/kartu-seminar/my`, {
+    const res = await fetch(`${API_BASE_URL}/auth/kartu-seminar/my?${params.toString()}`, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
@@ -203,8 +285,12 @@ async function loadKartuSeminar(): Promise<void> {
       return;
     }
 
-    const data: KartuSeminarListResponse = await res.json();
-    renderTable(data.kartu_seminars ?? []);
+    const json: KartuSeminarListResponse = await res.json();
+    const data = json.kartu_seminars;
+    currentPage = data.current_page;
+
+    renderTable(data);
+    renderPaginationInfo(data);
   } catch (err) {
     console.error("Gagal ambil kartu seminar:", err);
     renderMessageRow("Terjadi kesalahan jaringan.", "error");
@@ -239,8 +325,8 @@ async function updateStatusParaf(id: number, statusparaf: "signed" | "absent"): 
       return;
     }
 
-    // Refresh seluruh tabel biar data & tombol aksi tetap konsisten dengan server
-    await loadKartuSeminar();
+    // Refresh halaman yang sedang aktif biar data & tombol aksi tetap konsisten dengan server
+    await loadKartuSeminar(currentPage);
   } catch (err) {
     console.error("Gagal update status paraf kartu seminar:", err);
     alert("Terjadi kesalahan jaringan. Coba lagi.");
@@ -275,9 +361,30 @@ function initActionButtons(): void {
   });
 }
 
+function initSearch(): void {
+  const searchInput = document.getElementById("kartu-seminar-search") as HTMLInputElement | null;
+  if (!searchInput) return;
+  if (searchInput.dataset.bound === "true") return;
+  searchInput.dataset.bound = "true";
+
+  searchInput.addEventListener("input", () => {
+    const value = searchInput.value.trim();
+
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+
+    searchDebounceTimer = setTimeout(() => {
+      currentSearch = value;
+      loadKartuSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
+    }, SEARCH_DEBOUNCE_MS);
+  });
+}
+
 function initKartuSeminarPage(): void {
-  loadKartuSeminar();
+  loadKartuSeminar(1);
   initActionButtons();
+  initSearch();
 }
 
 initKartuSeminarPage();

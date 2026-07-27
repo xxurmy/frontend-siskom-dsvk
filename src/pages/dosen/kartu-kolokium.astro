@@ -35,7 +35,7 @@ import Layout from "../../layouts/Layout.astro";
       <div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
         <span>Show</span>
 
-        <select class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary">
+        <select class="border border-outline-variant rounded bg-surface px-2 py-1 outline-none focus:border-primary" title="Belum aktif — backend belum mendukung per_page dinamis">
           <option>10</option>
           <option>25</option>
           <option>50</option>
@@ -50,6 +50,7 @@ import Layout from "../../layouts/Layout.astro";
         </span>
 
         <input
+          id="kartu-kolokium-search"
           type="text"
           placeholder="Search data..."
           class="pl-10 pr-4 py-2 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
@@ -128,35 +129,8 @@ import Layout from "../../layouts/Layout.astro";
 
     <!-- Pagination -->
     <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
-
-      <p class="text-body-sm text-on-surface-variant">
-        Showing 1 to 3 of 3 entries
-      </p>
-
-      <div class="flex items-center gap-1">
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          First
-        </button>
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          «
-        </button>
-
-        <button class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold">
-          1
-        </button>
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          »
-        </button>
-
-        <button class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors">
-          Last
-        </button>
-
-      </div>
-
+      <p id="kartu-kolokium-pagination-info" class="text-body-sm text-on-surface-variant">Memuat data...</p>
+      <div id="kartu-kolokium-pagination-buttons" class="flex items-center gap-1"></div>
     </div>
 
   </div>
