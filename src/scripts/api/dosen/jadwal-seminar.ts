@@ -150,7 +150,7 @@ function renderTable(items: SeminarItem[]): void {
       return `
         <tr class="table-row-hover transition-colors">
           <td class="px-4 py-4 text-body-sm">${startNumber + index}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal)}</td>
+          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal ?? "-")}</td>
           <td class="px-4 py-4 text-body-sm">${item.waktu ?? "-"}</td>
           <td class="px-4 py-4 text-body-sm">${escapeHtml(item.ruangan ?? "-")}</td>
           <td class="px-4 py-4 text-body-sm font-medium">${escapeHtml(item.nama)}</td>

@@ -77,6 +77,18 @@ function redirectIfUnauthorized(status: number): boolean {
   return false;
 }
 
+function formatTanggal(tanggal: string | null): string {
+  if (!tanggal) return "-";
+  const date = new Date(tanggal);
+  if (Number.isNaN(date.getTime())) return tanggal;
+  return date.toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 function escapeHtml(value: string): string {
   const div = document.createElement("div");
   div.textContent = value;
@@ -117,7 +129,7 @@ function renderRow(item: SeminarItem, rowNumber: number): string {
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenpembimbing ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm min-w-[200px]">${escapeHtml(item.judul ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.lokasi ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.tanggal ?? "-")}</td>
+      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namapembahas ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
