@@ -48,6 +48,7 @@ const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-seminar-tbody";
 const COLSPAN = 14;
 const EDIT_FORM_PATH = "/admin/form-update-seminar";
+const SEARCH_DEBOUNCE_MS = 400;
 
 const STATUS_LABEL: Record<SeminarItem["status"], string> = {
   pending: "Belum diterima",
@@ -62,6 +63,8 @@ const STATUS_BADGE_CLASS: Record<SeminarItem["status"], string> = {
 };
 
 let currentPage = 1;
+let currentSearch = "";
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -174,7 +177,9 @@ function renderPaginationInfo(data: PaginatedResponse<SeminarItem>): void {
   const infoEl = document.getElementById("jadwal-seminar-pagination-info");
   if (infoEl) {
     if (data.total === 0) {
-      infoEl.textContent = "Tidak ada data";
+      infoEl.textContent = currentSearch
+        ? `Tidak ada hasil untuk "${currentSearch}"`
+        : "Tidak ada data";
     } else {
       infoEl.textContent = `Showing ${data.from ?? 0} to ${data.to ?? 0} of ${data.total} entries`;
     }
@@ -204,7 +209,11 @@ function renderTable(data: PaginatedResponse<SeminarItem>): void {
   if (!tbody) return;
 
   if (data.data.length === 0) {
-    renderMessageRow("Belum ada data seminar.");
+    if (currentSearch) {
+      renderMessageRow(`Tidak ditemukan hasil untuk pencarian "${currentSearch}".`);
+    } else {
+      renderMessageRow("Belum ada data seminar.");
+    }
     return;
   }
 
@@ -221,8 +230,13 @@ async function loadJadwalSeminar(page = 1): Promise<void> {
 
   renderMessageRow("Memuat data...");
 
+  const params = new URLSearchParams({ page: String(page) });
+  if (currentSearch) {
+    params.set("search", currentSearch);
+  }
+
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/seminar?page=${page}`, {
+    const res = await fetch(`${API_BASE_URL}/auth/seminar?${params.toString()}`, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
@@ -311,10 +325,31 @@ function initPagination(): void {
   });
 }
 
+function initSearch(): void {
+  const searchInput = document.getElementById("jadwal-seminar-search") as HTMLInputElement | null;
+  if (!searchInput) return;
+  if (searchInput.dataset.bound === "true") return;
+  searchInput.dataset.bound = "true";
+
+  searchInput.addEventListener("input", () => {
+    const value = searchInput.value.trim();
+
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+
+    searchDebounceTimer = setTimeout(() => {
+      currentSearch = value;
+      loadJadwalSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
+    }, SEARCH_DEBOUNCE_MS);
+  });
+}
+
 function initJadwalSeminarPage(): void {
   loadJadwalSeminar(1);
   initActionButtons();
   initPagination();
+  initSearch();
 }
 
 initJadwalSeminarPage();

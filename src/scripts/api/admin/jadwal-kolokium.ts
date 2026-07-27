@@ -1,6 +1,6 @@
 // src/scripts/api/admin/jadwal-kolokium.ts
-// GET    /auth/kolokium?page=N   -> daftar semua kolokium (paginated, admin)
-// DELETE /auth/kolokium/{id}     -> hapus kolokium (hanya admin)
+// GET    /auth/kolokium?page=N&search=...  -> daftar semua kolokium (paginated, admin)
+// DELETE /auth/kolokium/{id}               -> hapus kolokium (hanya admin)
 //
 // Aturan tombol aksi berdasarkan status:
 // - pending  -> tombol Edit & Hapus muncul
@@ -10,6 +10,12 @@
 // Tombol Edit adalah link ke /admin/form-update-kolokium?id={id}, membawa admin ke form update kolokium dengan data kolokium yang dipilih, sehingga admin bisa mengubah status kolokium tersebut.
 // Tombol Hapus akan memanggil DELETE /auth/kolokium/{id} untuk menghapus kolokium tersebut, hanya bisa dilakukan oleh admin.
 // Tombol Edit & Hapus hanya muncul untuk kolokium yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk kolokium yang sudah disetujui (approved).
+//
+// SEARCH: input #jadwal-kolokium-search dikirim ke backend lewat query param
+// `search` (di-debounce 400ms), backend sudah nge-LIKE ke banyak kolom
+// sekaligus (nama, nim, prodi, judul, dosen pembimbing/moderator, lokasi,
+// ruangan). Kalau hasil kosong SAAT sedang search, tampilkan pesan khusus
+// yang beda dari pesan "belum ada data" biasa.
 
 interface KolokiumItem {
   id: number;
@@ -50,6 +56,7 @@ const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-kolokium-tbody";
 const COLSPAN = 14;
 const EDIT_FORM_PATH = "/admin/form-update-kolokium";
+const SEARCH_DEBOUNCE_MS = 400;
 
 const STATUS_LABEL: Record<KolokiumItem["status"], string> = {
   pending: "Belum diterima",
@@ -64,6 +71,8 @@ const STATUS_BADGE_CLASS: Record<KolokiumItem["status"], string> = {
 };
 
 let currentPage = 1;
+let currentSearch = "";
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -176,7 +185,9 @@ function renderPaginationInfo(data: PaginatedResponse<KolokiumItem>): void {
   const infoEl = document.getElementById("jadwal-kolokium-pagination-info");
   if (infoEl) {
     if (data.total === 0) {
-      infoEl.textContent = "Tidak ada data";
+      infoEl.textContent = currentSearch
+        ? `Tidak ada hasil untuk "${currentSearch}"`
+        : "Tidak ada data";
     } else {
       infoEl.textContent = `Showing ${data.from ?? 0} to ${data.to ?? 0} of ${data.total} entries`;
     }
@@ -206,7 +217,11 @@ function renderTable(data: PaginatedResponse<KolokiumItem>): void {
   if (!tbody) return;
 
   if (data.data.length === 0) {
-    renderMessageRow("Belum ada data kolokium.");
+    if (currentSearch) {
+      renderMessageRow(`Tidak ditemukan hasil untuk pencarian "${currentSearch}".`);
+    } else {
+      renderMessageRow("Belum ada data kolokium.");
+    }
     return;
   }
 
@@ -223,8 +238,13 @@ async function loadJadwalKolokium(page = 1): Promise<void> {
 
   renderMessageRow("Memuat data...");
 
+  const params = new URLSearchParams({ page: String(page) });
+  if (currentSearch) {
+    params.set("search", currentSearch);
+  }
+
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/kolokium?page=${page}`, {
+    const res = await fetch(`${API_BASE_URL}/auth/kolokium?${params.toString()}`, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
@@ -313,10 +333,31 @@ function initPagination(): void {
   });
 }
 
+function initSearch(): void {
+  const searchInput = document.getElementById("jadwal-kolokium-search") as HTMLInputElement | null;
+  if (!searchInput) return;
+  if (searchInput.dataset.bound === "true") return;
+  searchInput.dataset.bound = "true";
+
+  searchInput.addEventListener("input", () => {
+    const value = searchInput.value.trim();
+
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
+    }
+
+    searchDebounceTimer = setTimeout(() => {
+      currentSearch = value;
+      loadJadwalKolokium(1); // reset ke halaman 1 tiap kali kata kunci berubah
+    }, SEARCH_DEBOUNCE_MS);
+  });
+}
+
 function initJadwalKolokiumPage(): void {
   loadJadwalKolokium(1);
   initActionButtons();
   initPagination();
+  initSearch();
 }
 
 initJadwalKolokiumPage();
