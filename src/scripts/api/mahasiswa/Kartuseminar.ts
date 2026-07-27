@@ -1,12 +1,15 @@
-// src/scripts/kartuSeminar.ts
+// src/scripts/api/mahasiswa/Kartuseminar.ts
 // Logic untuk halaman "Kartu Seminar" (role: mahasiswa):
 // 1) fetch daftar kartu seminar milik mahasiswa login (GET /auth/kartu-seminar/my)
 // 2) render tabel + pagination
 // 3) search & "show entries" -> filter + slice client-side
-//    (endpoint my() di backend memakai ->get(), bukan ->paginate(), jadi SELURUH
-//    data sudah tersedia di client dan pagination/search di sini fully functional,
-//    beda dengan jadwal-kolokium yang dibatasi paginator Laravel)
-// 4) aksi Batalkan & Download (endpoint belum tersedia di controller -> stub)
+// 4) tombol "Batalkan":
+//    - AKTIF jika masih H-1 atau lebih awal dari tanggal seminar
+//    - NONAKTIF (disabled) jika sudah hari-H atau lewat
+//    - Saat diklik & dikonfirmasi -> PATCH /auth/peserta-seminar/{peserta_seminar_id}/status
+//      dengan body { status: "batal" } (sesuai PesertaSeminarController::updateStatus,
+//      yang juga sudah menolak permintaan jika sudah hari-H di sisi backend)
+// 5) Download (endpoint belum tersedia di controller -> stub)
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -28,9 +31,9 @@ interface KartuSeminar {
   seminar_id: number;
   pemrasaran_id: number;
   moderator_id: number;
-  peserta_seminar_id: number;
+  peserta_seminar_id: number; // dipakai sebagai target PATCH status "batal"
   forum_id: number;
-  tanggal: string | null;
+  tanggal: string | null; // dipakai untuk menentukan H-1 / hari-H
   waktu: string | null;
   namapemrasaran: string | null;
   nimpemrasaran: string | null;
@@ -148,6 +151,28 @@ function escapeHtml(value: string | null): string {
 }
 
 // ------------------------------------------------------------------
+// Aturan aktif/nonaktif tombol Batalkan
+// - Aktif  : hari ini < tanggal seminar (masih H-1 atau lebih awal)
+// - Nonaktif: hari ini >= tanggal seminar (sudah hari-H atau lewat),
+//   atau tanggal tidak diketahui (untuk berjaga-jaga)
+// Catatan: aturan ini mencerminkan validasi yang sama di
+// PesertaSeminarController::updateStatus (backend juga menolak jika
+// sudah hari-H), jadi tombol di UI sudah konsisten dengan backend.
+// ------------------------------------------------------------------
+function isBatalDisabled(tanggal: string | null): boolean {
+  if (!tanggal) return true;
+
+  const tanggalSeminar = new Date(tanggal);
+  if (Number.isNaN(tanggalSeminar.getTime())) return true;
+  tanggalSeminar.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today.getTime() >= tanggalSeminar.getTime();
+}
+
+// ------------------------------------------------------------------
 // Muat daftar kartu seminar milik mahasiswa login
 // ------------------------------------------------------------------
 async function loadKartuSeminar(): Promise<void> {
@@ -188,6 +213,31 @@ function getPageRows(): KartuSeminar[] {
   return filteredData.slice(start, start + perPage);
 }
 
+function renderBatalkanCell(kartu: KartuSeminar): string {
+  const disabled = isBatalDisabled(kartu.tanggal);
+
+  const baseClass = "transition-transform";
+  const activeClass = "text-error hover:scale-110 btn-batalkan-kartu";
+  const disabledClass = "text-on-surface-variant/40 cursor-not-allowed";
+
+  const title = disabled
+    ? "Tidak bisa dibatalkan karena sudah hari-H"
+    : "Batalkan kehadiran seminar";
+
+  return `
+    <button
+      type="button"
+      class="${baseClass} ${disabled ? disabledClass : activeClass}"
+      data-peserta-id="${kartu.peserta_seminar_id}"
+      aria-label="Batalkan kartu seminar"
+      title="${title}"
+      ${disabled ? "disabled" : ""}
+    >
+      <span class="material-symbols-outlined">delete</span>
+    </button>
+  `;
+}
+
 function renderTable(): void {
   const tbody = document.getElementById("kartu-tbody");
   if (!tbody) return;
@@ -210,16 +260,7 @@ function renderTable(): void {
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(kartu.prodi)}</td>
           <td class="px-4 py-4 text-body-sm">${escapeHtml(kartu.moderator)}</td>
           <td class="px-4 py-4">${statusBadge(kartu.statusparaf)}</td>
-          <td class="px-4 py-4 text-center">
-            <button
-              type="button"
-              class="btn-batalkan-kartu text-error hover:scale-110 transition-transform"
-              data-kartu-id="${kartu.id}"
-              aria-label="Batalkan kartu seminar"
-            >
-              <span class="material-symbols-outlined">delete</span>
-            </button>
-          </td>
+          <td class="px-4 py-4 text-center">${renderBatalkanCell(kartu)}</td>
         </tr>
       `
     )
@@ -300,16 +341,39 @@ function attachRowActionListeners(): void {
   });
 }
 
-function handleBatalkan(btn: HTMLButtonElement): void {
-  const kartuId = btn.dataset.kartuId;
-  // TODO: controller yang diberikan belum punya endpoint untuk membatalkan
-  // kartu seminar. Tambahkan route + method (mis. DELETE /auth/kartu-seminar/{id})
-  // di KartuSeminarController, lalu ganti stub ini dengan pemanggilan apiFetch:
-  //
-  // await apiFetch(`/auth/kartu-seminar/${kartuId}`, { method: "DELETE" });
-  // await loadKartuSeminar();
-  console.warn("Fitur batalkan belum terhubung ke backend. ID:", kartuId);
-  showMessage("Fitur batalkan belum tersedia.", "error");
+// Menjalankan PATCH /auth/peserta-seminar/{peserta_seminar_id}/status
+// dengan body { status: "batal" }. Tombol ini hanya bisa diklik selama
+// belum hari-H (lihat isBatalDisabled & renderBatalkanCell) — dan sebagai
+// lapis kedua, backend (PesertaSeminarController::updateStatus) juga
+// akan menolak permintaan jika ternyata sudah hari-H.
+async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
+  const pesertaId = btn.dataset.pesertaId;
+  if (!pesertaId) return;
+
+  const confirmed = window.confirm(
+    "Apakah Anda yakin ingin membatalkan kehadiran seminar ini?"
+  );
+  if (!confirmed) return;
+
+  clearMessage();
+  btn.disabled = true;
+
+  try {
+    await apiFetch<{ message: string }>(`/auth/peserta-seminar/${pesertaId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "batal" }),
+    });
+
+    showMessage("Berhasil membatalkan kehadiran seminar.", "success");
+    await loadKartuSeminar();
+  } catch (err) {
+    console.error("Gagal membatalkan kartu seminar:", err);
+    showMessage(
+      err instanceof Error ? err.message : "Gagal membatalkan kehadiran seminar.",
+      "error"
+    );
+    btn.disabled = false;
+  }
 }
 
 function handleDownload(): void {

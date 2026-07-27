@@ -1,12 +1,15 @@
-// src/scripts/kartuKolokium.ts
+// src/scripts/api/mahasiswa/KartuKolokium.ts
 // Logic untuk halaman "Kartu Kolokium" (role: mahasiswa):
 // 1) fetch daftar kartu kolokium milik mahasiswa login (GET /auth/kartu-kolokium/my)
 // 2) render tabel + pagination
 // 3) search & "show entries" -> filter + slice client-side
-//    (endpoint my() di backend memakai ->get(), bukan ->paginate(), jadi SELURUH
-//    data sudah tersedia di client dan pagination/search di sini fully functional,
-//    beda dengan jadwal-kolokium yang dibatasi paginator Laravel)
-// 4) aksi Batalkan & Download (endpoint belum tersedia di controller -> stub)
+// 4) tombol "Batalkan":
+//    - AKTIF jika masih H-1 atau lebih awal dari tanggal kolokium
+//    - NONAKTIF (disabled) jika sudah hari-H atau lewat
+//    - Saat diklik & dikonfirmasi -> PATCH /auth/peserta-kolokium/{peserta_kolokium_id}/status
+//      dengan body { status: "batal" } (sesuai PesertaKolokiumController::updateStatus,
+//      yang juga sudah menolak permintaan jika sudah hari-H di sisi backend)
+// 5) Download (endpoint belum tersedia di controller -> stub)
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -28,9 +31,9 @@ interface KartuKolokium {
   kolokium_id: number;
   pemrasaran_id: number;
   moderator_id: number;
-  peserta_kolokium_id: number;
+  peserta_kolokium_id: number; // dipakai sebagai target PATCH status "batal"
   forum_id: number;
-  tanggal: string | null;
+  tanggal: string | null; // dipakai untuk menentukan H-1 / hari-H
   waktu: string | null;
   namapemrasaran: string | null;
   nimpemrasaran: string | null;
@@ -148,6 +151,28 @@ function escapeHtml(value: string | null): string {
 }
 
 // ------------------------------------------------------------------
+// Aturan aktif/nonaktif tombol Batalkan
+// - Aktif  : hari ini < tanggal kolokium (masih H-1 atau lebih awal)
+// - Nonaktif: hari ini >= tanggal kolokium (sudah hari-H atau lewat),
+//   atau tanggal tidak diketahui (untuk berjaga-jaga)
+// Catatan: aturan ini mencerminkan validasi yang sama di
+// PesertaKolokiumController::updateStatus (backend juga menolak jika
+// sudah hari-H), jadi tombol di UI sudah konsisten dengan backend.
+// ------------------------------------------------------------------
+function isBatalDisabled(tanggal: string | null): boolean {
+  if (!tanggal) return true;
+
+  const tanggalKolokium = new Date(tanggal);
+  if (Number.isNaN(tanggalKolokium.getTime())) return true;
+  tanggalKolokium.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today.getTime() >= tanggalKolokium.getTime();
+}
+
+// ------------------------------------------------------------------
 // Muat daftar kartu kolokium milik mahasiswa login
 // ------------------------------------------------------------------
 async function loadKartuKolokium(): Promise<void> {
@@ -188,6 +213,31 @@ function getPageRows(): KartuKolokium[] {
   return filteredData.slice(start, start + perPage);
 }
 
+function renderBatalkanCell(kartu: KartuKolokium): string {
+  const disabled = isBatalDisabled(kartu.tanggal);
+
+  const baseClass = "transition-transform";
+  const activeClass = "text-error hover:scale-110 btn-batalkan-kartu";
+  const disabledClass = "text-on-surface-variant/40 cursor-not-allowed";
+
+  const title = disabled
+    ? "Tidak bisa dibatalkan karena sudah hari-H"
+    : "Batalkan kehadiran kolokium";
+
+  return `
+    <button
+      type="button"
+      class="${baseClass} ${disabled ? disabledClass : activeClass}"
+      data-peserta-id="${kartu.peserta_kolokium_id}"
+      aria-label="Batalkan kartu kolokium"
+      title="${title}"
+      ${disabled ? "disabled" : ""}
+    >
+      <span class="material-symbols-outlined">delete</span>
+    </button>
+  `;
+}
+
 function renderTable(): void {
   const tbody = document.getElementById("kartu-tbody");
   if (!tbody) return;
@@ -210,16 +260,7 @@ function renderTable(): void {
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(kartu.prodi)}</td>
           <td class="px-4 py-4 text-body-sm">${escapeHtml(kartu.moderator)}</td>
           <td class="px-4 py-4">${statusBadge(kartu.statusparaf)}</td>
-          <td class="px-4 py-4 text-center">
-            <button
-              type="button"
-              class="btn-batalkan-kartu text-error hover:scale-110 transition-transform"
-              data-kartu-id="${kartu.id}"
-              aria-label="Batalkan kartu kolokium"
-            >
-              <span class="material-symbols-outlined">delete</span>
-            </button>
-          </td>
+          <td class="px-4 py-4 text-center">${renderBatalkanCell(kartu)}</td>
         </tr>
       `
     )
@@ -300,16 +341,39 @@ function attachRowActionListeners(): void {
   });
 }
 
-function handleBatalkan(btn: HTMLButtonElement): void {
-  const kartuId = btn.dataset.kartuId;
-  // TODO: controller yang diberikan belum punya endpoint untuk membatalkan
-  // kartu kolokium. Tambahkan route + method (mis. DELETE /auth/kartu-kolokium/{id})
-  // di KartuKolokiumController, lalu ganti stub ini dengan pemanggilan apiFetch:
-  //
-  // await apiFetch(`/auth/kartu-kolokium/${kartuId}`, { method: "DELETE" });
-  // await loadKartuKolokium();
-  console.warn("Fitur batalkan belum terhubung ke backend. ID:", kartuId);
-  showMessage("Fitur batalkan belum tersedia.", "error");
+// Menjalankan PATCH /auth/peserta-kolokium/{peserta_kolokium_id}/status
+// dengan body { status: "batal" }. Tombol ini hanya bisa diklik selama
+// belum hari-H (lihat isBatalDisabled & renderBatalkanCell) — dan sebagai
+// lapis kedua, backend (PesertaKolokiumController::updateStatus) juga
+// akan menolak permintaan jika ternyata sudah hari-H.
+async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
+  const pesertaId = btn.dataset.pesertaId;
+  if (!pesertaId) return;
+
+  const confirmed = window.confirm(
+    "Apakah Anda yakin ingin membatalkan kehadiran kolokium ini?"
+  );
+  if (!confirmed) return;
+
+  clearMessage();
+  btn.disabled = true;
+
+  try {
+    await apiFetch<{ message: string }>(`/auth/peserta-kolokium/${pesertaId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "batal" }),
+    });
+
+    showMessage("Berhasil membatalkan kehadiran kolokium.", "success");
+    await loadKartuKolokium();
+  } catch (err) {
+    console.error("Gagal membatalkan kartu kolokium:", err);
+    showMessage(
+      err instanceof Error ? err.message : "Gagal membatalkan kehadiran kolokium.",
+      "error"
+    );
+    btn.disabled = false;
+  }
 }
 
 function handleDownload(): void {
