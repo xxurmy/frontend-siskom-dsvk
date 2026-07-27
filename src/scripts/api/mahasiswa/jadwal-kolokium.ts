@@ -1,20 +1,21 @@
-// src/scripts/jadwal-kolokium.ts
-// Logic untuk halaman "Jadwal Kolokium":
+// src/scripts/api/mahasiswa/jadwal-kolokium.ts
+// Logic untuk halaman "Jadwal Kolokium" (role: mahasiswa):
 // 1) fetch daftar kolokium yang approved (GET /kolokium?status=approved)
-// 2) fetch status kehadiran mahasiswa login (GET /peserta-kolokium/my-peserta)
+// 2) fetch status kehadiran mahasiswa login, SISI PESERTA:
+//    kolokium yang saya ikuti + status kehadiran saya
+//    (GET /auth/peserta-kolokium/my-kolokium)
 // 3) render tabel + pagination dari Laravel paginator
-// 4) aksi Daftar (POST /peserta-kolokium) & Batal (PATCH /peserta-kolokium/{id}/status)
+// 4) tombol "Kehadiran" punya 3 state:
+//    - Belum pernah ada record PesertaKolokium sama sekali -> tombol "Hadir"
+//      (POST /peserta-kolokium, status dibuat "hadir")
+//    - Record ada tapi status "batal" -> tombol "Hadir Ulang"
+//      (PATCH /peserta-kolokium/{id}/status, status diubah jadi "hadir")
+//    - Record ada dan status "hadir" -> TIDAK ADA tombol apapun, cuma badge "Hadir"
 // 5) search & "show entries" -> filter client-side dari data yang sudah ke-fetch
 //    (backend index() tidak punya parameter search / per_page dinamis)
 
-// ------------------------------------------------------------------
-// Konfigurasi
-// ------------------------------------------------------------------
-// PENTING: nama env HARUS berprefix PUBLIC_ (mis. PUBLIC_BASE_URL) supaya
-// terbaca di client-side. Astro hanya meng-expose env yang berprefix
-// PUBLIC_ ke kode yang berjalan di browser.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
-const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
+const TOKEN_KEY = "auth_token";
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan KolokiumController & PesertaKolokiumController)
@@ -62,21 +63,35 @@ interface LaravelPaginator<T> {
   total: number;
 }
 
-interface PesertaKolokium {
-  id: number;
+// Record ringkas status kehadiran milik saya untuk satu kolokium
+// (di-derive dari response /auth/peserta-kolokium/my-kolokium)
+interface MyPesertaStatus {
+  id: number; // peserta_kolokium_id
   kolokium_id: number;
-  mahasiswa_id: number;
   status: StatusPeserta;
 }
 
-interface PesertaKolokiumListResponse {
+// SISI PESERTA: kolokium yang saya ikuti + peserta_kolokium_id & status_kehadiran saya
+// GET /auth/peserta-kolokium/my-kolokium
+interface MyKolokiumPesertaItem {
+  id: number; // kolokium_id
+  peserta_kolokium_id: number;
+  status_kehadiran: StatusPeserta;
+}
+
+interface MyKolokiumPesertaResponse {
   message: string;
-  peserta_kolokiums: PesertaKolokium[];
+  kolokiums: MyKolokiumPesertaItem[];
 }
 
 interface StorePesertaKolokiumResponse {
   message: string;
-  peserta_kolokium: PesertaKolokium;
+  peserta_kolokium: {
+    id: number;
+    kolokium_id: number;
+    mahasiswa_id: number;
+    status: StatusPeserta;
+  };
   jumlahforum: number;
 }
 
@@ -92,8 +107,8 @@ let currentUser: UserProfil | null = null;
 let currentPage = 1;
 let lastPaginator: LaravelPaginator<Kolokium> | null = null;
 let currentKolokiums: Kolokium[] = [];
-// map kolokium_id -> peserta_kolokium milik user login
-let myPesertaMap: Map<number, PesertaKolokium> = new Map();
+// map kolokium_id -> status kehadiran saya (kalau pernah ada record)
+let myPesertaMap: Map<number, MyPesertaStatus> = new Map();
 let searchTerm = "";
 
 // ------------------------------------------------------------------
@@ -112,7 +127,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
   });
 
   if (res.status === 401) {
-    window.location.href = "/denied";
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    window.location.href = "/login";
     return null;
   }
 
@@ -181,13 +198,19 @@ async function loadProfil(): Promise<void> {
 
 // ------------------------------------------------------------------
 // Muat status kehadiran mahasiswa login untuk semua kolokium
+// (SISI PESERTA: kolokium yang saya ikuti + status kehadiran saya,
+// termasuk yang "batal" — supaya tombol "Hadir Ulang" bisa dibangun)
 // ------------------------------------------------------------------
 async function loadMyPeserta(): Promise<void> {
-  const json = await apiFetch<PesertaKolokiumListResponse>("/auth/peserta-kolokium/my-peserta");
+  const json = await apiFetch<MyKolokiumPesertaResponse>("/auth/peserta-kolokium/my-kolokium");
   myPesertaMap = new Map();
   if (json) {
-    for (const peserta of json.peserta_kolokiums) {
-      myPesertaMap.set(peserta.kolokium_id, peserta);
+    for (const item of json.kolokiums) {
+      myPesertaMap.set(item.id, {
+        id: item.peserta_kolokium_id,
+        kolokium_id: item.id,
+        status: item.status_kehadiran,
+      });
     }
   }
 }
@@ -224,7 +247,10 @@ async function loadKolokium(page: number): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Render badge / tombol kolom Kehadiran
+// Render badge / tombol kolom Kehadiran — 3 state:
+// 1. Belum ada record sama sekali      -> tombol "Hadir" (POST, buat baru)
+// 2. Record ada, status "batal"        -> tombol "Hadir Ulang" (PATCH -> hadir)
+// 3. Record ada, status "hadir"        -> tidak ada tombol, cuma badge
 // ------------------------------------------------------------------
 function renderKehadiranCell(kolokium: Kolokium): string {
   // mahasiswa pemilik kolokium tidak bisa mendaftar jadi peserta di kolokiumnya sendiri
@@ -234,31 +260,37 @@ function renderKehadiranCell(kolokium: Kolokium): string {
 
   const peserta = myPesertaMap.get(kolokium.id);
 
+  // State 3: sudah hadir -> tidak ada tombol sama sekali
   if (peserta && peserta.status === "hadir") {
     return `
-      <div class="flex items-center gap-2">
-        <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
-          <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
-        </span>
-        <button
-          type="button"
-          class="btn-batal-hadir text-[12px] text-red-600 hover:underline"
-          data-peserta-id="${peserta.id}"
-          data-kolokium-id="${kolokium.id}"
-        >
-          Batal
-        </button>
-      </div>
+      <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
+        <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
+      </span>
     `;
   }
 
+  // State 2: record ada tapi statusnya "batal" -> tombol "Hadir Ulang"
+  if (peserta && peserta.status === "batal") {
+    return `
+      <button
+        type="button"
+        class="btn-hadir-ulang bg-primary-container text-on-primary px-3 py-1 rounded-full text-[12px] font-bold hover:bg-primary transition-colors"
+        data-peserta-id="${peserta.id}"
+        data-kolokium-id="${kolokium.id}"
+      >
+        Hadir Ulang
+      </button>
+    `;
+  }
+
+  // State 1: belum pernah ada record sama sekali -> tombol "Hadir" (buat baru)
   return `
     <button
       type="button"
-      class="btn-daftar-hadir bg-primary-container text-on-primary px-3 py-1 rounded-full text-[12px] font-bold hover:bg-primary transition-colors"
+      class="btn-hadir-baru bg-primary-container text-on-primary px-3 py-1 rounded-full text-[12px] font-bold hover:bg-primary transition-colors"
       data-kolokium-id="${kolokium.id}"
     >
-      Daftar
+      Hadir
     </button>
   `;
 }
@@ -379,19 +411,20 @@ function renderPaginationButtons(): void {
 }
 
 // ------------------------------------------------------------------
-// Aksi Daftar & Batal
+// Aksi: Hadir (baru) & Hadir Ulang
 // ------------------------------------------------------------------
 function attachRowActionListeners(): void {
-  document.querySelectorAll<HTMLButtonElement>(".btn-daftar-hadir").forEach((btn) => {
-    btn.addEventListener("click", () => handleDaftar(btn));
+  document.querySelectorAll<HTMLButtonElement>(".btn-hadir-baru").forEach((btn) => {
+    btn.addEventListener("click", () => handleHadirBaru(btn));
   });
 
-  document.querySelectorAll<HTMLButtonElement>(".btn-batal-hadir").forEach((btn) => {
-    btn.addEventListener("click", () => handleBatal(btn));
+  document.querySelectorAll<HTMLButtonElement>(".btn-hadir-ulang").forEach((btn) => {
+    btn.addEventListener("click", () => handleHadirUlang(btn));
   });
 }
 
-async function handleDaftar(btn: HTMLButtonElement): Promise<void> {
+// State 1 -> 3: belum ada record sama sekali, buat baru lewat POST
+async function handleHadirBaru(btn: HTMLButtonElement): Promise<void> {
   const kolokiumId = parseInt(btn.dataset.kolokiumId ?? "", 10);
   if (Number.isNaN(kolokiumId)) return;
 
@@ -411,29 +444,32 @@ async function handleDaftar(btn: HTMLButtonElement): Promise<void> {
     console.error("Gagal mendaftar kolokium:", err);
     showMessage(err instanceof Error ? err.message : "Gagal mendaftar kolokium.", "error");
     btn.disabled = false;
-    btn.textContent = "Daftar";
+    btn.textContent = "Hadir";
   }
 }
 
-async function handleBatal(btn: HTMLButtonElement): Promise<void> {
+// State 2 -> 3: record ada dengan status "batal", ubah lagi jadi "hadir" lewat PATCH
+async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
   const pesertaId = parseInt(btn.dataset.pesertaId ?? "", 10);
   if (Number.isNaN(pesertaId)) return;
 
   clearMessage();
   btn.disabled = true;
+  btn.textContent = "Memproses...";
 
   try {
     await apiFetch<{ message: string }>(`/auth/peserta-kolokium/${pesertaId}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status: "batal" }),
+      body: JSON.stringify({ status: "hadir" }),
     });
 
-    showMessage("Kehadiran berhasil dibatalkan.", "success");
+    showMessage("Berhasil mendaftar hadir ulang kolokium.", "success");
     await loadKolokium(currentPage);
   } catch (err) {
-    console.error("Gagal membatalkan kehadiran:", err);
-    showMessage(err instanceof Error ? err.message : "Gagal membatalkan kehadiran.", "error");
+    console.error("Gagal mendaftar hadir ulang kolokium:", err);
+    showMessage(err instanceof Error ? err.message : "Gagal mendaftar hadir ulang kolokium.", "error");
     btn.disabled = false;
+    btn.textContent = "Hadir Ulang";
   }
 }
 
@@ -444,21 +480,31 @@ function initSearchAndEntries(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
   const entriesSelect = document.getElementById("entries-per-page") as HTMLSelectElement | null;
 
-  searchInput?.addEventListener("input", () => {
-    searchTerm = searchInput.value;
-    renderTable();
-  });
+  if (searchInput && searchInput.dataset.bound !== "true") {
+    searchInput.dataset.bound = "true";
+    searchInput.addEventListener("input", () => {
+      searchTerm = searchInput.value;
+      renderTable();
+    });
+  }
 
-  entriesSelect?.addEventListener("change", () => {
-    renderTable();
-  });
+  if (entriesSelect && entriesSelect.dataset.bound !== "true") {
+    entriesSelect.dataset.bound = "true";
+    entriesSelect.addEventListener("change", () => {
+      renderTable();
+    });
+  }
 }
 
 // ------------------------------------------------------------------
 // Jalankan saat halaman siap
 // ------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", async () => {
+async function initJadwalKolokiumPage(): Promise<void> {
+  clearMessage();
   initSearchAndEntries();
   await loadProfil();
   await loadKolokium(1);
-});
+}
+
+initJadwalKolokiumPage();
+document.addEventListener("astro:page-load", initJadwalKolokiumPage);

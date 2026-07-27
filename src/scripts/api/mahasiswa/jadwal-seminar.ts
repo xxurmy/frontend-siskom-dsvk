@@ -1,24 +1,22 @@
-// src/scripts/jadwal-seminar.ts
-// Logic untuk halaman "Jadwal Seminar":
+// src/scripts/api/mahasiswa/jadwal-seminar.ts
+// Logic untuk halaman "Jadwal Seminar" (role: mahasiswa) — disamakan polanya
+// dengan jadwal-kolokium.ts:
 // 1) fetch daftar seminar yang approved (GET /auth/seminar?status=approved)
-// 2) fetch status kehadiran mahasiswa login (GET /auth/peserta-seminar/my-peserta)
+// 2) fetch status kehadiran mahasiswa login, SISI PESERTA:
+//    seminar yang saya ikuti + status kehadiran saya
+//    (GET /auth/peserta-seminar/my-seminar)
 // 3) render tabel + pagination dari Laravel paginator
-// 4) aksi Daftar (POST /auth/peserta-seminar) & Batal (PATCH /auth/peserta-seminar/{id}/status)
+// 4) tombol "Kehadiran" punya 3 state:
+//    - Belum pernah ada record PesertaSeminar sama sekali -> tombol "Hadir"
+//      (POST /peserta-seminar, status dibuat "hadir")
+//    - Record ada tapi status "batal" -> tombol "Hadir Ulang"
+//      (PATCH /peserta-seminar/{id}/status, status diubah jadi "hadir")
+//    - Record ada dan status "hadir" -> TIDAK ADA tombol apapun, cuma badge "Hadir"
 // 5) search & "show entries" -> filter client-side dari data yang sudah ke-fetch
 //    (backend index() tidak punya parameter search / per_page dinamis)
-//
-// PENTING: semua endpoint di routes/api.php ada di dalam Route::prefix('auth'),
-// jadi WAJIB pakai prefix /auth di setiap path, termasuk /auth/seminar dan
-// /auth/peserta-seminar (bukan cuma /auth/profile & /auth/change-password).
 
-// ------------------------------------------------------------------
-// Konfigurasi
-// ------------------------------------------------------------------
-// PENTING: nama env HARUS berprefix PUBLIC_ (mis. PUBLIC_BASE_URL) supaya
-// terbaca di client-side. Astro hanya meng-expose env yang berprefix
-// PUBLIC_ ke kode yang berjalan di browser.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
-const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
+const TOKEN_KEY = "auth_token";
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan SeminarController & PesertaSeminarController)
@@ -66,21 +64,35 @@ interface LaravelPaginator<T> {
   total: number;
 }
 
-interface PesertaSeminar {
-  id: number;
+// Record ringkas status kehadiran milik saya untuk satu seminar
+// (di-derive dari response /auth/peserta-seminar/my-seminar)
+interface MyPesertaStatus {
+  id: number; // peserta_seminar_id
   seminar_id: number;
-  mahasiswa_id: number;
   status: StatusPeserta;
 }
 
-interface PesertaSeminarListResponse {
+// SISI PESERTA: seminar yang saya ikuti + peserta_seminar_id & status_kehadiran saya
+// GET /auth/peserta-seminar/my-seminar
+interface MySeminarPesertaItem {
+  id: number; // seminar_id
+  peserta_seminar_id: number;
+  status_kehadiran: StatusPeserta;
+}
+
+interface MySeminarPesertaResponse {
   message: string;
-  peserta_seminars: PesertaSeminar[];
+  seminars: MySeminarPesertaItem[];
 }
 
 interface StorePesertaSeminarResponse {
   message: string;
-  peserta_seminar: PesertaSeminar;
+  peserta_seminar: {
+    id: number;
+    seminar_id: number;
+    mahasiswa_id: number;
+    status: StatusPeserta;
+  };
   jumlahforum: number;
 }
 
@@ -96,8 +108,8 @@ let currentUser: UserProfil | null = null;
 let currentPage = 1;
 let lastPaginator: LaravelPaginator<Seminar> | null = null;
 let currentSeminars: Seminar[] = [];
-// map seminar_id -> peserta_seminar milik user login
-let myPesertaMap: Map<number, PesertaSeminar> = new Map();
+// map seminar_id -> status kehadiran saya (kalau pernah ada record)
+let myPesertaMap: Map<number, MyPesertaStatus> = new Map();
 let searchTerm = "";
 
 // ------------------------------------------------------------------
@@ -116,7 +128,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
   });
 
   if (res.status === 401) {
-    window.location.href = "/denied";
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    window.location.href = "/login";
     return null;
   }
 
@@ -185,13 +199,19 @@ async function loadProfil(): Promise<void> {
 
 // ------------------------------------------------------------------
 // Muat status kehadiran mahasiswa login untuk semua seminar
+// (SISI PESERTA: seminar yang saya ikuti + status kehadiran saya,
+// termasuk yang "batal" — supaya tombol "Hadir Ulang" bisa dibangun)
 // ------------------------------------------------------------------
 async function loadMyPeserta(): Promise<void> {
-  const json = await apiFetch<PesertaSeminarListResponse>("/auth/peserta-seminar/my-peserta");
+  const json = await apiFetch<MySeminarPesertaResponse>("/auth/peserta-seminar/my-seminar");
   myPesertaMap = new Map();
   if (json) {
-    for (const peserta of json.peserta_seminars) {
-      myPesertaMap.set(peserta.seminar_id, peserta);
+    for (const item of json.seminars) {
+      myPesertaMap.set(item.id, {
+        id: item.peserta_seminar_id,
+        seminar_id: item.id,
+        status: item.status_kehadiran,
+      });
     }
   }
 }
@@ -228,7 +248,10 @@ async function loadSeminar(page: number): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Render badge / tombol kolom Kehadiran
+// Render badge / tombol kolom Kehadiran — 3 state:
+// 1. Belum ada record sama sekali      -> tombol "Hadir" (POST, buat baru)
+// 2. Record ada, status "batal"        -> tombol "Hadir Ulang" (PATCH -> hadir)
+// 3. Record ada, status "hadir"        -> tidak ada tombol, cuma badge
 // ------------------------------------------------------------------
 function renderKehadiranCell(seminar: Seminar): string {
   // mahasiswa pemilik seminar tidak bisa mendaftar jadi peserta di seminarnya sendiri
@@ -238,31 +261,37 @@ function renderKehadiranCell(seminar: Seminar): string {
 
   const peserta = myPesertaMap.get(seminar.id);
 
+  // State 3: sudah hadir -> tidak ada tombol sama sekali
   if (peserta && peserta.status === "hadir") {
     return `
-      <div class="flex items-center gap-2">
-        <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
-          <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
-        </span>
-        <button
-          type="button"
-          class="btn-batal-hadir text-[12px] text-red-600 hover:underline"
-          data-peserta-id="${peserta.id}"
-          data-seminar-id="${seminar.id}"
-        >
-          Batal
-        </button>
-      </div>
+      <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-[12px] font-bold flex items-center gap-1 w-fit">
+        <span class="material-symbols-outlined text-[14px]">check_circle</span> Hadir
+      </span>
     `;
   }
 
+  // State 2: record ada tapi statusnya "batal" -> tombol "Hadir Ulang"
+  if (peserta && peserta.status === "batal") {
+    return `
+      <button
+        type="button"
+        class="btn-hadir-ulang bg-primary-container text-on-primary px-3 py-1 rounded-full text-[12px] font-bold hover:bg-primary transition-colors"
+        data-peserta-id="${peserta.id}"
+        data-seminar-id="${seminar.id}"
+      >
+        Hadir Ulang
+      </button>
+    `;
+  }
+
+  // State 1: belum pernah ada record sama sekali -> tombol "Hadir" (buat baru)
   return `
     <button
       type="button"
-      class="btn-daftar-hadir bg-primary-container text-on-primary px-3 py-1 rounded-full text-[12px] font-bold hover:bg-primary transition-colors"
+      class="btn-hadir-baru bg-primary-container text-on-primary px-3 py-1 rounded-full text-[12px] font-bold hover:bg-primary transition-colors"
       data-seminar-id="${seminar.id}"
     >
-      Daftar
+      Hadir
     </button>
   `;
 }
@@ -383,19 +412,20 @@ function renderPaginationButtons(): void {
 }
 
 // ------------------------------------------------------------------
-// Aksi Daftar & Batal
+// Aksi: Hadir (baru) & Hadir Ulang
 // ------------------------------------------------------------------
 function attachRowActionListeners(): void {
-  document.querySelectorAll<HTMLButtonElement>(".btn-daftar-hadir").forEach((btn) => {
-    btn.addEventListener("click", () => handleDaftar(btn));
+  document.querySelectorAll<HTMLButtonElement>(".btn-hadir-baru").forEach((btn) => {
+    btn.addEventListener("click", () => handleHadirBaru(btn));
   });
 
-  document.querySelectorAll<HTMLButtonElement>(".btn-batal-hadir").forEach((btn) => {
-    btn.addEventListener("click", () => handleBatal(btn));
+  document.querySelectorAll<HTMLButtonElement>(".btn-hadir-ulang").forEach((btn) => {
+    btn.addEventListener("click", () => handleHadirUlang(btn));
   });
 }
 
-async function handleDaftar(btn: HTMLButtonElement): Promise<void> {
+// State 1 -> 3: belum ada record sama sekali, buat baru lewat POST
+async function handleHadirBaru(btn: HTMLButtonElement): Promise<void> {
   const seminarId = parseInt(btn.dataset.seminarId ?? "", 10);
   if (Number.isNaN(seminarId)) return;
 
@@ -415,29 +445,32 @@ async function handleDaftar(btn: HTMLButtonElement): Promise<void> {
     console.error("Gagal mendaftar seminar:", err);
     showMessage(err instanceof Error ? err.message : "Gagal mendaftar seminar.", "error");
     btn.disabled = false;
-    btn.textContent = "Daftar";
+    btn.textContent = "Hadir";
   }
 }
 
-async function handleBatal(btn: HTMLButtonElement): Promise<void> {
+// State 2 -> 3: record ada dengan status "batal", ubah lagi jadi "hadir" lewat PATCH
+async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
   const pesertaId = parseInt(btn.dataset.pesertaId ?? "", 10);
   if (Number.isNaN(pesertaId)) return;
 
   clearMessage();
   btn.disabled = true;
+  btn.textContent = "Memproses...";
 
   try {
     await apiFetch<{ message: string }>(`/auth/peserta-seminar/${pesertaId}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status: "batal" }),
+      body: JSON.stringify({ status: "hadir" }),
     });
 
-    showMessage("Kehadiran berhasil dibatalkan.", "success");
+    showMessage("Berhasil mendaftar hadir ulang seminar.", "success");
     await loadSeminar(currentPage);
   } catch (err) {
-    console.error("Gagal membatalkan kehadiran:", err);
-    showMessage(err instanceof Error ? err.message : "Gagal membatalkan kehadiran.", "error");
+    console.error("Gagal mendaftar hadir ulang seminar:", err);
+    showMessage(err instanceof Error ? err.message : "Gagal mendaftar hadir ulang seminar.", "error");
     btn.disabled = false;
+    btn.textContent = "Hadir Ulang";
   }
 }
 
@@ -448,21 +481,31 @@ function initSearchAndEntries(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
   const entriesSelect = document.getElementById("entries-per-page") as HTMLSelectElement | null;
 
-  searchInput?.addEventListener("input", () => {
-    searchTerm = searchInput.value;
-    renderTable();
-  });
+  if (searchInput && searchInput.dataset.bound !== "true") {
+    searchInput.dataset.bound = "true";
+    searchInput.addEventListener("input", () => {
+      searchTerm = searchInput.value;
+      renderTable();
+    });
+  }
 
-  entriesSelect?.addEventListener("change", () => {
-    renderTable();
-  });
+  if (entriesSelect && entriesSelect.dataset.bound !== "true") {
+    entriesSelect.dataset.bound = "true";
+    entriesSelect.addEventListener("change", () => {
+      renderTable();
+    });
+  }
 }
 
 // ------------------------------------------------------------------
 // Jalankan saat halaman siap
 // ------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", async () => {
+async function initJadwalSeminarPage(): Promise<void> {
+  clearMessage();
   initSearchAndEntries();
   await loadProfil();
   await loadSeminar(1);
-});
+}
+
+initJadwalSeminarPage();
+document.addEventListener("astro:page-load", initJadwalSeminarPage);
