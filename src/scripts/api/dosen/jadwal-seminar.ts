@@ -36,8 +36,11 @@ interface PaginatedResponse<T> {
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
+const SEARCH_DEBOUNCE_MS = 400;
 
 let currentPage = 1;
+let currentSearch = "";
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 let lastResponse: PaginatedResponse<SeminarItem> | null = null;
 
 function getToken(): string | null {
@@ -77,8 +80,13 @@ async function fetchSeminar(page: number): Promise<void> {
     `;
   }
 
+  const params = new URLSearchParams({ page: String(page) });
+  if (currentSearch) {
+    params.set("search", currentSearch);
+  }
+
   try {
-    const res = await fetch(`${API_BASE_URL}/auth/seminar/my?page=${page}`, {
+    const res = await fetch(`${API_BASE_URL}/auth/seminar/my?${params.toString()}`, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${token}`,
@@ -123,29 +131,19 @@ function renderTable(items: SeminarItem[]): void {
   const tbody = document.getElementById("seminar-table-body");
   if (!tbody) return;
 
-  const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
-  const keyword = (searchInput?.value ?? "").trim().toLowerCase();
-
-  const filtered = keyword
-    ? items.filter(
-        (item) =>
-          item.nama.toLowerCase().includes(keyword) ||
-          item.nim.toLowerCase().includes(keyword) ||
-          item.judul.toLowerCase().includes(keyword) ||
-          item.prodi.toLowerCase().includes(keyword)
-      )
-    : items;
-
-  if (filtered.length === 0) {
+  if (items.length === 0) {
+    const message = currentSearch
+      ? `Tidak ditemukan hasil untuk pencarian "${currentSearch}".`
+      : "Tidak ada data seminar.";
     tbody.innerHTML = `
-      <tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Tidak ada data seminar.</td></tr>
+      <tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>
     `;
     return;
   }
 
   const startNumber = lastResponse?.from ?? 1;
 
-  tbody.innerHTML = filtered
+  tbody.innerHTML = items
     .map((item, index) => {
       return `
         <tr class="table-row-hover transition-colors">
@@ -172,7 +170,9 @@ function renderPaginationInfo(data: PaginatedResponse<SeminarItem>): void {
   if (!el) return;
 
   if (data.total === 0) {
-    el.textContent = "Tidak ada data.";
+    el.textContent = currentSearch
+      ? `Tidak ada hasil untuk "${currentSearch}"`
+      : "Tidak ada data";
     return;
   }
 
@@ -221,7 +221,7 @@ function renderPaginationButtons(data: PaginatedResponse<SeminarItem>): void {
   });
 }
 
-// ---------- Search (filter di data yang sedang tampil) ----------
+// ---------- Search (debounce ke backend) ----------
 function initSearch(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
   if (!searchInput) return;
@@ -229,9 +229,16 @@ function initSearch(): void {
   searchInput.dataset.bound = "true";
 
   searchInput.addEventListener("input", () => {
-    if (lastResponse) {
-      renderTable(lastResponse.data);
+    const value = searchInput.value.trim();
+
+    if (searchDebounceTimer) {
+      clearTimeout(searchDebounceTimer);
     }
+
+    searchDebounceTimer = setTimeout(() => {
+      currentSearch = value;
+      fetchSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
+    }, SEARCH_DEBOUNCE_MS);
   });
 }
 
