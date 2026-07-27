@@ -99,7 +99,16 @@ function formatTanggal(tanggal: string | null): string {
 
 function renderActionButtons(item: KolokiumItem): string {
   if (item.status === "approved") {
-    return `<span class="text-body-sm text-on-surface-variant">-</span>`;
+    return `
+      <button
+        type="button"
+        class="kolokium-delete-btn text-red-600 hover:text-red-800"
+        title="Hapus"
+        data-id="${item.id}"
+      >
+        <span class="material-symbols-outlined text-lg">delete</span>
+      </button>
+    `;
   }
 
   return `
