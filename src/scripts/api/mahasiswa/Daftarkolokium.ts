@@ -21,6 +21,11 @@
 // tambahkan `envPrefix: ["VITE_", "PUBLIC_"]` di astro.config.mjs.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
+const statusCard = document.getElementById("status-card");
+
+if (statusCard) {
+  statusCard.classList.remove("hidden");
+}
 
 // ------------------------------------------------------------------
 // Tipe data
@@ -203,7 +208,11 @@ async function loadProfil(): Promise<void> {
 async function loadMyKolokium(): Promise<void> {
   try {
     const json = await apiFetch<LaravelPaginator<Kolokium>>("/auth/kolokium/my");
-    currentKolokium = json && json.data.length > 0 ? json.data[0] : null;
+
+    currentKolokium =
+      json && json.data.length > 0
+        ? json.data[0]
+        : null;
   } catch (err) {
     console.error("Gagal memuat status kolokium:", err);
     currentKolokium = null;
@@ -215,16 +224,16 @@ async function loadMyKolokium(): Promise<void> {
 
 // Form hanya ditampilkan jika belum pernah daftar, atau pengajuan terakhir ditolak.
 function toggleForm(): void {
-  const form = document.getElementById("kolokium-form") as HTMLFormElement | null;
   const formWrapper = document.getElementById("form-wrapper");
-  if (!form || !formWrapper) return;
 
-  const isLocked = currentKolokium !== null && currentKolokium.status !== "rejected";
+  if (!formWrapper) return;
 
-  if (isLocked) {
-    formWrapper.classList.add("hidden");
-  } else {
+  // Jika belum pernah daftar atau ditolak, tampilkan form
+  if (!currentKolokium || currentKolokium.status === "rejected") {
     formWrapper.classList.remove("hidden");
+  } else {
+    // Pending atau approved, sembunyikan form
+    formWrapper.classList.add("hidden");
   }
 }
 
@@ -362,12 +371,23 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
 // ------------------------------------------------------------------
 // Jalankan saat halaman siap
 // ------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", async () => {
+  document.addEventListener("DOMContentLoaded", async () => {
   clearMessage();
 
   const form = document.getElementById("kolokium-form") as HTMLFormElement | null;
   form?.addEventListener("submit", handleSubmit);
 
+  // Ambil status pengajuan terlebih dahulu
+  await loadMyKolokium();
+
+  // Jika sudah memiliki pengajuan (pending atau approved),
+  // cukup tampilkan status dan hentikan proses.
+  if (currentKolokium && currentKolokium.status !== "rejected") {
+    return;
+  }
+
+  // Jika belum pernah mendaftar atau status ditolak,
+  // baru ambil data untuk mengisi form.
   await loadProfil();
-  await Promise.all([loadMyKolokium(), loadDosenDanMahasiswaOptions()]);
+  await loadDosenDanMahasiswaOptions();
 });

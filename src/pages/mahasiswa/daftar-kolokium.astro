@@ -6,33 +6,52 @@
 import Layout from "../../layouts/Layout.astro";
 ---
 
-<Layout userRole="mahasiswa" pageTitle="Daftar Kolokium - SISKOM DSVK" navTitle="Daftar Kolokium">
-  <!-- Pesan status (sukses/error) -->
-  <div id="kolokium-message" class="hidden mb-4 px-4 py-3 rounded-lg text-body-sm font-medium"></div>
+<Layout
+  userRole="mahasiswa"
+  pageTitle="Daftar Kolokium - SISKOM DSVK"
+  navTitle="Daftar Kolokium"
+>
+  <!-- Pesan status -->
+  <div
+    id="kolokium-message"
+    class="hidden mb-4 px-4 py-3 rounded-lg text-body-sm font-medium"
+  ></div>
 
   <!-- Status Card -->
-  <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-8 mb-6 shadow-sm">
-      <div class="grid grid-cols-3 items-center">
-        <h2 class="font-title-lg text-title-lg text-on-surface">
-          Status Kolokium
-        </h2>
+  <div
+    id="status-card"
+    class="hidden bg-surface-container-lowest border border-outline-variant rounded-xl p-8 mb-6 shadow-sm"
+  >
+    <div class="grid grid-cols-3 items-center">
+      <h2 class="font-title-lg text-title-lg text-on-surface">
+        Status Kolokium
+      </h2>
 
-        <div class="flex justify-center">
-          <span id="status-badge" class="bg-outline text-white px-4 py-1.5 rounded-full font-body-sm text-body-sm">
-            Belum Mendaftar
+      <div class="flex justify-center">
+        <span
+          id="status-badge"
+          class="bg-outline text-white px-4 py-1.5 rounded-full font-body-sm text-body-sm"
+        >
+          Belum Mendaftar
         </span>
-        </div>
-     </div>
+      </div>
+    </div>
   </div>
 
-
   <!-- Form Card -->
-  <div id="form-wrapper" class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+  <div
+    id="form-wrapper"
+    class="hidden bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden"
+  >
     <div class="p-8">
       <form id="kolokium-form" class="space-y-6">
+
         <!-- Nama -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Nama</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Nama
+          </label>
+
           <div class="md:col-span-2">
             <input
               id="nama-input"
@@ -45,7 +64,10 @@ import Layout from "../../layouts/Layout.astro";
 
         <!-- NIM -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">NIM</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            NIM
+          </label>
+
           <div class="md:col-span-2">
             <input
               id="nim-input"
@@ -58,7 +80,10 @@ import Layout from "../../layouts/Layout.astro";
 
         <!-- Program Studi -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Program Studi</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Program Studi
+          </label>
+
           <div class="md:col-span-2">
             <input
               id="prodi-input"
@@ -74,13 +99,16 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium mt-2">
             Dosen Pembimbing Utama
           </label>
+
           <div class="md:col-span-2">
             <select
               id="pembimbing-utama-select"
               required
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
-              <option value="">-- Pilih Dosen Pembimbing Utama --</option>
+              <option value="">
+                -- Pilih Dosen Pembimbing Utama --
+              </option>
             </select>
           </div>
         </div>
@@ -90,22 +118,29 @@ import Layout from "../../layouts/Layout.astro";
           <label class="font-body-sm text-body-sm text-on-surface font-medium mt-2">
             Dosen Pembimbing Kedua
           </label>
+
           <div class="md:col-span-2">
             <select
               id="pembimbing-kedua-select"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
-              <option value="">-- Pilih Dosen Pembimbing Kedua --</option>
+              <option value="">
+                -- Pilih Dosen Pembimbing Kedua --
+              </option>
             </select>
-            <p class="mt-1 text-xs text-error">* Silahkan isi dosen pembimbing ke-2 jika ada</p>
+
+            <p class="mt-1 text-xs text-error">
+              * Silahkan isi dosen pembimbing ke-2 jika ada
+            </p>
           </div>
         </div>
 
-        <!-- Rencana Tugas Akhir -->
+        <!-- Judul -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
           <label class="font-body-sm text-body-sm text-on-surface font-medium mt-2">
             Rencana Tugas Akhir
           </label>
+
           <div class="md:col-span-2">
             <textarea
               id="judul-textarea"
@@ -113,15 +148,19 @@ import Layout from "../../layouts/Layout.astro";
               rows="3"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             ></textarea>
+
             <p class="mt-1 text-xs text-error">
               * Pengisian judul harus kapital di setiap awal kata kecuali kata penghubung
             </p>
           </div>
         </div>
 
-        <!-- Lokasi Tugas Akhir -->
+        <!-- Lokasi -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Lokasi Tugas Akhir</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Lokasi Tugas Akhir
+          </label>
+
           <div class="md:col-span-2">
             <input
               id="lokasi-input"
@@ -131,10 +170,13 @@ import Layout from "../../layouts/Layout.astro";
           </div>
         </div>
 
-        <!-- Tanggal Kolokium -->
+        <!-- Tanggal -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Tanggal Kolokium</label>
-          <div class="md:col-span-2 relative">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Tanggal Kolokium
+          </label>
+
+          <div class="md:col-span-2">
             <input
               id="tanggal-input"
               type="date"
@@ -144,10 +186,13 @@ import Layout from "../../layouts/Layout.astro";
           </div>
         </div>
 
-        <!-- Waktu Kolokium -->
+        <!-- Waktu -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Waktu Kolokium</label>
-          <div class="md:col-span-2 relative">
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Waktu Kolokium
+          </label>
+
+          <div class="md:col-span-2">
             <input
               id="waktu-input"
               type="time"
@@ -159,33 +204,48 @@ import Layout from "../../layouts/Layout.astro";
 
         <!-- Mahasiswa Pembahas -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-b border-outline-variant pb-6">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Mahasiswa Pembahas</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Mahasiswa Pembahas
+          </label>
+
           <div class="md:col-span-2">
             <select
               id="pembahas-select"
               class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
             >
-              <option value="">-- Pilih Mahasiswa Pembahas --</option>
+              <option value="">
+                -- Pilih Mahasiswa Pembahas --
+              </option>
             </select>
           </div>
         </div>
 
-        <!-- Read Only Info -->
+        <!-- Informasi -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Dosen Moderator</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Dosen Moderator
+          </label>
+
           <div class="md:col-span-2">
-            <span class="text-on-surface-variant font-body-sm text-body-sm">(akan diisi oleh panitia)</span>
+            <span class="text-on-surface-variant text-body-sm">
+              (akan diisi oleh panitia)
+            </span>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          <label class="font-body-sm text-body-sm text-on-surface font-medium">Ruangan</label>
+          <label class="font-body-sm text-body-sm text-on-surface font-medium">
+            Ruangan
+          </label>
+
           <div class="md:col-span-2">
-            <span class="text-on-surface-variant font-body-sm text-body-sm">(akan diisi oleh panitia)</span>
+            <span class="text-on-surface-variant text-body-sm">
+              (akan diisi oleh panitia)
+            </span>
           </div>
         </div>
 
-        <!-- Submit Action -->
+        <!-- Submit -->
         <div class="pt-6">
           <button
             id="submit-btn"
@@ -196,9 +256,10 @@ import Layout from "../../layouts/Layout.astro";
             Kirim
           </button>
         </div>
+
       </form>
     </div>
   </div>
 </Layout>
 
-<script src="../../scripts/api/mahasiswa/DaftarKolokium.ts"></script>
+<script src="../../scripts/api/mahasiswa/Daftarkolokium.ts"></script>
