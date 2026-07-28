@@ -1,4 +1,4 @@
-// src/scripts/daftarKolokium.ts
+// src/scripts/api/mahasiswa/Daftarkolokium.ts
 // Logic untuk halaman "Daftar Kolokium" (role: mahasiswa):
 // 1) fetch profil login untuk isi field readonly (Nama/NIM/Prodi) -> GET /auth/profile
 // 2) fetch status kolokium terbaru milik mahasiswa login -> GET /auth/kolokium/my
@@ -7,10 +7,9 @@
 //    - kalau belum pernah daftar / status 'rejected', form ditampilkan untuk isi ulang
 // 3) submit form pendaftaran -> POST /auth/kolokium (KolokiumController@store)
 //
-// Dropdown "Dosen Pembimbing" & "Mahasiswa Pembahas" diisi dari dua endpoint khusus
-// (bukan UserController@index yang admin-only): GET /auth/dosen & GET /auth/mahasiswa.
-// Kedua endpoint ini hanya butuh login (role apa saja), lihat UserController@dosenList
-// dan UserController@mahasiswaList.
+// Dropdown "Dosen Pembimbing" diisi dari endpoint khusus
+// (bukan UserController@index yang admin-only): GET /auth/dosen.
+// Endpoint ini hanya butuh login (role apa saja), lihat UserController@dosenList.
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -50,12 +49,10 @@ interface Kolokium {
   prodi: string;
   namadosenpembimbing: string | null;
   moderator_id: number | null;
-  pembahas_id: number | null;
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-  namapembahas: string | null;
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
@@ -238,17 +235,13 @@ function toggleForm(): void {
 }
 
 // ------------------------------------------------------------------
-// Muat opsi dosen (pembimbing) & mahasiswa (pembahas)
+// Muat opsi dosen (pembimbing)
 // ------------------------------------------------------------------
-async function loadDosenDanMahasiswaOptions(): Promise<void> {
+async function initDosenOptions(): Promise<void> {
   const utamaSelect = document.getElementById("pembimbing-utama-select") as HTMLSelectElement | null;
   const keduaSelect = document.getElementById("pembimbing-kedua-select") as HTMLSelectElement | null;
-  const pembahasSelect = document.getElementById("pembahas-select") as HTMLSelectElement | null;
 
-  await Promise.all([
-    loadDosenOptions(utamaSelect, keduaSelect),
-    loadMahasiswaOptions(pembahasSelect),
-  ]);
+  await loadDosenOptions(utamaSelect, keduaSelect);
 }
 
 async function loadDosenOptions(
@@ -268,18 +261,6 @@ async function loadDosenOptions(
   }
 }
 
-async function loadMahasiswaOptions(pembahasSelect: HTMLSelectElement | null): Promise<void> {
-  try {
-    const json = await apiFetch<UserListResponse>("/auth/mahasiswa");
-    if (!json) return;
-
-    fillSelectOptions(pembahasSelect, json.users, "-- Pilih Mahasiswa Pembahas --");
-  } catch (err) {
-    console.error("Gagal memuat daftar mahasiswa:", err);
-    setSelectFallback(pembahasSelect, "Daftar mahasiswa tidak dapat dimuat");
-  }
-}
-
 function fillSelectOptions(
   select: HTMLSelectElement | null,
   items: UserListItem[],
@@ -290,7 +271,7 @@ function fillSelectOptions(
   items.forEach((item) => {
     const opt = document.createElement("option");
     opt.value = String(item.id);
-    opt.textContent = item.nim ? `${item.nama} (${item.nim})` : item.nama;
+    opt.textContent = item.nip ? `${item.nama} (${item.nip})` : item.nama;
     select.appendChild(opt);
   });
 }
@@ -310,7 +291,6 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
 
   const utamaSelect = document.getElementById("pembimbing-utama-select") as HTMLSelectElement | null;
   const keduaSelect = document.getElementById("pembimbing-kedua-select") as HTMLSelectElement | null;
-  const pembahasSelect = document.getElementById("pembahas-select") as HTMLSelectElement | null;
   const judulInput = document.getElementById("judul-textarea") as HTMLTextAreaElement | null;
   const lokasiInput = document.getElementById("lokasi-input") as HTMLInputElement | null;
   const tanggalInput = document.getElementById("tanggal-input") as HTMLInputElement | null;
@@ -340,10 +320,6 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     waktu: waktuInput?.value || null,
   };
 
-  if (pembahasSelect?.value) {
-    payload.pembahas_id = Number(pembahasSelect.value);
-  }
-
   if (submitBtn) {
     submitBtn.disabled = true;
     submitBtn.textContent = "Mengirim...";
@@ -371,7 +347,7 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
 // ------------------------------------------------------------------
 // Jalankan saat halaman siap
 // ------------------------------------------------------------------
-  document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", async () => {
   clearMessage();
 
   const form = document.getElementById("kolokium-form") as HTMLFormElement | null;
@@ -389,5 +365,5 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   // Jika belum pernah mendaftar atau status ditolak,
   // baru ambil data untuk mengisi form.
   await loadProfil();
-  await loadDosenDanMahasiswaOptions();
+  await initDosenOptions();
 });

@@ -4,12 +4,11 @@
 // 2) fetch status pengajuan seminar milik mahasiswa (GET /auth/seminar/my) -> isi Status Card
 //    & kunci form kalau mahasiswa sudah pernah mendaftar
 // 3) fetch daftar dosen (GET /auth/dosen) -> isi <select> Pembimbing Utama & Kedua
-// 4) fetch daftar mahasiswa (GET /auth/mahasiswa) -> isi <select> Mahasiswa Pembahas
-// 5) submit form -> POST /auth/seminar
+// 4) submit form -> POST /auth/seminar
 //
 // PENTING: semua endpoint di routes/api.php ada di dalam Route::prefix('auth'),
-// jadi WAJIB pakai prefix /auth di setiap path (mis. /auth/seminar, /auth/dosen,
-// /auth/mahasiswa), bukan cuma /auth/profile & /auth/change-password.
+// jadi WAJIB pakai prefix /auth di setiap path (mis. /auth/seminar, /auth/dosen),
+// bukan cuma /auth/profile & /auth/change-password.
 //
 // CATATAN: SeminarController@store hanya mengizinkan role "mahasiswa" (403 kalau
 // bukan), dan field "moderator_id" / "ruangan" sengaja TIDAK dikirim dari form ini
@@ -45,12 +44,10 @@ interface Seminar {
   prodi: string;
   namadosenpembimbing: string | null;
   moderator_id: number | null;
-  pembahas_id: number | null;
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-  namapembahas: string | null;
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
@@ -67,8 +64,8 @@ interface LaravelPaginator<T> {
   total: number;
 }
 
-// Dipakai untuk isi <select> pembimbing (dosen) & pembahas (mahasiswa).
-// Nama key list di response (dosen/mahasiswa/users/data) belum pasti,
+// Dipakai untuk isi <select> pembimbing (dosen).
+// Nama key list di response (dosen/users/data) belum pasti,
 // makanya di-extract pakai extractList() di bawah biar toleran.
 interface UserOption {
   id: number;
@@ -81,7 +78,6 @@ interface UserOption {
 type UserOptionListResponse =
   | UserOption[]
   | { dosen: UserOption[] }
-  | { mahasiswa: UserOption[] }
   | { users: UserOption[] }
   | { data: UserOption[] };
 
@@ -101,7 +97,6 @@ interface ApiErrorResponse {
 let currentUser: UserProfil | null = null;
 let existingSeminar: Seminar | null = null;
 let dosenOptions: UserOption[] = [];
-let mahasiswaOptions: UserOption[] = [];
 
 // ------------------------------------------------------------------
 // Helper fetch
@@ -140,11 +135,10 @@ function extractUser(json: ProfilResponse): UserProfil {
   return json;
 }
 
-// Toleran terhadap beberapa kemungkinan bentuk response list dosen/mahasiswa.
+// Toleran terhadap beberapa kemungkinan bentuk response list dosen.
 function extractList(json: UserOptionListResponse): UserOption[] {
   if (Array.isArray(json)) return json;
   if ("dosen" in json) return json.dosen;
-  if ("mahasiswa" in json) return json.mahasiswa;
   if ("users" in json) return json.users;
   if ("data" in json) return json.data;
   return [];
@@ -273,24 +267,6 @@ async function loadDosenOptions(): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Muat daftar mahasiswa -> isi select Mahasiswa Pembahas (exclude diri sendiri)
-// ------------------------------------------------------------------
-async function loadMahasiswaOptions(): Promise<void> {
-  const json = await apiFetch<UserOptionListResponse>("/auth/mahasiswa");
-  mahasiswaOptions = json ? extractList(json) : [];
-
-  const pembahasSelect = document.getElementById("select-pembahas") as HTMLSelectElement | null;
-  if (!pembahasSelect) return;
-
-  const optionsHtml = mahasiswaOptions
-    .filter((m) => m.id !== currentUser?.id)
-    .map((m) => `<option value="${m.id}">${m.nama}${m.nim ? ` (${m.nim})` : ""}</option>`)
-    .join("");
-
-  pembahasSelect.innerHTML = `<option value="">-- Pilih Mahasiswa Pembahas --</option>${optionsHtml}`;
-}
-
-// ------------------------------------------------------------------
 // Submit form -> POST /auth/seminar
 // ------------------------------------------------------------------
 async function handleSubmit(e: SubmitEvent): Promise<void> {
@@ -303,7 +279,6 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   const lokasiInput = document.getElementById("input-lokasi") as HTMLInputElement | null;
   const tanggalInput = document.getElementById("input-tanggal") as HTMLInputElement | null;
   const waktuInput = document.getElementById("input-waktu") as HTMLInputElement | null;
-  const pembahasSelect = document.getElementById("select-pembahas") as HTMLSelectElement | null;
   const submitBtn = document.getElementById("btn-submit-seminar") as HTMLButtonElement | null;
 
   const pembimbingUtamaId = utamaSelect?.value ?? "";
@@ -333,10 +308,6 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     tanggal: tanggalInput?.value || null,
     waktu: waktuInput?.value || null,
   };
-
-  if (pembahasSelect?.value) {
-    payload.pembahas_id = Number(pembahasSelect.value);
-  }
 
   // moderator_id & ruangan sengaja tidak dikirim: diisi belakangan oleh panitia.
 
@@ -378,5 +349,6 @@ function initForm(): void {
 document.addEventListener("DOMContentLoaded", async () => {
   initForm();
   await loadProfil();
-  await Promise.all([loadMySeminarStatus(), loadDosenOptions(), loadMahasiswaOptions()]);
+  // Hanya meload status seminar dan opsi dosen
+  await Promise.all([loadMySeminarStatus(), loadDosenOptions()]);
 });
