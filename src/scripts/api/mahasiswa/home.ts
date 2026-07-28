@@ -1,7 +1,5 @@
-// src/scripts/beranda.ts
+// src/scripts/api/mahasiswa/home.ts
 // Logic fetch untuk halaman beranda mahasiswa.
-// baseUrl diambil dari data-base-url di elemen #beranda-page (lihat beranda.astro),
-// karena define:vars Astro tidak bisa dipakai di script eksternal (src="...").
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan field yang dikembalikan controller Laravel)
@@ -90,22 +88,21 @@ interface KartuSeminar {
   nimforum?: string;
 }
 
+// kartu_kolokiums / kartu_seminars dikembalikan sebagai hasil paginate(),
+// jadi bentuknya paginator ({ data, total, current_page, ... }), bukan array polos.
 interface KartuKolokiumListResponse {
   message: string;
-  kartu_kolokiums: KartuKolokium[];
+  kartu_kolokiums: LaravelPaginator<KartuKolokium>;
 }
 
 interface KartuSeminarListResponse {
   message: string;
-  kartu_seminars: KartuSeminar[];
+  kartu_seminars: LaravelPaginator<KartuSeminar>;
 }
 
 // ------------------------------------------------------------------
 // Konfigurasi
 // ------------------------------------------------------------------
-// PENTING: nama env HARUS berprefix PUBLIC_ (mis. PUBLIC_BASE_URL) supaya
-// terbaca di client-side. Astro hanya meng-expose env yang berprefix
-// PUBLIC_ ke kode yang berjalan di browser.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
 
@@ -184,7 +181,7 @@ async function loadProfil(): Promise<void> {
 // ------------------------------------------------------------------
 async function loadStatusPengajuan(): Promise<void> {
   try {
-    const json = await apiFetch<LaravelPaginator<Kolokium>>("/kolokium/my");
+    const json = await apiFetch<LaravelPaginator<Kolokium>>("/auth/kolokium/my");
     if (!json) return;
 
     const latest = json.data?.[0];
@@ -195,7 +192,7 @@ async function loadStatusPengajuan(): Promise<void> {
   }
 
   try {
-    const json = await apiFetch<LaravelPaginator<Seminar>>("/seminar/my");
+    const json = await apiFetch<LaravelPaginator<Seminar>>("/auth/seminar/my");
     if (!json) return;
 
     const latest = json.data?.[0];
@@ -211,10 +208,10 @@ async function loadStatusPengajuan(): Promise<void> {
 // ------------------------------------------------------------------
 async function loadKehadiran(): Promise<void> {
   try {
-    const json = await apiFetch<KartuKolokiumListResponse>("/kartu-kolokium/my");
+    const json = await apiFetch<KartuKolokiumListResponse>("/auth/kartu-kolokium/my");
     if (!json) return;
 
-    const jumlah = Array.isArray(json.kartu_kolokiums) ? json.kartu_kolokiums.length : 0;
+    const jumlah = json.kartu_kolokiums?.total ?? 0;
     setText("count-kolokium-dihadiri", jumlah);
   } catch (err) {
     console.error("Gagal memuat kehadiran kolokium:", err);
@@ -222,10 +219,10 @@ async function loadKehadiran(): Promise<void> {
   }
 
   try {
-    const json = await apiFetch<KartuSeminarListResponse>("/kartu-seminar/my");
+    const json = await apiFetch<KartuSeminarListResponse>("/auth/kartu-seminar/my");
     if (!json) return;
 
-    const jumlah = Array.isArray(json.kartu_seminars) ? json.kartu_seminars.length : 0;
+    const jumlah = json.kartu_seminars?.total ?? 0;
     setText("count-seminar-dihadiri", jumlah);
   } catch (err) {
     console.error("Gagal memuat kehadiran seminar:", err);
@@ -236,8 +233,11 @@ async function loadKehadiran(): Promise<void> {
 // ------------------------------------------------------------------
 // Jalankan semua saat halaman siap
 // ------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", () => {
+function initBerandaPage(): void {
   loadProfil();
   loadStatusPengajuan();
   loadKehadiran();
-});
+}
+
+initBerandaPage();
+document.addEventListener("astro:page-load", initBerandaPage);
