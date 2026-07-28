@@ -1,6 +1,15 @@
-// src/scripts/api/jadwal-seminar.ts
+// src/scripts/api/dosen/jadwal-seminar.ts
 // Fetch & render tabel "Jadwal Seminar" untuk dosen, dari /auth/seminar/my
 // (backend sudah filter: dosen ini sebagai PEMBIMBING atau MODERATOR).
+//
+// SEARCH: input #search-input dikirim ke backend lewat query param `search`
+// (di-debounce 400ms), backend nge-LIKE ke banyak kolom (nama, nim, judul, prodi, dll).
+// Kalau hasil kosong SAAT sedang search, tampilkan pesan khusus yang beda
+// dari pesan "belum ada data" biasa — sama seperti perilaku admin.
+//
+// PER PAGE: select #entries-select dikirim ke backend lewat query param
+// `per_page` (backend SeminarController::mySeminar sudah validasi
+// min:1|max:100, default 10 kalau tidak dikirim/invalid).
 
 interface SeminarItem {
   id: number;
@@ -35,6 +44,7 @@ interface PaginatedResponse<T> {
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
+const DEFAULT_PER_PAGE = 10;
 
 let currentPage = 1;
 let currentSearch = "";
@@ -43,6 +53,12 @@ let lastResponse: PaginatedResponse<SeminarItem> | null = null;
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
+}
+
+function getEntriesPerPage(): number {
+  const select = document.getElementById("entries-select") as HTMLSelectElement | null;
+  const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
+  return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
 }
 
 function escapeHtml(value: string): string {
@@ -78,7 +94,10 @@ async function fetchSeminar(page: number): Promise<void> {
     `;
   }
 
-  const params = new URLSearchParams({ page: String(page) });
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(getEntriesPerPage()),
+  });
   if (currentSearch) {
     params.set("search", currentSearch);
   }
@@ -131,7 +150,7 @@ function renderTable(items: SeminarItem[]): void {
 
   if (items.length === 0) {
     const message = currentSearch
-      ? `Tidak ditemukan hasil untuk pencarian "${currentSearch}".`
+      ? `Tidak ditemukan hasil untuk pencarian "${escapeHtml(currentSearch)}".`
       : "Tidak ada data seminar.";
     tbody.innerHTML = `
       <tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>
@@ -170,7 +189,7 @@ function renderPaginationInfo(data: PaginatedResponse<SeminarItem>): void {
   if (data.total === 0) {
     el.textContent = currentSearch
       ? `Tidak ada hasil untuk "${currentSearch}"`
-      : "Tidak ada data";
+      : "Tidak ada data.";
     return;
   }
 
@@ -188,6 +207,7 @@ function renderPaginationButtons(data: PaginatedResponse<SeminarItem>): void {
     "px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent";
   const activeBtnClass = "px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold";
 
+  // Tampilkan maksimal 4 nomor halaman di sekitar halaman aktif
   const pageNumbers: number[] = [];
   const startPage = Math.max(1, current_page - 1);
   const endPage = Math.min(last_page, startPage + 3);
@@ -240,8 +260,21 @@ function initSearch(): void {
   });
 }
 
+// ---------- Per page (dikirim ke backend) ----------
+function initPerPage(): void {
+  const select = document.getElementById("entries-select") as HTMLSelectElement | null;
+  if (!select) return;
+  if (select.dataset.bound === "true") return;
+  select.dataset.bound = "true";
+
+  select.addEventListener("change", () => {
+    fetchSeminar(1); // reset ke halaman 1 tiap kali per_page berubah
+  });
+}
+
 function initJadwalSeminarPage(): void {
   initSearch();
+  initPerPage();
   fetchSeminar(currentPage);
 }
 
