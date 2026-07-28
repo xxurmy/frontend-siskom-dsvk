@@ -16,8 +16,6 @@ interface KolokiumItem {
   namadosenpembimbing: string | null;
   moderator_id: number | null;
   namadosenmoderator: string | null;
-  pembahas_id: number | null;
-  namapembahas: string | null;
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
