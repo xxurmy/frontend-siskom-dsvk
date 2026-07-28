@@ -7,26 +7,18 @@
 //
 // PENTING: semua endpoint di routes/api.php ada di dalam Route::prefix('auth'),
 // jadi WAJIB pakai prefix /auth di setiap path.
-//
-// CATATAN PENTING soal relasi pembimbing:
-// KolokiumController@show hanya `return response()->json($kolokium)` TANPA
-// eager-load relasi `pembimbing`, jadi ID dosen pembimbing yang sedang tersimpan
-// TIDAK ikut kebawa di response (yang ada cuma string gabungan "namadosenpembimbing").
-// Makanya dropdown Pembimbing Utama/Kedua di bawah cuma bisa ke-preselect KALAU
-// backend kebetulan menyertakan field `pembimbing` (array of {id,...}) di response;
-// kalau tidak ada, dropdown dibiarkan kosong dan field pembimbing_id TIDAK dikirim
-// saat submit (supaya data pembimbing yang sudah ada di database tidak ketimpa
-// jadi kosong secara tidak sengaja). Kalau admin memang mau ganti pembimbing,
-// tinggal pilih Pembimbing Utama secara manual di dropdown.
+
+import TomSelect from "tom-select";
+import "tom-select/dist/css/tom-select.css";
 
 // ------------------------------------------------------------------
 // Konfigurasi
 // ------------------------------------------------------------------
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
-const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
+const TOKEN_KEY = "auth_token";
 
 // ------------------------------------------------------------------
-// Tipe data (disesuaikan dengan KolokiumController & UserController)
+// Tipe data
 // ------------------------------------------------------------------
 type StatusPengajuan = "pending" | "approved" | "rejected";
 
@@ -37,14 +29,11 @@ interface UserOption {
   nip?: string | null;
 }
 
-// dosenList() & mahasiswaList() di UserController sama-sama membalas
-// { message, users: [...] }
 interface UserOptionListResponse {
   message: string;
   users: UserOption[];
 }
 
-// Field opsional `pembimbing` didefensifkan -> lihat catatan di atas file.
 interface Kolokium {
   id: number;
   mahasiswa_id: number;
@@ -52,14 +41,14 @@ interface Kolokium {
   nim: string;
   prodi: string;
   namadosenpembimbing: string | null;
-  pembimbing?: { id: number; nama?: string }[];
+  pembimbing?: { id: number; nama?: string; pivot?: { urutan: number } }[];
   moderator_id: number | null;
-  pembahas_id: number | null;
+
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-  namapembahas: string | null;
+
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
@@ -82,7 +71,6 @@ interface ApiErrorResponse {
 let kolokiumId: number | null = null;
 let currentKolokium: Kolokium | null = null;
 let dosenOptions: UserOption[] = [];
-let mahasiswaOptions: UserOption[] = [];
 
 // ------------------------------------------------------------------
 // Helper fetch
@@ -116,6 +104,44 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
 }
 
 // ------------------------------------------------------------------
+// Konversi tanggal -> format "YYYY-MM-DD"
+// ------------------------------------------------------------------
+function toDateInputValue(value: string | null): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  if (!Number.isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return "";
+}
+
+// ------------------------------------------------------------------
+// Konversi waktu -> format "HH:mm"
+// ------------------------------------------------------------------
+function toTimeInputValue(value: string | null): string {
+  if (!value) return "";
+
+  const isoMatch = value.match(/^(\d{2}):(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}:${isoMatch[2]}`;
+
+  const ampmMatch = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampmMatch) {
+    let hours = parseInt(ampmMatch[1], 10);
+    const minutes = ampmMatch[2];
+    const period = ampmMatch[3].toUpperCase();
+    if (period === "AM" && hours === 12) hours = 0;
+    if (period === "PM" && hours !== 12) hours += 12;
+    return `${String(hours).padStart(2, "0")}:${minutes}`;
+  }
+
+  return "";
+}
+
+// ------------------------------------------------------------------
 // Pesan status
 // ------------------------------------------------------------------
 function showMessage(text: string, variant: "success" | "error"): void {
@@ -123,7 +149,11 @@ function showMessage(text: string, variant: "success" | "error"): void {
   if (!el) return;
   el.textContent = text;
   el.classList.remove("hidden", "bg-green-100", "text-green-800", "bg-red-100", "text-red-800");
-  el.classList.add(...(variant === "success" ? ["bg-green-100", "text-green-800"] : ["bg-red-100", "text-red-800"]));
+  el.classList.add(
+    ...(variant === "success" 
+      ? ["bg-green-100", "text-green-800"] 
+      : ["bg-red-100", "text-red-800"])
+  );
 }
 
 function clearMessage(): void {
@@ -167,7 +197,7 @@ function getKolokiumIdFromUrl(): number | null {
 }
 
 // ------------------------------------------------------------------
-// Kunci seluruh form (dipakai kalau ?id= tidak valid / data gagal dimuat)
+// Kunci seluruh form
 // ------------------------------------------------------------------
 function disableForm(): void {
   const form = document.getElementById("form-update-kolokium") as HTMLFormElement | null;
@@ -177,7 +207,16 @@ function disableForm(): void {
 }
 
 // ------------------------------------------------------------------
-// Muat detail kolokium -> isi semua field
+// Helper untuk mendapatkan nama dosen dari ID
+// ------------------------------------------------------------------
+function getDosenNameById(dosenId: number | null | undefined): string | null {
+  if (!dosenId) return null;
+  const dosen = dosenOptions.find((d) => d.id === dosenId);
+  return dosen ? dosen.nama : null;
+}
+
+// ------------------------------------------------------------------
+// Muat detail kolokium -> isi semua field form
 // ------------------------------------------------------------------
 async function loadKolokium(id: number): Promise<void> {
   const json = await apiFetch<Kolokium>(`/auth/kolokium/${id}`);
@@ -194,21 +233,16 @@ async function loadKolokium(id: number): Promise<void> {
   const waktuInput = document.getElementById("input-waktu") as HTMLInputElement | null;
   const ruanganInput = document.getElementById("input-ruangan") as HTMLInputElement | null;
   const statusSelect = document.getElementById("status_kolokium") as HTMLSelectElement | null;
-  const namadosenpembimbingNote = document.getElementById("current-pembimbing-note");
 
   if (namaInput) namaInput.value = json.nama ?? "";
   if (nimInput) nimInput.value = json.nim ?? "";
   if (prodiInput) prodiInput.value = json.prodi ?? "";
   if (judulInput) judulInput.value = json.judul ?? "";
   if (lokasiInput) lokasiInput.value = json.lokasi ?? "";
-  if (tanggalInput) tanggalInput.value = json.tanggal ?? "";
-  if (waktuInput) waktuInput.value = json.waktu ?? "";
   if (ruanganInput) ruanganInput.value = json.ruangan ?? "";
-  if (namadosenpembimbingNote) {
-    namadosenpembimbingNote.textContent = json.namadosenpembimbing
-      ? `Saat ini: ${json.namadosenpembimbing}`
-      : "";
-  }
+
+  if (tanggalInput) tanggalInput.value = toDateInputValue(json.tanggal);
+  if (waktuInput) waktuInput.value = toTimeInputValue(json.waktu);
 
   if (statusSelect) {
     statusSelect.value = json.status;
@@ -216,72 +250,182 @@ async function loadKolokium(id: number): Promise<void> {
   }
 }
 
-// Dipanggil sekali setelah loadKolokium() + loadDosenOptions() + loadMahasiswaOptions()
-// semuanya selesai (lihat Promise.all di DOMContentLoaded), supaya urutan selesainya
-// fetch tidak jadi masalah -> opsi <select> dijamin sudah terisi sebelum di-preselect.
+// ------------------------------------------------------------------
+// Preselect <select> setelah opsi-opsi sudah terisi
+// ------------------------------------------------------------------
 function applyPreselections(): void {
   if (!currentKolokium) return;
 
-  selectValueIfExists("select-moderator", currentKolokium.moderator_id);
-  selectValueIfExists("select-pembahas", currentKolokium.pembahas_id);
-
-  // Preselect pembimbing HANYA kalau backend menyertakan field `pembimbing`
-  // (lihat catatan besar di atas file).
+  // Preselect moderator
+  selectAndUpdatePlaceholder("select-moderator", currentKolokium.moderator_id, "-- Pilih Dosen Moderator --");
+  
+  // Preselect pembimbing jika data tersedia dari backend
   if (currentKolokium.pembimbing && currentKolokium.pembimbing.length > 0) {
-    selectValueIfExists("select-pembimbing-utama", currentKolokium.pembimbing[0]?.id ?? null);
-    selectValueIfExists("select-pembimbing-kedua", currentKolokium.pembimbing[1]?.id ?? null);
+    const sorted = [...currentKolokium.pembimbing].sort(
+      (a, b) => (a.pivot?.urutan ?? 1) - (b.pivot?.urutan ?? 2)
+    );
+    
+    const pembimbingUtamaId = sorted[0]?.id ?? null;
+    const pembimbingKeduaId = sorted[1]?.id ?? null;
+    
+    // Preselect dan update placeholder untuk pembimbing utama
+    selectAndUpdatePlaceholder(
+      "select-pembimbing-utama", 
+      pembimbingUtamaId, 
+      "-- Pilih Dosen Pembimbing Utama --"
+    );
+    
+    // Preselect dan update placeholder untuk pembimbing kedua
+    selectAndUpdatePlaceholder(
+      "select-pembimbing-kedua", 
+      pembimbingKeduaId, 
+      "-- Pilih Dosen Pembimbing Kedua --"
+    );
   }
 }
 
-function selectValueIfExists(selectId: string, value: number | null): void {
-  if (value === null || value === undefined) return;
+function selectAndUpdatePlaceholder(
+  selectId: string, 
+  value: number | null | undefined, 
+  defaultPlaceholder: string
+): void {
   const select = document.getElementById(selectId) as HTMLSelectElement | null;
   if (!select) return;
-  const hasOption = Array.from(select.options).some((opt) => opt.value === String(value));
-  if (hasOption) select.value = String(value);
+  
+  const tomSelectInstance = (select as any).tomselect;
+  if (!tomSelectInstance) return;
+  
+  // Jika ada value (dosen sudah dipilih)
+  if (value != null) {
+    // Set value
+    tomSelectInstance.setValue(String(value));
+    
+    // Cari nama dosen dari dosenOptions
+    const dosenName = getDosenNameById(value);
+    
+    if (dosenName) {
+      // Update placeholder text melalui DOM langsung
+      const placeholderEl = tomSelectInstance.control.querySelector('.ts-placeholder') as HTMLElement;
+      if (placeholderEl) {
+        placeholderEl.textContent = dosenName;
+      }
+      
+      // Update settings placeholder
+      tomSelectInstance.settings.placeholder = dosenName;
+      
+      // Update option placeholder di select asli
+      const placeholderOpt = select.querySelector('option[value=""]') as HTMLOptionElement | null;
+      if (placeholderOpt) {
+        placeholderOpt.textContent = dosenName;
+        placeholderOpt.disabled = true; // Disable karena sudah ada value
+      }
+    }
+  } else {
+    // Reset ke placeholder default
+    const placeholderEl = tomSelectInstance.control.querySelector('.ts-placeholder') as HTMLElement;
+    if (placeholderEl) {
+      placeholderEl.textContent = defaultPlaceholder;
+    }
+    
+    tomSelectInstance.settings.placeholder = defaultPlaceholder;
+    
+    const placeholderOpt = select.querySelector('option[value=""]') as HTMLOptionElement | null;
+    if (placeholderOpt) {
+      placeholderOpt.textContent = defaultPlaceholder;
+      placeholderOpt.disabled = false;
+    }
+  }
 }
 
 // ------------------------------------------------------------------
-// Muat daftar dosen -> isi select Pembimbing Utama/Kedua & Moderator
+// Muat daftar dosen -> isi select Pembimbing & Moderator
 // ------------------------------------------------------------------
 async function loadDosenOptions(): Promise<void> {
   const json = await apiFetch<UserOptionListResponse>("/auth/dosen");
   dosenOptions = json?.users ?? [];
 
   const optionsHtml = dosenOptions
-    .map((d) => `<option value="${d.id}">${d.nama}${d.nip ? ` (NIP: ${d.nip})` : ""}</option>`)
+    .map(
+      (d) =>
+        `<option value="${d.id}">${d.nama}${d.nip ? ` (NIP: ${d.nip})` : ""}</option>`
+    )
     .join("");
 
-  const utamaSelect = document.getElementById("select-pembimbing-utama") as HTMLSelectElement | null;
-  const keduaSelect = document.getElementById("select-pembimbing-kedua") as HTMLSelectElement | null;
-  const moderatorSelect = document.getElementById("select-moderator") as HTMLSelectElement | null;
+  // Konfigurasi untuk setiap select dosen dengan placeholder
+  const selectConfigs = [
+    { 
+      id: "select-pembimbing-utama", 
+      defaultPlaceholder: "-- Pilih Dosen Pembimbing Utama --",
+    },
+    { 
+      id: "select-pembimbing-kedua", 
+      defaultPlaceholder: "-- Pilih Dosen Pembimbing Kedua --",
+    },
+    { 
+      id: "select-moderator", 
+      defaultPlaceholder: "-- Pilih Dosen Moderator --",
+    },
+  ];
 
-  if (utamaSelect) {
-    utamaSelect.innerHTML = `<option value="">-- Pilih Dosen Pembimbing Utama --</option>${optionsHtml}`;
-  }
-  if (keduaSelect) {
-    keduaSelect.innerHTML = `<option value="">-- Pilih Dosen Pembimbing Kedua --</option>${optionsHtml}`;
-  }
-  if (moderatorSelect) {
-    moderatorSelect.innerHTML = `<option value="">-- Pilih Dosen Moderator --</option>${optionsHtml}`;
-  }
-}
+  selectConfigs.forEach((config) => {
+    const el = document.getElementById(config.id) as HTMLSelectElement | null;
+    if (!el) return;
 
-// ------------------------------------------------------------------
-// Muat daftar mahasiswa -> isi select Mahasiswa Pembahas
-// ------------------------------------------------------------------
-async function loadMahasiswaOptions(): Promise<void> {
-  const json = await apiFetch<UserOptionListResponse>("/auth/mahasiswa");
-  mahasiswaOptions = json?.users ?? [];
+    // Set innerHTML dengan placeholder default di awal
+    el.innerHTML = `<option value="">${config.defaultPlaceholder}</option>${optionsHtml}`;
 
-  const pembahasSelect = document.getElementById("select-pembahas") as HTMLSelectElement | null;
-  if (!pembahasSelect) return;
-
-  const optionsHtml = mahasiswaOptions
-    .map((m) => `<option value="${m.id}">${m.nama}${m.nim ? ` (${m.nim})` : ""}</option>`)
-    .join("");
-
-  pembahasSelect.innerHTML = `<option value="">-- Pilih Mahasiswa Pembahas --</option>${optionsHtml}`;
+    // Inisialisasi TomSelect dengan konfigurasi
+    new TomSelect(el, {
+      create: false,
+      searchField: ["text"],
+      maxOptions: 100,
+      sortField: [
+        {
+          field: "text",
+          direction: "asc",
+        },
+      ],
+      placeholder: config.defaultPlaceholder,
+      onItemAdd: function(this: any, value: string) {
+        // Disable placeholder option saat ada item yang dipilih
+        const placeholderOpt = el.querySelector('option[value=""]') as HTMLOptionElement | null;
+        if (placeholderOpt) {
+          placeholderOpt.disabled = true;
+        }
+        
+        // Update placeholder dengan nama dosen yang dipilih
+        const dosenId = parseInt(value);
+        const dosenName = getDosenNameById(dosenId);
+        if (dosenName) {
+          this.settings.placeholder = dosenName;
+          // Update DOM placeholder
+          const placeholderEl = this.control.querySelector('.ts-placeholder') as HTMLElement;
+          if (placeholderEl) {
+            placeholderEl.textContent = dosenName;
+          }
+          if (placeholderOpt) {
+            placeholderOpt.textContent = dosenName;
+          }
+        }
+      },
+      onItemRemove: function(this: any) {
+        // Enable kembali placeholder option jika tidak ada item yang dipilih
+        if (this.items.length === 0) {
+          const placeholderOpt = el.querySelector('option[value=""]') as HTMLOptionElement | null;
+          if (placeholderOpt) {
+            placeholderOpt.disabled = false;
+            placeholderOpt.textContent = config.defaultPlaceholder;
+          }
+          this.settings.placeholder = config.defaultPlaceholder;
+          // Update DOM placeholder
+          const placeholderEl = this.control.querySelector('.ts-placeholder') as HTMLElement;
+          if (placeholderEl) {
+            placeholderEl.textContent = config.defaultPlaceholder;
+          }
+        }
+      },
+    });
+  });
 }
 
 // ------------------------------------------------------------------
@@ -302,7 +446,6 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   const lokasiInput = document.getElementById("input-lokasi") as HTMLInputElement | null;
   const tanggalInput = document.getElementById("input-tanggal") as HTMLInputElement | null;
   const waktuInput = document.getElementById("input-waktu") as HTMLInputElement | null;
-  const pembahasSelect = document.getElementById("select-pembahas") as HTMLSelectElement | null;
   const moderatorSelect = document.getElementById("select-moderator") as HTMLSelectElement | null;
   const ruanganInput = document.getElementById("input-ruangan") as HTMLInputElement | null;
   const statusSelect = document.getElementById("status_kolokium") as HTMLSelectElement | null;
@@ -325,6 +468,12 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     return;
   }
 
+  // Validasi minimal pembimbing utama harus dipilih
+  if (!pembimbingUtamaNum) {
+    showMessage("Dosen Pembimbing Utama harus dipilih.", "error");
+    return;
+  }
+
   const payload: Record<string, unknown> = {
     judul: judulInput?.value.trim() || undefined,
     lokasi: lokasiInput?.value.trim() || null,
@@ -332,18 +481,13 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     waktu: waktuInput?.value || null,
     ruangan: ruanganInput?.value.trim() || null,
     moderator_id: moderatorId,
-    pembahas_id: pembahasSelect?.value ? Number(pembahasSelect.value) : null,
     status: statusSelect?.value ?? undefined,
   };
 
-  // pembimbing_id hanya dikirim kalau admin benar-benar memilih Pembimbing
-  // Utama, supaya data pembimbing yang sudah ada tidak ketimpa kosong
-  // (lihat catatan besar di atas file soal relasi yang tidak ke-load).
-  if (pembimbingUtamaNum) {
-    payload.pembimbing_id = pembimbingKeduaNum
-      ? [pembimbingUtamaNum, pembimbingKeduaNum]
-      : [pembimbingUtamaNum];
-  }
+  // Kirim pembimbing_id dengan array
+  payload.pembimbing_id = pembimbingKeduaNum
+    ? [pembimbingUtamaNum, pembimbingKeduaNum]
+    : [pembimbingUtamaNum];
 
   if (submitBtn) {
     submitBtn.disabled = true;
@@ -358,6 +502,8 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
 
     if (json) {
       currentKolokium = json.kolokium;
+      await loadKolokium(kolokiumId!);
+      applyPreselections();
       showMessage(json.message ?? "Kolokium berhasil diperbarui.", "success");
     }
   } catch (err) {
@@ -377,7 +523,7 @@ function initForm(): void {
 }
 
 // ------------------------------------------------------------------
-// Jalankan saat halaman siap
+// Main initialization
 // ------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
   initStatusSelect();
@@ -391,7 +537,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    await Promise.all([loadKolokium(kolokiumId), loadDosenOptions(), loadMahasiswaOptions()]);
+    // Load data kolokium dan daftar dosen secara paralel
+    await Promise.all([loadKolokium(kolokiumId), loadDosenOptions()]);
+    // Preselect dropdown setelah semua data tersedia
     applyPreselections();
   } catch (err) {
     console.error("Gagal memuat data kolokium:", err);

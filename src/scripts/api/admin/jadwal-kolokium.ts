@@ -25,12 +25,10 @@ interface KolokiumItem {
   prodi: string;
   namadosenpembimbing: string | null;
   moderator_id: number | null;
-  pembahas_id: number | null;
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-  namapembahas: string | null;
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: "pending" | "approved" | "rejected";
@@ -147,11 +145,10 @@ function renderRow(item: KolokiumItem, rowNumber: number): string {
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.nim ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.prodi ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenpembimbing ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm min-w-[200px]">${escapeHtml(item.judul ?? "-")}</td>
+      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.judul ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.lokasi ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namapembahas ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.ruangan ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm">
