@@ -11,7 +11,14 @@
 //    - Saat diklik & dikonfirmasi -> PATCH /auth/peserta-kolokium/{peserta_kolokium_id}/status
 //      dengan body { status: "batal" } (sesuai PesertaKolokiumController::updateStatus,
 //      yang juga sudah menolak permintaan jika sudah hari-H di sisi backend)
-// 5) Download (endpoint belum tersedia di controller -> stub)
+// 5) Download -> generate PDF "Kartu Kolokium" (jsPDF + jspdf-autotable),
+//    mengambil SEMUA data (bukan hanya 1 halaman) + biodata mahasiswa untuk header
+//    NOTE: PDF ini SENGAJA TANPA kop surat institusi (logo/kepala surat) dan
+//    TANPA footer form-control (No. Revisi / Hal / Tanggal Berlaku) — hanya
+//    judul "KARTU KOLOKIUM", biodata mahasiswa, dan tabel kolokium.
+
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -61,6 +68,31 @@ interface KartuKolokiumListResponse {
 interface ApiErrorResponse {
   message: string;
   errors?: Record<string, string[]>;
+}
+
+// Struktur data profil mahasiswa dari GET /auth/profile (UserController::profile).
+// Field di sini dibuat fleksibel (beberapa kemungkinan nama key) karena struktur
+// persis responsenya belum dikonfirmasi — sesuaikan lagi kalau field aslinya beda.
+interface ProfileUser {
+  name?: string;
+  nama?: string;
+  nim?: string;
+  prodi?: string;
+  foto_profil?: string | null;
+  foto?: string | null;
+  photo?: string | null;
+}
+
+interface ProfileResponse {
+  message: string;
+  user: ProfileUser;
+}
+
+interface BiodataMahasiswa {
+  nama: string;
+  nim: string;
+  prodi: string;
+  fotoPath: string | null; // path relatif, harus diakses lewat /auth/images/{path} (butuh token)
 }
 
 // ------------------------------------------------------------------
@@ -216,6 +248,53 @@ async function loadKartuKolokium(page = 1): Promise<void> {
 }
 
 // ------------------------------------------------------------------
+// Ambil SEMUA kartu kolokium (lintas halaman) — dipakai khusus untuk export PDF
+// ------------------------------------------------------------------
+async function fetchAllKartuKolokium(): Promise<KartuKolokium[]> {
+  const all: KartuKolokium[] = [];
+  let page = 1;
+  let lastPage = 1;
+
+  do {
+    const params = new URLSearchParams({ page: String(page) });
+    if (currentSearch) params.set("search", currentSearch);
+
+    const json = await apiFetch<KartuKolokiumListResponse>(
+      `/auth/kartu-kolokium/my?${params.toString()}`
+    );
+    if (!json) break;
+
+    all.push(...json.kartu_kolokiums.data);
+    lastPage = json.kartu_kolokiums.last_page;
+    page++;
+  } while (page <= lastPage);
+
+  return all;
+}
+
+// ------------------------------------------------------------------
+// Ambil biodata mahasiswa login (untuk header PDF: nama, NIM, prodi, foto)
+// Endpoint asli: GET /auth/profile (UserController::profile)
+// ------------------------------------------------------------------
+async function fetchBiodataMahasiswa(): Promise<BiodataMahasiswa | null> {
+  try {
+    const json = await apiFetch<ProfileResponse>("/auth/profile");
+    const user = json?.user;
+    if (!user) return null;
+
+    return {
+      nama: user.name ?? user.nama ?? "-",
+      nim: user.nim ?? "-",
+      prodi: user.prodi ?? "-",
+      fotoPath: user.foto_profil ?? user.foto ?? user.photo ?? null,
+    };
+  } catch (err) {
+    console.error("Gagal memuat profil mahasiswa:", err);
+    return null;
+  }
+}
+
+// ------------------------------------------------------------------
 // Render isi tabel
 // ------------------------------------------------------------------
 function renderBatalkanCell(kartu: KartuKolokium): string {
@@ -334,7 +413,7 @@ function renderPaginationButtons(data: PaginatedResponse<KartuKolokium>): void {
 }
 
 // ------------------------------------------------------------------
-// Aksi Batalkan & Download
+// Aksi Batalkan
 // ------------------------------------------------------------------
 function attachRowActionListeners(): void {
   document.querySelectorAll<HTMLButtonElement>(".btn-batalkan-kartu").forEach((btn) => {
@@ -378,15 +457,284 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
   }
 }
 
+// ------------------------------------------------------------------
+// Export PDF "Kartu Kolokium"
+// (TANPA kop surat institusi & TANPA footer form-control)
+// ------------------------------------------------------------------
+
+// Ambil gambar sebagai dataURL, dipakai supaya jsPDF (addImage) bisa
+// render gambar dari server. `withAuth = true` menambahkan header
+// Authorization, WAJIB untuk endpoint yang ada di grup auth:sanctum
+// seperti /auth/images/{path} (foto profil).
+async function loadImageAsDataUrl(url: string, withAuth = false): Promise<string | null> {
+  try {
+    const headers: HeadersInit = {};
+    if (withAuth) {
+      const token = localStorage.getItem(TOKEN_KEY);
+      headers.Authorization = `Bearer ${token ?? ""}`;
+    }
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      console.error(`Gagal memuat gambar (${res.status}):`, url);
+      return null;
+    }
+
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error("Gagal memuat gambar:", url, err);
+    return null;
+  }
+}
+
+// Bangun URL foto profil dari path relatif via GET /auth/images/{path}
+function buildFotoUrl(fotoPath: string): string {
+  // Kalau backend sudah mengembalikan URL absolut (http/https), pakai langsung.
+  if (/^https?:\/\//i.test(fotoPath)) return fotoPath;
+  // Path relatif -> arahkan ke route /auth/images/{path} (butuh token, lihat withAuth di loadImageAsDataUrl)
+  const cleanPath = fotoPath.replace(/^\/+/, "");
+  return `${API_BASE}/auth/images/${cleanPath}`;
+}
+
+function detectImageFormat(dataUrl: string): "PNG" | "JPEG" {
+  return dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg")
+    ? "JPEG"
+    : "PNG";
+}
+
+// Hitung ukuran gambar yang proporsional (mempertahankan aspect ratio asli)
+// supaya muat di dalam kotak maxW x maxH tanpa melar/gepeng.
+function computeContainSize(
+  doc: jsPDF,
+  dataUrl: string,
+  maxW: number,
+  maxH: number
+): { w: number; h: number } {
+  try {
+    const props = doc.getImageProperties(dataUrl);
+    const ratio = props.width / props.height;
+    let w = maxW;
+    let h = w / ratio;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
+    return { w, h };
+  } catch {
+    // fallback kalau gagal baca properti gambar
+    return { w: maxW, h: maxH };
+  }
+}
+
+async function generateKartuKolokiumPdf(): Promise<void> {
+  showMessage("Menyiapkan PDF...", "success");
+
+  try {
+    const [biodata, allKartu] = await Promise.all([
+      fetchBiodataMahasiswa(),
+      fetchAllKartuKolokium(),
+    ]);
+
+    if (allKartu.length === 0) {
+      showMessage("Tidak ada data kartu kolokium untuk diekspor.", "error");
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const leftX = 40;
+    const rightMarginX = pageWidth - 40;
+
+    // Tanpa kop surat institusi (logo/kepala surat) — konten langsung
+    // dimulai dari margin atas halaman.
+    const topY = 40;
+
+    // ---------- Siapkan foto profil (dimuat dulu, dipakai di tabel header kolom kanan) ----------
+    let fotoDataUrl: string | null = null;
+    if (biodata?.fotoPath) {
+      const fotoUrl = buildFotoUrl(biodata.fotoPath);
+      fotoDataUrl = await loadImageAsDataUrl(fotoUrl, true); // withAuth: route /auth/images perlu token
+      if (!fotoDataUrl) {
+        console.warn("Foto profil gagal dimuat untuk PDF, dilewati.");
+      }
+    }
+
+    const prodiText = biodata?.prodi
+      ? `PROGRAM STUDI ${biodata.prodi.toUpperCase()}`
+      : "PROGRAM STUDI TEKNOLOGI REKAYASA PERANGKAT LUNAK";
+
+    const now = new Date();
+    // Asumsi tahun akademik baru dimulai bulan Juli (indeks bulan 6).
+    // TODO: sesuaikan kalau aturan tahun akademik kampus berbeda.
+    const tahunAjaran =
+      now.getMonth() >= 6
+        ? `${now.getFullYear()}/${now.getFullYear() + 1}`
+        : `${now.getFullYear() - 1}/${now.getFullYear()}`;
+
+    // ---------- Tabel header, sesuai layout: ----------
+    // ┌───────────────┬──────────┐
+    // │     judul      │           │
+    // ├───────────────┤  foto     │  <- foto menyatu (rowSpan) sepanjang 2 baris
+    // │  data biodata  │           │
+    // └───────────────┴──────────┘
+    // Kolom kiri (judul di atas, data biodata di bawah) dipisah garis horizontal.
+    // Kolom kanan (foto) membentang penuh dari atas sampai bawah tanpa garis pemisah.
+    const headerColRightW = 130; // lebar kolom foto
+    const headerColLeftW = rightMarginX - leftX - headerColRightW;
+    const judulRowH = 64;
+    const biodataRowH = 96;
+
+    autoTable(doc, {
+      startY: topY,
+      margin: { left: leftX, right: pageWidth - rightMarginX },
+      theme: "grid",
+      styles: {
+        font: "times",
+        fontSize: 10,
+        cellPadding: 6,
+        valign: "middle",
+        lineColor: [255, 255, 255],
+        lineWidth: 0.75,
+      },
+      columnStyles: {
+        0: { cellWidth: headerColLeftW },
+        1: { cellWidth: headerColRightW },
+      },
+      body: [
+        [
+          { content: "", styles: { minCellHeight: judulRowH } },
+          { content: "", rowSpan: 2, styles: { minCellHeight: judulRowH + biodataRowH } },
+        ],
+        [{ content: "", styles: { minCellHeight: biodataRowH } }],
+      ] as unknown as (string | Record<string, unknown>)[][],
+      didDrawCell: (data) => {
+        const { cell, row, column } = data;
+
+        if (column.index === 0 && row.index === 0) {
+          // Baris atas, kolom kiri: judul (rata tengah)
+          const centerX = cell.x + cell.width / 2;
+          doc.setFont("times", "bold");
+          doc.setFontSize(18);
+          doc.text("KARTU KOLOKIUM", centerX, cell.y + cell.height / 2 - 12, { align: "center" });
+          doc.setFontSize(11);
+          doc.text(prodiText, centerX, cell.y + cell.height / 2 + 4, {
+            align: "center",
+            maxWidth: cell.width - 12,
+          });
+          doc.text(`TAHUN AKADEMIK ${tahunAjaran}`, centerX, cell.y + cell.height / 2 + 18, {
+            align: "center",
+            maxWidth: cell.width - 12,
+          });
+        } else if (column.index === 0 && row.index === 1) {
+          // Baris bawah, kolom kiri: data biodata (Nama & NIM)
+          doc.setFont("times", "normal");
+          doc.setFontSize(11);
+          const textY = cell.y + cell.height / 2;
+          doc.text("Nama Mahasiswa", cell.x + 6, textY - 8);
+          doc.text("NIM", cell.x + 6, textY + 8);
+          doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, textY - 8);
+          doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, textY + 8);
+        } else if (column.index === 1 && row.index === 0 && fotoDataUrl) {
+          // Kolom kanan (span 2 baris): foto profil, proporsional, TANPA crop oval
+          const format = detectImageFormat(fotoDataUrl);
+          const pad = 6;
+          const maxW = cell.width - pad * 2;
+          const maxH = cell.height - pad * 2;
+          const { w, h } = computeContainSize(doc, fotoDataUrl, maxW, maxH);
+          const drawX = cell.x + (cell.width - w) / 2;
+          const drawY = cell.y + (cell.height - h) / 2;
+          doc.addImage(fotoDataUrl, format, drawX, drawY, w, h);
+        }
+      },
+    });
+
+    // ---------- Tentukan startY tabel data: tepat di bawah tabel header ----------
+    const tableStartY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
+
+    // ---------- Siapkan gambar tanda tangan/paraf per baris ----------
+    const signatureImages: Record<number, string> = {};
+    await Promise.all(
+      allKartu.map(async (kartu, idx) => {
+        if (!kartu.tandatangandosen) return;
+
+        if (kartu.tandatangandosen.startsWith("data:")) {
+          signatureImages[idx] = kartu.tandatangandosen;
+          return;
+        }
+
+        // Sama seperti foto profil: kemungkinan path relatif yang disajikan
+        // lewat route /auth/images/{path}, jadi butuh token juga.
+        const url = buildFotoUrl(kartu.tandatangandosen);
+        const dataUrl = await loadImageAsDataUrl(url, true);
+        if (dataUrl) signatureImages[idx] = dataUrl;
+      })
+    );
+
+    // ---------- Tabel ----------
+    const body = allKartu.map((kartu, idx) => [
+      String(idx + 1),
+      formatTanggal(kartu.tanggal),
+      formatWaktu(kartu.waktu),
+      kartu.namapemrasaran ?? "-",
+      kartu.nimpemrasaran ?? "-",
+      kartu.moderator ?? "-",
+      "", // kolom Paraf digambar manual via didDrawCell
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      // Tanpa kop surat, jadi halaman lanjutan cukup pakai margin atas standar.
+      margin: { top: 40, bottom: 40 },
+      head: [["No", "Hari/Tanggal", "Waktu", "Nama Pemrasaran", "NIM", "Moderator", "Paraf"]],
+      body,
+      styles: { font: "times", fontSize: 10, cellPadding: 6, valign: "middle" },
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" },
+      theme: "grid",
+      columnStyles: {
+        0: { cellWidth: 30, halign: "center" },
+        6: { cellWidth: 70 },
+      },
+      didDrawCell: (data) => {
+        if (data.section === "body" && data.column.index === 6) {
+          const dataUrl = signatureImages[data.row.index];
+          if (dataUrl) {
+            const format = detectImageFormat(dataUrl);
+            const pad = 4;
+            const maxW = data.cell.width - pad * 2;
+            const maxH = data.cell.height - pad * 2;
+            const { w, h } = computeContainSize(doc, dataUrl, maxW, maxH);
+            const drawX = data.cell.x + (data.cell.width - w) / 2;
+            const drawY = data.cell.y + (data.cell.height - h) / 2;
+            doc.addImage(dataUrl, format, drawX, drawY, w, h);
+          }
+        }
+      },
+    });
+
+    // ---------- Preview dulu di tab baru, TIDAK langsung download ----------
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank");
+
+    showMessage("PDF siap ditinjau — dibuka di tab baru.", "success");
+  } catch (err) {
+    console.error("Gagal membuat PDF kartu kolokium:", err);
+    showMessage("Gagal membuat PDF. Coba lagi.", "error");
+  }
+}
+
 function handleDownload(): void {
-  // TODO: controller yang diberikan belum punya endpoint untuk download kartu
-  // kolokium (mis. PDF). Tambahkan endpoint di backend lalu panggil
-  // fetch/window.open di sini.
-  showMessage("Fitur download belum tersedia.", "error");
+  void generateKartuKolokiumPdf();
 }
 
 // ------------------------------------------------------------------
-// Search (server-side, debounce 400ms)
+// Search (server-side, debounce 400ms) & tombol download
 // ------------------------------------------------------------------
 function initSearchAndActions(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
