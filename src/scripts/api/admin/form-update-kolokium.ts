@@ -2,8 +2,7 @@
 // Logic untuk halaman "Update Kolokium" (form review/approve oleh admin):
 // 1) ambil ?id= dari URL -> GET /auth/kolokium/{id} -> isi semua field form
 // 2) fetch daftar dosen (GET /auth/dosen) -> isi <select> Pembimbing & Moderator
-// 3) fetch daftar mahasiswa (GET /auth/mahasiswa) -> isi <select> Mahasiswa Pembahas
-// 4) submit form -> PATCH /auth/kolokium/{id}
+// 3) submit form -> PATCH /auth/kolokium/{id}
 //
 // PENTING: semua endpoint di routes/api.php ada di dalam Route::prefix('auth'),
 // jadi WAJIB pakai prefix /auth di setiap path.

@@ -2,8 +2,7 @@
 // Logic untuk halaman "Update Seminar" (form review/approve oleh admin):
 // 1) ambil ?id= dari URL -> GET /auth/seminar/{id} -> isi semua field form
 // 2) fetch daftar dosen (GET /auth/dosen) -> isi <select> Pembimbing & Moderator
-// 3) fetch daftar mahasiswa (GET /auth/mahasiswa) -> isi <select> Mahasiswa Pembahas
-// 4) submit form -> PATCH /auth/seminar/{id}
+// 3) submit form -> PATCH /auth/seminar/{id}
 //
 // PENTING: semua endpoint di routes/api.php ada di dalam Route::prefix('auth'),
 // jadi WAJIB pakai prefix /auth di setiap path.
@@ -43,12 +42,10 @@ interface Seminar {
   namadosenpembimbing: string | null;
   pembimbing?: { id: number; nama?: string; pivot?: { urutan: number } }[];
   moderator_id: number | null;
-
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
