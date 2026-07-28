@@ -1,6 +1,5 @@
 // src/scripts/api/mahasiswa/jadwal-seminar.ts
-// Logic untuk halaman "Jadwal Seminar" (role: mahasiswa) — disamakan polanya
-// dengan jadwal-kolokium.ts:
+// Logic untuk halaman "Jadwal Seminar" (role: mahasiswa)
 // 1) fetch daftar seminar yang approved (GET /auth/seminar?status=approved)
 // 2) fetch status kehadiran mahasiswa login, SISI PESERTA:
 //    seminar yang saya ikuti + status kehadiran saya
@@ -12,11 +11,17 @@
 //    - Record ada tapi status "batal" -> tombol "Hadir Ulang"
 //      (PATCH /peserta-seminar/{id}/status, status diubah jadi "hadir")
 //    - Record ada dan status "hadir" -> TIDAK ADA tombol apapun, cuma badge "Hadir"
-// 5) search & "show entries" -> filter client-side dari data yang sudah ke-fetch
-//    (backend index() tidak punya parameter search / per_page dinamis)
+// 5) SEARCH: disamakan polanya dengan admin & dosen — dikirim ke backend lewat
+//    query param `search` (di-debounce), BUKAN cuma filter di data yang sedang
+//    tampil di halaman itu (keterbatasan versi sebelumnya).
+// 6) "show entries" TETAP client-side slicing (backend selalu paginate(10)
+//    per halaman, jadi opsi "25" nggak akan nampilin lebih dari 10 baris
+//    yang sudah ter-fetch — ini keterbatasan terpisah dari search, belum
+//    diminta untuk dibenerin).
 
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
+const SEARCH_DEBOUNCE_MS = 400;
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan SeminarController & PesertaSeminarController)
@@ -106,11 +111,12 @@ interface ApiErrorResponse {
 // ------------------------------------------------------------------
 let currentUser: UserProfil | null = null;
 let currentPage = 1;
+let currentSearch = "";
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 let lastPaginator: LaravelPaginator<Seminar> | null = null;
 let currentSeminars: Seminar[] = [];
 // map seminar_id -> status kehadiran saya (kalau pernah ada record)
 let myPesertaMap: Map<number, MyPesertaStatus> = new Map();
-let searchTerm = "";
 
 // ------------------------------------------------------------------
 // Helper fetch
@@ -217,7 +223,7 @@ async function loadMyPeserta(): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Muat daftar seminar (halaman tertentu)
+// Muat daftar seminar (halaman tertentu), ikut kirim `search` kalau ada
 // ------------------------------------------------------------------
 async function loadSeminar(page: number): Promise<void> {
   const tbody = document.getElementById("seminar-tbody");
@@ -225,10 +231,13 @@ async function loadSeminar(page: number): Promise<void> {
     tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
   }
 
+  const params = new URLSearchParams({ status: "approved", page: String(page) });
+  if (currentSearch) {
+    params.set("search", currentSearch);
+  }
+
   try {
-    const json = await apiFetch<LaravelPaginator<Seminar>>(
-      `/auth/seminar?status=approved&page=${page}`
-    );
+    const json = await apiFetch<LaravelPaginator<Seminar>>(`/auth/seminar?${params.toString()}`);
     if (!json) return;
 
     lastPaginator = json;
@@ -297,36 +306,28 @@ function renderKehadiranCell(seminar: Seminar): string {
 }
 
 // ------------------------------------------------------------------
-// Render isi tabel (dengan search client-side & slicing show-entries)
+// Render isi tabel (search sudah difilter di backend; di sini cuma
+// slicing "show entries" client-side dari 10 baris yang ter-fetch)
 // ------------------------------------------------------------------
-function getFilteredRows(): Seminar[] {
-  let rows = currentSeminars;
-
-  if (searchTerm.trim() !== "") {
-    const term = searchTerm.trim().toLowerCase();
-    rows = rows.filter((s) =>
-      [s.nama, s.nim, s.prodi, s.judul, s.namadosenpembimbing ?? "", s.namadosenmoderator ?? ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    );
-  }
-
+function getPageRows(): Seminar[] {
   const perPageSelect = document.getElementById("entries-per-page") as HTMLSelectElement | null;
   const perPage = perPageSelect ? parseInt(perPageSelect.value, 10) : 10;
   // Catatan: backend selalu mengembalikan maksimal 10 baris per halaman,
   // jadi opsi "25" tidak akan menampilkan lebih dari 10 baris yang sudah ter-fetch.
-  return rows.slice(0, perPage);
+  return currentSeminars.slice(0, perPage);
 }
 
 function renderTable(): void {
   const tbody = document.getElementById("seminar-tbody");
   if (!tbody) return;
 
-  const rows = getFilteredRows();
+  const rows = getPageRows();
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Tidak ada jadwal seminar ditemukan.</td></tr>`;
+    const message = currentSearch
+      ? `Tidak ditemukan hasil untuk pencarian "${currentSearch}".`
+      : "Tidak ada jadwal seminar ditemukan.";
+    tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>`;
     return;
   }
 
@@ -362,10 +363,11 @@ function renderPaginationInfo(): void {
   if (!el || !lastPaginator) return;
 
   const { from, to, total } = lastPaginator;
-  el.textContent =
-    total === 0
-      ? "Tidak ada data"
-      : `Showing ${from ?? 0} to ${to ?? 0} of ${total} entries`;
+  if (total === 0) {
+    el.textContent = currentSearch ? `Tidak ada hasil untuk "${currentSearch}"` : "Tidak ada data";
+    return;
+  }
+  el.textContent = `Showing ${from ?? 0} to ${to ?? 0} of ${total} entries`;
 }
 
 // ------------------------------------------------------------------
@@ -475,7 +477,8 @@ async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Search & entries-per-page (client-side, lihat catatan di renderTable)
+// Search (dikirim ke backend, sama seperti pola admin & dosen) &
+// entries-per-page (tetap client-side, lihat catatan di getPageRows)
 // ------------------------------------------------------------------
 function initSearchAndEntries(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
@@ -484,8 +487,16 @@ function initSearchAndEntries(): void {
   if (searchInput && searchInput.dataset.bound !== "true") {
     searchInput.dataset.bound = "true";
     searchInput.addEventListener("input", () => {
-      searchTerm = searchInput.value;
-      renderTable();
+      const value = searchInput.value.trim();
+
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
+
+      searchDebounceTimer = setTimeout(() => {
+        currentSearch = value;
+        loadSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
+      }, SEARCH_DEBOUNCE_MS);
     });
   }
 
