@@ -47,12 +47,10 @@ interface Seminar {
   prodi: string;
   namadosenpembimbing: string | null;
   moderator_id: number | null;
-  pembahas_id: number | null;
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-  namapembahas: string | null;
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
