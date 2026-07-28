@@ -7,17 +7,17 @@
 //   /seminar/my, yang backend-nya sudah dicek pembimbing via relasi many-to-many
 //   + moderator_id). Tidak difilter status, karena pembimbing tidak punya
 //   konsep "hadir" seperti kartu (cuma moderator yang tanda tangan kartu).
-// - "Belum ditandatangani" (kartu urgent) = statusparaf masih "pending",
-//   khusus dari kartu yang dimoderatori dosen ini (/kartu-kolokium/my &
-//   /kartu-seminar/my) — karena hanya moderator yang bisa tanda tangan kartu.
+// - "Belum ditandatangani" (kartu urgent) = statusparaf masih "pending" DAN
+//   tanggal kolokium/seminarnya SUDAH hari H atau lewat — karena backend
+//   (KartuKolokiumController::updateStatusParaf) menolak tanda tangan
+//   sebelum hari H (Carbon::today()->lt($tanggal)). Kartu pending yang
+//   tanggalnya masih di masa depan belum bisa ditindaklanjuti dosen sama
+//   sekali, jadi belum dihitung "urgent".
 //
-//   PENTING: endpoint kartu-kolokium/my & kartu-seminar/my sekarang di-
-//   paginate(10) di backend (fitur search & pagination), jadi field
-//   `kartu_kolokiums`/`kartu_seminars` BUKAN array lagi, tapi OBJEK paginator
-//   Laravel: { data: [...], total, current_page, ... }. Kita filter status
-//   langsung lewat query param `?statusparaf=pending` dan baca `total` dari
-//   meta paginator, supaya angkanya akurat walau kartu-nya lebih dari 10
-//   (kalau cuma baca .data.length, itu maksimal 10 — salah kalau ada lebih).
+//   Filter ini SEKARANG ditangani backend lewat query param
+//   `?statusparaf=pending&hari_h=1`, jadi kita cukup 1x request per jenis
+//   kartu dan baca `total` dari meta paginator langsung — nggak perlu lagi
+//   loop semua halaman di client seperti sebelumnya.
 //
 // - Jadwal hari ini = kolokium/seminar (pembimbing/moderator) yang tanggalnya hari ini
 
@@ -58,6 +58,7 @@ interface KartuPaginator {
   data: KartuItem[];
   total?: number;
   current_page?: number;
+  last_page?: number;
   [key: string]: unknown;
 }
 
@@ -144,6 +145,21 @@ function escapeHtml(value: string): string {
   return div.innerHTML;
 }
 
+function todayISO(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Sudah hari H atau lewat? (dosen baru bisa tanda tangan kalau ini true,
+// sesuai aturan backend: Carbon::today()->lt($tanggal) -> ditolak)
+function isHariHOrLater(tanggal: string | null): boolean {
+  if (!tanggal) return false;
+  return tanggal.slice(0, 10) <= todayISO();
+}
+
 // ---------- Profil ----------
 async function loadProfile(): Promise<void> {
   const data = await apiGet<ProfileResponse>("/auth/profile");
@@ -159,33 +175,48 @@ async function loadProfile(): Promise<void> {
   }
 }
 
+// ---------- Fetch semua halaman kartu (status pending), gabung jadi 1 array ----------
+// Dibutuhkan karena kita butuh filter tanggal tambahan di client, jadi nggak
+// bisa cuma andalkan `total` dari 1 halaman paginator seperti sebelumnya.
+async function fetchAllPendingKartu(
+  basePath: "/auth/kartu-kolokium/my" | "/auth/kartu-seminar/my",
+  dataKey: "kartu_kolokiums" | "kartu_seminars"
+): Promise<KartuItem[]> {
+  const allItems: KartuItem[] = [];
+  let page = 1;
+  let lastPage = 1;
+
+  do {
+    const data = await apiGet<Record<string, KartuPaginator | string | undefined>>(
+      `${basePath}?statusparaf=pending&page=${page}`
+    );
+    const paginator = data?.[dataKey] as KartuPaginator | undefined;
+    if (!paginator) break;
+
+    allItems.push(...(paginator.data ?? []));
+    lastPage = paginator.last_page ?? 1;
+    page += 1;
+  } while (page <= lastPage);
+
+  return allItems;
+}
+
 // ---------- Kartu Kolokium/Seminar: khusus untuk "belum ditandatangani" ----------
 // (hanya moderator yang bisa tanda tangan kartu, jadi tetap moderator-only)
-// Pakai filter `statusparaf=pending` di query + baca `total` dari meta
-// paginator, BUKAN `.data.length` — supaya akurat meski kartunya > 10.
+// "Urgent" = statusparaf pending DAN tanggal sudah hari H atau lewat.
 async function loadUrgentKolokium(): Promise<void> {
-  const data = await apiGet<KartuKolokiumResponse>("/auth/kartu-kolokium/my?statusparaf=pending");
-  const paginator = data?.kartu_kolokiums;
-  const belumTtd = paginator?.total ?? paginator?.data?.length ?? 0;
-  setText("urgent-kolokium-count", String(belumTtd));
+  const items = await fetchAllPendingKartu("/auth/kartu-kolokium/my", "kartu_kolokiums");
+  const urgentCount = items.filter((k) => isHariHOrLater(k.tanggal)).length;
+  setText("urgent-kolokium-count", String(urgentCount));
 }
 
 async function loadUrgentSeminar(): Promise<void> {
-  const data = await apiGet<KartuSeminarResponse>("/auth/kartu-seminar/my?statusparaf=pending");
-  const paginator = data?.kartu_seminars;
-  const belumTtd = paginator?.total ?? paginator?.data?.length ?? 0;
-  setText("urgent-seminar-count", String(belumTtd));
+  const items = await fetchAllPendingKartu("/auth/kartu-seminar/my", "kartu_seminars");
+  const urgentCount = items.filter((k) => isHariHOrLater(k.tanggal)).length;
+  setText("urgent-seminar-count", String(urgentCount));
 }
 
 // ---------- Jadwal Hari Ini ----------
-function todayISO(): string {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function renderJadwal(items: JadwalItem[]): void {
   const list = document.getElementById("jadwal-list");
   if (!list) return;
