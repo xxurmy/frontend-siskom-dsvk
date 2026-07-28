@@ -1,6 +1,6 @@
 // src/scripts/api/admin/jadwal-kolokium.ts
-// GET    /auth/kolokium?page=N&search=...  -> daftar semua kolokium (paginated, admin)
-// DELETE /auth/kolokium/{id}               -> hapus kolokium (hanya admin)
+// GET    /auth/kolokium?page=N&search=...&per_page=N  -> daftar semua kolokium (paginated, admin)
+// DELETE /auth/kolokium/{id}                          -> hapus kolokium (hanya admin)
 //
 // Aturan tombol aksi berdasarkan status:
 // - pending  -> tombol Edit & Hapus muncul
@@ -16,6 +16,10 @@
 // sekaligus (nama, nim, prodi, judul, dosen pembimbing/moderator, lokasi,
 // ruangan). Kalau hasil kosong SAAT sedang search, tampilkan pesan khusus
 // yang beda dari pesan "belum ada data" biasa.
+//
+// PER PAGE: select #jadwal-kolokium-per-page dikirim ke backend lewat query
+// param `per_page` (backend KolokiumController::index sudah validasi
+// min:1|max:100, default 10 kalau tidak dikirim/invalid).
 
 interface KolokiumItem {
   id: number;
@@ -55,6 +59,7 @@ const TBODY_ID = "jadwal-kolokium-tbody";
 const COLSPAN = 14;
 const EDIT_FORM_PATH = "/admin/form-update-kolokium";
 const SEARCH_DEBOUNCE_MS = 400;
+const DEFAULT_PER_PAGE = 10;
 
 const STATUS_LABEL: Record<KolokiumItem["status"], string> = {
   pending: "Belum diterima",
@@ -84,6 +89,12 @@ function redirectIfUnauthorized(status: number): boolean {
     return true;
   }
   return false;
+}
+
+function getEntriesPerPage(): number {
+  const select = document.getElementById("jadwal-kolokium-per-page") as HTMLSelectElement | null;
+  const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
+  return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
 }
 
 function escapeHtml(value: string): string {
@@ -235,7 +246,10 @@ async function loadJadwalKolokium(page = 1): Promise<void> {
 
   renderMessageRow("Memuat data...");
 
-  const params = new URLSearchParams({ page: String(page) });
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(getEntriesPerPage()),
+  });
   if (currentSearch) {
     params.set("search", currentSearch);
   }
@@ -350,11 +364,23 @@ function initSearch(): void {
   });
 }
 
+function initPerPage(): void {
+  const select = document.getElementById("jadwal-kolokium-per-page") as HTMLSelectElement | null;
+  if (!select) return;
+  if (select.dataset.bound === "true") return;
+  select.dataset.bound = "true";
+
+  select.addEventListener("change", () => {
+    loadJadwalKolokium(1); // reset ke halaman 1 tiap kali per_page berubah
+  });
+}
+
 function initJadwalKolokiumPage(): void {
   loadJadwalKolokium(1);
   initActionButtons();
   initPagination();
   initSearch();
+  initPerPage();
 }
 
 initJadwalKolokiumPage();

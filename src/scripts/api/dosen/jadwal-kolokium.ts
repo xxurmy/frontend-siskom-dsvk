@@ -1,4 +1,4 @@
-// src/scripts/api/jadwal-kolokium.ts
+// src/scripts/api/dosen/jadwal-kolokium.ts
 // Fetch & render tabel "Jadwal Kolokium" untuk dosen, dari /auth/kolokium/my
 // (backend sudah filter: dosen ini sebagai PEMBIMBING atau MODERATOR).
 //
@@ -6,6 +6,10 @@
 // (di-debounce 400ms), backend nge-LIKE ke banyak kolom (nama, nim, judul, prodi, dll).
 // Kalau hasil kosong SAAT sedang search, tampilkan pesan khusus yang beda
 // dari pesan "belum ada data" biasa — sama seperti perilaku admin.
+//
+// PER PAGE: select #entries-select dikirim ke backend lewat query param
+// `per_page` (backend KolokiumController::myKolokium sudah validasi
+// min:1|max:100, default 10 kalau tidak dikirim/invalid).
 
 interface KolokiumItem {
   id: number;
@@ -40,6 +44,7 @@ interface PaginatedResponse<T> {
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
+const DEFAULT_PER_PAGE = 10;
 
 let currentPage = 1;
 let currentSearch = "";
@@ -48,6 +53,12 @@ let lastResponse: PaginatedResponse<KolokiumItem> | null = null;
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
+}
+
+function getEntriesPerPage(): number {
+  const select = document.getElementById("entries-select") as HTMLSelectElement | null;
+  const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
+  return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
 }
 
 function escapeHtml(value: string): string {
@@ -83,7 +94,10 @@ async function fetchKolokium(page: number): Promise<void> {
     `;
   }
 
-  const params = new URLSearchParams({ page: String(page) });
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(getEntriesPerPage()),
+  });
   if (currentSearch) {
     params.set("search", currentSearch);
   }
@@ -246,8 +260,21 @@ function initSearch(): void {
   });
 }
 
+// ---------- Per page (dikirim ke backend) ----------
+function initPerPage(): void {
+  const select = document.getElementById("entries-select") as HTMLSelectElement | null;
+  if (!select) return;
+  if (select.dataset.bound === "true") return;
+  select.dataset.bound = "true";
+
+  select.addEventListener("change", () => {
+    fetchKolokium(1); // reset ke halaman 1 tiap kali per_page berubah
+  });
+}
+
 function initJadwalKolokiumPage(): void {
   initSearch();
+  initPerPage();
   fetchKolokium(currentPage);
 }
 

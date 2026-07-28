@@ -1,6 +1,6 @@
 // src/scripts/api/mahasiswa/jadwal-kolokium.ts
 // Logic untuk halaman "Jadwal Kolokium" (role: mahasiswa):
-// 1) fetch daftar kolokium yang approved (GET /kolokium?status=approved&search=...)
+// 1) fetch daftar kolokium yang approved (GET /auth/kolokium?status=approved&search=...&per_page=...)
 // 2) fetch status kehadiran mahasiswa login, SISI PESERTA:
 //    kolokium yang saya ikuti + status kehadiran saya
 //    (GET /auth/peserta-kolokium/my-kolokium)
@@ -13,15 +13,15 @@
 //    - Record ada dan status "hadir" -> TIDAK ADA tombol apapun, cuma badge "Hadir"
 // 5) SEARCH: disamakan polanya dengan admin & dosen — dikirim ke backend lewat
 //    query param `search` (di-debounce), BUKAN cuma filter di data yang sedang
-//    tampil di halaman itu (keterbatasan versi sebelumnya).
-// 6) "show entries" TETAP client-side slicing (backend selalu paginate(10)
-//    per halaman, jadi opsi "25" nggak akan nampilin lebih dari 10 baris
-//    yang sudah ter-fetch — ini keterbatasan terpisah dari search, belum
-//    diminta untuk dibenerin).
+//    tampil di halaman itu.
+// 6) "show entries" (select #entries-per-page) sekarang dikirim ke backend
+//    lewat query param `per_page` (backend KolokiumController::index sudah
+//    validasi min:1|max:100, default 10). Tidak lagi slicing client-side.
 
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
+const DEFAULT_PER_PAGE = 10;
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan KolokiumController & PesertaKolokiumController)
@@ -154,6 +154,12 @@ function extractUser(json: ProfilResponse): UserProfil {
   return json;
 }
 
+function getEntriesPerPage(): number {
+  const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
+  const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
+  return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
+}
+
 // ------------------------------------------------------------------
 // Pesan status
 // ------------------------------------------------------------------
@@ -221,7 +227,7 @@ async function loadMyPeserta(): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Muat daftar kolokium (halaman tertentu), ikut kirim `search` kalau ada
+// Muat daftar kolokium (halaman tertentu), ikut kirim `search` & `per_page`
 // ------------------------------------------------------------------
 async function loadKolokium(page: number): Promise<void> {
   const tbody = document.getElementById("kolokium-tbody");
@@ -229,7 +235,11 @@ async function loadKolokium(page: number): Promise<void> {
     tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
   }
 
-  const params = new URLSearchParams({ status: "approved", page: String(page) });
+  const params = new URLSearchParams({
+    status: "approved",
+    page: String(page),
+    per_page: String(getEntriesPerPage()),
+  });
   if (currentSearch) {
     params.set("search", currentSearch);
   }
@@ -304,24 +314,15 @@ function renderKehadiranCell(kolokium: Kolokium): string {
 }
 
 // ------------------------------------------------------------------
-// Render isi tabel (search sudah difilter di backend; di sini cuma
-// slicing "show entries" client-side dari 10 baris yang ter-fetch)
+// Render isi tabel — search & jumlah baris sekarang sepenuhnya
+// ditentukan backend (query param search & per_page), jadi di sini
+// tinggal render currentKolokiums apa adanya.
 // ------------------------------------------------------------------
-function getPageRows(): Kolokium[] {
-  const perPageSelect = document.getElementById("entries-per-page") as HTMLSelectElement | null;
-  const perPage = perPageSelect ? parseInt(perPageSelect.value, 10) : 10;
-  // Catatan: backend selalu mengembalikan maksimal 10 baris per halaman,
-  // jadi opsi "25" tidak akan menampilkan lebih dari 10 baris yang sudah ter-fetch.
-  return currentKolokiums.slice(0, perPage);
-}
-
 function renderTable(): void {
   const tbody = document.getElementById("kolokium-tbody");
   if (!tbody) return;
 
-  const rows = getPageRows();
-
-  if (rows.length === 0) {
+  if (currentKolokiums.length === 0) {
     const message = currentSearch
       ? `Tidak ditemukan hasil untuk pencarian "${currentSearch}".`
       : "Tidak ada jadwal kolokium ditemukan.";
@@ -329,11 +330,13 @@ function renderTable(): void {
     return;
   }
 
-  tbody.innerHTML = rows
+  const startNumber = lastPaginator?.from ?? 1;
+
+  tbody.innerHTML = currentKolokiums
     .map(
       (kolokium, index) => `
         <tr class="table-row-hover transition-colors">
-          <td class="px-4 py-4 text-body-sm">${(currentPage - 1) * (lastPaginator?.per_page ?? 10) + index + 1}</td>
+          <td class="px-4 py-4 text-body-sm">${startNumber + index}</td>
           <td class="px-4 py-4">${renderKehadiranCell(kolokium)}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(kolokium.tanggal)}</td>
           <td class="px-4 py-4 text-body-sm">${kolokium.waktu ?? "-"}</td>
@@ -475,8 +478,8 @@ async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Search (dikirim ke backend, sama seperti pola admin & dosen) &
-// entries-per-page (tetap client-side, lihat catatan di getPageRows)
+// Search & per_page — keduanya dikirim ke backend (sama seperti pola
+// admin & dosen), reset ke halaman 1 setiap kali berubah.
 // ------------------------------------------------------------------
 function initSearchAndEntries(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
@@ -501,7 +504,7 @@ function initSearchAndEntries(): void {
   if (entriesSelect && entriesSelect.dataset.bound !== "true") {
     entriesSelect.dataset.bound = "true";
     entriesSelect.addEventListener("change", () => {
-      renderTable();
+      loadKolokium(1); // reset ke halaman 1 tiap kali per_page berubah
     });
   }
 }
