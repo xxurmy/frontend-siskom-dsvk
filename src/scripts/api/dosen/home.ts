@@ -10,6 +10,15 @@
 // - "Belum ditandatangani" (kartu urgent) = statusparaf masih "pending",
 //   khusus dari kartu yang dimoderatori dosen ini (/kartu-kolokium/my &
 //   /kartu-seminar/my) — karena hanya moderator yang bisa tanda tangan kartu.
+//
+//   PENTING: endpoint kartu-kolokium/my & kartu-seminar/my sekarang di-
+//   paginate(10) di backend (fitur search & pagination), jadi field
+//   `kartu_kolokiums`/`kartu_seminars` BUKAN array lagi, tapi OBJEK paginator
+//   Laravel: { data: [...], total, current_page, ... }. Kita filter status
+//   langsung lewat query param `?statusparaf=pending` dan baca `total` dari
+//   meta paginator, supaya angkanya akurat walau kartu-nya lebih dari 10
+//   (kalau cuma baca .data.length, itu maksimal 10 — salah kalau ada lebih).
+//
 // - Jadwal hari ini = kolokium/seminar (pembimbing/moderator) yang tanggalnya hari ini
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -43,14 +52,23 @@ interface KartuItem {
   [key: string]: unknown;
 }
 
+// Bentuk paginator Laravel (paginate(10)) — dipakai buat kartu kolokium/seminar
+// sejak backend ditambah fitur search & pagination.
+interface KartuPaginator {
+  data: KartuItem[];
+  total?: number;
+  current_page?: number;
+  [key: string]: unknown;
+}
+
 interface KartuKolokiumResponse {
   message?: string;
-  kartu_kolokiums?: KartuItem[];
+  kartu_kolokiums?: KartuPaginator;
 }
 
 interface KartuSeminarResponse {
   message?: string;
-  kartu_seminars?: KartuItem[];
+  kartu_seminars?: KartuPaginator;
 }
 
 interface ForumItem {
@@ -143,17 +161,19 @@ async function loadProfile(): Promise<void> {
 
 // ---------- Kartu Kolokium/Seminar: khusus untuk "belum ditandatangani" ----------
 // (hanya moderator yang bisa tanda tangan kartu, jadi tetap moderator-only)
+// Pakai filter `statusparaf=pending` di query + baca `total` dari meta
+// paginator, BUKAN `.data.length` — supaya akurat meski kartunya > 10.
 async function loadUrgentKolokium(): Promise<void> {
-  const data = await apiGet<KartuKolokiumResponse>("/auth/kartu-kolokium/my");
-  const items = data?.kartu_kolokiums ?? [];
-  const belumTtd = items.filter((k) => k.statusparaf === "pending").length;
+  const data = await apiGet<KartuKolokiumResponse>("/auth/kartu-kolokium/my?statusparaf=pending");
+  const paginator = data?.kartu_kolokiums;
+  const belumTtd = paginator?.total ?? paginator?.data?.length ?? 0;
   setText("urgent-kolokium-count", String(belumTtd));
 }
 
 async function loadUrgentSeminar(): Promise<void> {
-  const data = await apiGet<KartuSeminarResponse>("/auth/kartu-seminar/my");
-  const items = data?.kartu_seminars ?? [];
-  const belumTtd = items.filter((k) => k.statusparaf === "pending").length;
+  const data = await apiGet<KartuSeminarResponse>("/auth/kartu-seminar/my?statusparaf=pending");
+  const paginator = data?.kartu_seminars;
+  const belumTtd = paginator?.total ?? paginator?.data?.length ?? 0;
   setText("urgent-seminar-count", String(belumTtd));
 }
 
