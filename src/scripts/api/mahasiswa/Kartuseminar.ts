@@ -1,8 +1,10 @@
 // src/scripts/api/mahasiswa/Kartuseminar.ts
 // Logic untuk halaman "Kartu Seminar" (role: mahasiswa):
-// 1) fetch daftar kartu seminar milik mahasiswa login (GET /auth/kartu-seminar/my)
-// 2) render tabel + pagination
-// 3) search & "show entries" -> filter + slice client-side
+// 1) fetch daftar kartu seminar milik mahasiswa login, paginated
+//    (GET /auth/kartu-seminar/my?page=N&search=...)
+// 2) render tabel + pagination (server-side, sinkron dengan
+//    KartuSeminarController::my yang sudah paginate(10) & dukung `search`)
+// 3) search -> dikirim ke backend via query param `search`, debounce 400ms
 // 4) tombol "Batalkan":
 //    - AKTIF jika masih H-1 atau lebih awal dari tanggal seminar
 //    - NONAKTIF (disabled) jika sudah hari-H atau lewat
@@ -14,12 +16,10 @@
 // ------------------------------------------------------------------
 // Konfigurasi
 // ------------------------------------------------------------------
-// PENTING: nama env HARUS berprefix PUBLIC_ (mis. PUBLIC_BASE_URL) supaya
-// terbaca di client-side. Astro hanya meng-expose env yang berprefix
-// PUBLIC_ ke kode yang berjalan di browser. Jika tetap memakai VITE_BASE_URL,
-// tambahkan `envPrefix: ["VITE_", "PUBLIC_"]` di astro.config.mjs.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
+const SEARCH_DEBOUNCE_MS = 400;
+const COLSPAN = 8;
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan KartuSeminarController)
@@ -43,9 +43,19 @@ interface KartuSeminar {
   statusparaf: StatusParaf | null;
 }
 
+interface PaginatedResponse<T> {
+  current_page: number;
+  data: T[];
+  from: number | null;
+  to: number | null;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
 interface KartuSeminarListResponse {
   message: string;
-  kartu_seminars: KartuSeminar[];
+  kartu_seminars: PaginatedResponse<KartuSeminar>;
 }
 
 interface ApiErrorResponse {
@@ -56,10 +66,9 @@ interface ApiErrorResponse {
 // ------------------------------------------------------------------
 // State halaman
 // ------------------------------------------------------------------
-let allData: KartuSeminar[] = [];
-let filteredData: KartuSeminar[] = [];
 let currentPage = 1;
-let searchTerm = "";
+let currentSearch = "";
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 // ------------------------------------------------------------------
 // Helper fetch
@@ -173,46 +182,42 @@ function isBatalDisabled(tanggal: string | null): boolean {
 }
 
 // ------------------------------------------------------------------
-// Muat daftar kartu seminar milik mahasiswa login
+// Muat daftar kartu seminar milik mahasiswa login (server-side paginated)
 // ------------------------------------------------------------------
-async function loadKartuSeminar(): Promise<void> {
+async function loadKartuSeminar(page = 1): Promise<void> {
   const tbody = document.getElementById("kartu-tbody");
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
+  }
+
+  const params = new URLSearchParams({ page: String(page) });
+  if (currentSearch) {
+    params.set("search", currentSearch);
   }
 
   try {
-    const json = await apiFetch<KartuSeminarListResponse>("/auth/kartu-seminar/my");
+    const json = await apiFetch<KartuSeminarListResponse>(
+      `/auth/kartu-seminar/my?${params.toString()}`
+    );
     if (!json) return;
 
-    allData = json.kartu_seminars ?? [];
-    filteredData = [...allData];
-    currentPage = 1;
-    renderTable();
-    renderPaginationInfo();
-    renderPaginationButtons();
+    const data = json.kartu_seminars;
+    currentPage = data.current_page;
+
+    renderTable(data);
+    renderPaginationInfo(data);
+    renderPaginationButtons(data);
   } catch (err) {
     console.error("Gagal memuat kartu seminar:", err);
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-6 text-center text-body-sm text-red-700">Gagal memuat data. Coba muat ulang halaman.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-red-700">Gagal memuat data. Coba muat ulang halaman.</td></tr>`;
     }
   }
 }
 
 // ------------------------------------------------------------------
-// Render isi tabel (dengan search & pagination client-side)
+// Render isi tabel
 // ------------------------------------------------------------------
-function getEntriesPerPage(): number {
-  const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
-  return select ? parseInt(select.value, 10) : 10;
-}
-
-function getPageRows(): KartuSeminar[] {
-  const perPage = getEntriesPerPage();
-  const start = (currentPage - 1) * perPage;
-  return filteredData.slice(start, start + perPage);
-}
-
 function renderBatalkanCell(kartu: KartuSeminar): string {
   const disabled = isBatalDisabled(kartu.tanggal);
 
@@ -238,18 +243,19 @@ function renderBatalkanCell(kartu: KartuSeminar): string {
   `;
 }
 
-function renderTable(): void {
+function renderTable(data: PaginatedResponse<KartuSeminar>): void {
   const tbody = document.getElementById("kartu-tbody");
   if (!tbody) return;
 
-  const rows = getPageRows();
-
-  if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Tidak ada data.</td></tr>`;
+  if (data.data.length === 0) {
+    const message = currentSearch
+      ? `Tidak ditemukan hasil untuk pencarian "${escapeHtml(currentSearch)}".`
+      : "Tidak ada data.";
+    tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = rows
+  tbody.innerHTML = data.data
     .map(
       (kartu) => `
         <tr class="table-row-hover transition-colors">
@@ -272,61 +278,56 @@ function renderTable(): void {
 // ------------------------------------------------------------------
 // Info "Showing X to Y of Z entries"
 // ------------------------------------------------------------------
-function renderPaginationInfo(): void {
+function renderPaginationInfo(data: PaginatedResponse<KartuSeminar>): void {
   const el = document.getElementById("entries-info");
   if (!el) return;
 
-  const perPage = getEntriesPerPage();
-  const total = filteredData.length;
-  const from = total === 0 ? 0 : (currentPage - 1) * perPage + 1;
-  const to = Math.min(currentPage * perPage, total);
+  if (data.total === 0) {
+    el.textContent = currentSearch ? `Tidak ada hasil untuk "${currentSearch}"` : "Tidak ada data.";
+    return;
+  }
 
-  el.textContent = total === 0 ? "Tidak ada data" : `Showing ${from} to ${to} of ${total} entries`;
+  el.textContent = `Showing ${data.from ?? 0} to ${data.to ?? 0} of ${data.total} entries`;
 }
 
 // ------------------------------------------------------------------
 // Tombol pagination (First, «, nomor halaman, », Last)
 // ------------------------------------------------------------------
-function renderPaginationButtons(): void {
+function renderPaginationButtons(data: PaginatedResponse<KartuSeminar>): void {
   const container = document.getElementById("pagination-buttons");
   if (!container) return;
 
-  const perPage = getEntriesPerPage();
-  const lastPage = Math.max(1, Math.ceil(filteredData.length / perPage));
-  if (currentPage > lastPage) currentPage = lastPage;
+  const { current_page, last_page } = data;
 
   const btnClass =
     "px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent";
   const activeClass = "px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold";
 
   const pageButtons: string[] = [];
-  const startPage = Math.max(1, currentPage - 1);
-  const endPage = Math.min(lastPage, currentPage + 1);
+  const startPage = Math.max(1, current_page - 1);
+  const endPage = Math.min(last_page, startPage + 3);
 
   for (let page = startPage; page <= endPage; page++) {
     pageButtons.push(
-      page === currentPage
+      page === current_page
         ? `<button type="button" class="${activeClass}" disabled>${page}</button>`
         : `<button type="button" class="${btnClass} page-btn" data-page="${page}">${page}</button>`
     );
   }
 
   container.innerHTML = `
-    <button type="button" class="${btnClass} page-btn" data-page="1" ${currentPage === 1 ? "disabled" : ""}>First</button>
-    <button type="button" class="${btnClass} page-btn" data-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>&laquo;</button>
+    <button type="button" class="${btnClass} page-btn" data-page="1" ${current_page === 1 ? "disabled" : ""}>First</button>
+    <button type="button" class="${btnClass} page-btn" data-page="${current_page - 1}" ${current_page === 1 ? "disabled" : ""}>&laquo;</button>
     ${pageButtons.join("")}
-    <button type="button" class="${btnClass} page-btn" data-page="${currentPage + 1}" ${currentPage === lastPage ? "disabled" : ""}>&raquo;</button>
-    <button type="button" class="${btnClass} page-btn" data-page="${lastPage}" ${currentPage === lastPage ? "disabled" : ""}>Last</button>
+    <button type="button" class="${btnClass} page-btn" data-page="${current_page + 1}" ${current_page === last_page ? "disabled" : ""}>&raquo;</button>
+    <button type="button" class="${btnClass} page-btn" data-page="${last_page}" ${current_page === last_page ? "disabled" : ""}>Last</button>
   `;
 
   container.querySelectorAll<HTMLButtonElement>(".page-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const page = parseInt(btn.dataset.page ?? "1", 10);
-      if (!Number.isNaN(page) && page >= 1 && page <= lastPage) {
-        currentPage = page;
-        renderTable();
-        renderPaginationInfo();
-        renderPaginationButtons();
+      if (!Number.isNaN(page) && page >= 1 && page <= last_page) {
+        loadKartuSeminar(page);
       }
     });
   });
@@ -365,7 +366,8 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
     });
 
     showMessage("Berhasil membatalkan kehadiran seminar.", "success");
-    await loadKartuSeminar();
+    // Refresh halaman yang sedang aktif biar mahasiswa tidak "terlempar" ke halaman 1
+    await loadKartuSeminar(currentPage);
   } catch (err) {
     console.error("Gagal membatalkan kartu seminar:", err);
     showMessage(
@@ -384,50 +386,42 @@ function handleDownload(): void {
 }
 
 // ------------------------------------------------------------------
-// Search & entries-per-page (client-side)
+// Search (server-side, debounce 400ms)
 // ------------------------------------------------------------------
-function applySearch(): void {
-  const term = searchTerm.trim().toLowerCase();
-  filteredData = !term
-    ? [...allData]
-    : allData.filter((kartu) =>
-        [kartu.namapemrasaran, kartu.nimpemrasaran, kartu.prodi, kartu.moderator]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(term)
-      );
-  currentPage = 1;
-  renderTable();
-  renderPaginationInfo();
-  renderPaginationButtons();
-}
-
-function initSearchAndEntries(): void {
+function initSearchAndActions(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
-  const entriesSelect = document.getElementById("entries-per-page") as HTMLSelectElement | null;
   const downloadBtn = document.getElementById("download-btn") as HTMLButtonElement | null;
 
-  searchInput?.addEventListener("input", () => {
-    searchTerm = searchInput.value;
-    applySearch();
-  });
+  if (searchInput && searchInput.dataset.bound !== "true") {
+    searchInput.dataset.bound = "true";
+    searchInput.addEventListener("input", () => {
+      const value = searchInput.value.trim();
 
-  entriesSelect?.addEventListener("change", () => {
-    currentPage = 1;
-    renderTable();
-    renderPaginationInfo();
-    renderPaginationButtons();
-  });
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
 
-  downloadBtn?.addEventListener("click", handleDownload);
+      searchDebounceTimer = setTimeout(() => {
+        currentSearch = value;
+        loadKartuSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
+      }, SEARCH_DEBOUNCE_MS);
+    });
+  }
+
+  if (downloadBtn && downloadBtn.dataset.bound !== "true") {
+    downloadBtn.dataset.bound = "true";
+    downloadBtn.addEventListener("click", handleDownload);
+  }
 }
 
 // ------------------------------------------------------------------
 // Jalankan saat halaman siap
 // ------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", async () => {
+function initKartuSeminarPage(): void {
   clearMessage();
-  initSearchAndEntries();
-  await loadKartuSeminar();
-});
+  initSearchAndActions();
+  loadKartuSeminar(1);
+}
+
+initKartuSeminarPage();
+document.addEventListener("astro:page-load", initKartuSeminarPage);
