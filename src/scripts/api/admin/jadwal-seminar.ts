@@ -1,6 +1,6 @@
 // src/scripts/api/admin/jadwal-seminar.ts
-// GET    /auth/seminar?page=N   -> daftar semua seminar (paginated, admin)
-// DELETE /auth/seminar/{id}     -> hapus seminar (hanya admin)
+// GET    /auth/seminar?page=N&search=...  -> daftar semua seminar (paginated, admin)
+// DELETE /auth/seminar/{id}               -> hapus seminar (hanya admin)
 //
 // Aturan tombol aksi berdasarkan status:
 // - pending  -> tombol Edit & Hapus muncul
@@ -8,6 +8,14 @@
 // - approved -> kedua tombol hilang (final, tidak bisa diubah/dihapus dari UI)
 //
 // Tombol Edit adalah link ke /admin/form-update-seminar?id={id}, membawa admin ke form update seminar dengan data seminar yang dipilih, sehingga admin bisa mengubah status seminar tersebut.
+// Tombol Hapus akan memanggil DELETE /auth/seminar/{id} untuk menghapus seminar tersebut, hanya bisa dilakukan oleh admin.
+// Tombol Edit & Hapus hanya muncul untuk seminar yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk seminar yang sudah disetujui (approved).
+//
+// SEARCH: input #jadwal-seminar-search dikirim ke backend lewat query param
+// `search` (di-debounce 400ms), backend sudah nge-LIKE ke banyak kolom
+// sekaligus (nama, nim, prodi, judul, dosen pembimbing/moderator, lokasi,
+// ruangan). Kalau hasil kosong SAAT sedang search, tampilkan pesan khusus
+// yang beda dari pesan "belum ada data" biasa.
 
 interface SeminarItem {
   id: number;
@@ -17,12 +25,10 @@ interface SeminarItem {
   prodi: string;
   namadosenpembimbing: string | null;
   moderator_id: number | null;
-  pembahas_id: number | null;
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-  namapembahas: string | null;
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: "pending" | "approved" | "rejected";
@@ -80,6 +86,12 @@ function redirectIfUnauthorized(status: number): boolean {
   return false;
 }
 
+function escapeHtml(value: string): string {
+  const div = document.createElement("div");
+  div.textContent = value;
+  return div.innerHTML;
+}
+
 function formatTanggal(tanggal: string | null): string {
   if (!tanggal) return "-";
   const date = new Date(tanggal);
@@ -90,12 +102,6 @@ function formatTanggal(tanggal: string | null): string {
     month: "long",
     year: "numeric",
   });
-}
-
-function escapeHtml(value: string): string {
-  const div = document.createElement("div");
-  div.textContent = value;
-  return div.innerHTML;
 }
 
 function renderActionButtons(item: SeminarItem): string {
@@ -139,11 +145,10 @@ function renderRow(item: SeminarItem, rowNumber: number): string {
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.nim ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.prodi ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenpembimbing ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm min-w-[200px]">${escapeHtml(item.judul ?? "-")}</td>
+      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.judul ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.lokasi ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namapembahas ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.ruangan ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm">
@@ -221,7 +226,7 @@ function renderTable(data: PaginatedResponse<SeminarItem>): void {
   tbody.innerHTML = data.data.map((item, idx) => renderRow(item, startNumber + idx)).join("");
 }
 
-async function loadJadwalSeminar(page = 1): Promise<void> {
+async function loadJadwalSeminars(page = 1): Promise<void> {
   const token = getToken();
   if (!token) {
     window.location.href = "/login";
@@ -284,7 +289,7 @@ async function deleteSeminar(id: number): Promise<void> {
       return;
     }
 
-    await loadJadwalSeminar(currentPage);
+    await loadJadwalSeminars(currentPage);
   } catch (err) {
     console.error("Gagal menghapus seminar:", err);
     alert("Terjadi kesalahan jaringan. Coba lagi.");
@@ -315,13 +320,13 @@ function initPagination(): void {
   const nextBtn = document.getElementById("jadwal-seminar-next-btn");
   const lastBtn = document.getElementById("jadwal-seminar-last-btn");
 
-  firstBtn?.addEventListener("click", () => loadJadwalSeminar(1));
-  prevBtn?.addEventListener("click", () => loadJadwalSeminar(Math.max(1, currentPage - 1)));
-  nextBtn?.addEventListener("click", () => loadJadwalSeminar(currentPage + 1));
+  firstBtn?.addEventListener("click", () => loadJadwalSeminars(1));
+  prevBtn?.addEventListener("click", () => loadJadwalSeminars(Math.max(1, currentPage - 1)));
+  nextBtn?.addEventListener("click", () => loadJadwalSeminars(currentPage + 1));
   lastBtn?.addEventListener("click", () => {
     const pageLabel = document.getElementById("jadwal-seminar-page-label");
     const lastPage = pageLabel?.textContent?.split("/")[1]?.trim();
-    if (lastPage) loadJadwalSeminar(Number(lastPage));
+    if (lastPage) loadJadwalSeminars(Number(lastPage));
   });
 }
 
@@ -340,17 +345,17 @@ function initSearch(): void {
 
     searchDebounceTimer = setTimeout(() => {
       currentSearch = value;
-      loadJadwalSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
+      loadJadwalSeminars(1); // reset ke halaman 1 tiap kali kata kunci berubah
     }, SEARCH_DEBOUNCE_MS);
   });
 }
 
-function initJadwalSeminarPage(): void {
-  loadJadwalSeminar(1);
+function initJadwalSeminarsPage(): void {
+  loadJadwalSeminars(1);
   initActionButtons();
   initPagination();
   initSearch();
 }
 
-initJadwalSeminarPage();
-document.addEventListener("astro:page-load", initJadwalSeminarPage);
+initJadwalSeminarsPage();
+document.addEventListener("astro:page-load", initJadwalSeminarsPage);
