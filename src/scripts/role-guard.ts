@@ -13,7 +13,7 @@ interface StoredUser {
 }
 
 const UNASSIGNED_PATH = "/denied";
-const LOGIN_PATH = "/login";
+const LOGIN_PATH = "/";
 
 function getStoredUser(): StoredUser | null {
   try {

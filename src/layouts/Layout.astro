@@ -46,7 +46,7 @@ const {
           var user = raw ? JSON.parse(raw) : null;
 
           if (!token || !user || !user.role) {
-            window.location.replace("/login");
+            window.location.replace("/");
             return;
           }
           if (user.role !== userRole) {
