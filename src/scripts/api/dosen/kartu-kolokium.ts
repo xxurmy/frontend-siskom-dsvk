@@ -2,12 +2,18 @@
 // GET   /auth/kartu-kolokium/my?page=N&search=...&per_page=N  -> daftar kartu kolokium yang dimoderatori dosen ini (paginated)
 // PATCH /auth/kartu-kolokium/{id}/status-paraf                -> ubah status jadi 'signed' atau 'absent'
 //
-// Aturan tombol aksi (sesuai status):
-// - pending -> tombol "Tandatangani" & "Tidak Hadir" sama-sama muncul
-// - absent  -> tombol "Tidak Hadir" hilang (sudah absent), "Tandatangani" tetap ada
-//              (dosen masih bisa mengubah dari absent -> signed)
-// - signed  -> kedua tombol hilang (status final, tidak bisa diubah lagi;
-//              backend juga sudah menolak perubahan lain saat statusparaf sudah signed)
+// Aturan tombol aksi (sesuai status & tanggal):
+// - Kolokium belum hari-H (tanggal > hari ini) -> tombol "Tandatangani" & "Tidak
+//   Hadir" SAMA-SAMA disabled, apapun statusparaf-nya, karena backend
+//   (KartuKolokiumController::updateStatusParaf) menolak permintaan sebelum
+//   hari-H lewat pengecekan Carbon::today()->lt(tanggal). Tombol di UI
+//   sengaja dibuat konsisten dengan validasi ini.
+// - Sudah hari-H atau setelahnya, mengikuti statusparaf:
+//   - pending -> tombol "Tandatangani" & "Tidak Hadir" sama-sama muncul (aktif)
+//   - absent  -> tombol "Tidak Hadir" hilang (sudah absent), "Tandatangani" tetap ada
+//                (dosen masih bisa mengubah dari absent -> signed)
+//   - signed  -> kedua tombol hilang (status final, tidak bisa diubah lagi;
+//                backend juga sudah menolak perubahan lain saat statusparaf sudah signed)
 //
 // SEARCH: input #kartu-kolokium-search dikirim ke backend lewat query param
 // `search` (di-debounce 400ms), backend nge-LIKE ke nama/nim pemrasaran,
@@ -105,6 +111,29 @@ function getEntriesPerPage(): number {
   return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
 }
 
+// ------------------------------------------------------------------
+// Aturan aktif/nonaktif tombol Tandatangani & Tidak Hadir
+// - Aktif  : hari ini >= tanggal kolokium (sudah hari-H atau setelahnya)
+// - Nonaktif: hari ini < tanggal kolokium (masih sebelum hari-H),
+//   atau tanggal tidak diketahui (untuk berjaga-jaga)
+// Catatan: aturan ini mencerminkan validasi yang sama di
+// KartuKolokiumController::updateStatusParaf (backend juga menolak jika
+// belum hari-H via Carbon::today()->lt(...)), jadi tombol di UI sudah
+// konsisten dengan backend.
+// ------------------------------------------------------------------
+function isBeforeHariH(tanggal: string | null): boolean {
+  if (!tanggal) return true;
+
+  const tanggalKolokium = new Date(tanggal);
+  if (Number.isNaN(tanggalKolokium.getTime())) return true;
+  tanggalKolokium.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return today.getTime() < tanggalKolokium.getTime();
+}
+
 function escapeHtml(value: string): string {
   const div = document.createElement("div");
   div.textContent = value;
@@ -133,24 +162,37 @@ function renderActionButtons(item: KartuKolokium): string {
     return `<span class="text-body-sm text-on-surface-variant">-</span>`;
   }
 
+  const belumHariH = isBeforeHariH(item.tanggal);
+  const disabledClass = "opacity-40 cursor-not-allowed";
+
+  const signTitle = belumHariH
+    ? "Belum bisa ditandatangani — tunggu sampai hari-H kolokium"
+    : "Tandatangani";
+
   let html = `
     <button
       type="button"
-      class="kartu-sign-btn text-secondary hover:bg-secondary/10 rounded-lg p-2 transition-colors"
-      title="Tandatangani"
+      class="kartu-sign-btn text-secondary hover:bg-secondary/10 rounded-lg p-2 transition-colors ${belumHariH ? disabledClass : ""}"
+      title="${signTitle}"
       data-id="${item.id}"
+      ${belumHariH ? "disabled" : ""}
     >
       <span class="material-symbols-outlined">draw</span>
     </button>
   `;
 
   if (item.statusparaf !== "absent") {
+    const absentTitle = belumHariH
+      ? "Belum bisa ditandai — tunggu sampai hari-H kolokium"
+      : "Tidak Hadir";
+
     html += `
       <button
         type="button"
-        class="kartu-absent-btn text-error hover:bg-error/10 rounded-lg p-2 transition-colors"
-        title="Tidak Hadir"
+        class="kartu-absent-btn text-error hover:bg-error/10 rounded-lg p-2 transition-colors ${belumHariH ? disabledClass : ""}"
+        title="${absentTitle}"
         data-id="${item.id}"
+        ${belumHariH ? "disabled" : ""}
       >
         <span class="material-symbols-outlined">person_off</span>
       </button>
@@ -358,6 +400,7 @@ function initActionButtons(): void {
 
     const signBtn = target.closest<HTMLElement>(".kartu-sign-btn");
     if (signBtn) {
+      if (signBtn.hasAttribute("disabled")) return;
       const id = Number(signBtn.dataset.id);
       if (!id) return;
       if (!confirm("Tandatangani kartu kolokium ini?")) return;
@@ -367,6 +410,7 @@ function initActionButtons(): void {
 
     const absentBtn = target.closest<HTMLElement>(".kartu-absent-btn");
     if (absentBtn) {
+      if (absentBtn.hasAttribute("disabled")) return;
       const id = Number(absentBtn.dataset.id);
       if (!id) return;
       if (!confirm("Tandai mahasiswa ini tidak hadir?")) return;
