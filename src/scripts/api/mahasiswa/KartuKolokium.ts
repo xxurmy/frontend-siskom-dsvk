@@ -584,8 +584,8 @@ async function generateKartuKolokiumPdf(): Promise<void> {
     }
 
     const prodiText = biodata?.prodi
-      ? `PROGRAM STUDI ${biodata.prodi.toUpperCase()}`
-      : "PROGRAM STUDI TEKNOLOGI REKAYASA PERANGKAT LUNAK";
+      ? `DEPARTEMEN ${biodata.prodi.toUpperCase()}`
+      : "DEPARTEMEN SILVIKULTUR";
 
     const now = new Date();
     // Asumsi tahun akademik baru dimulai bulan Juli (indeks bulan 6).
@@ -603,84 +603,89 @@ async function generateKartuKolokiumPdf(): Promise<void> {
     // └───────────────┴──────────┘
     // Kolom kiri (judul di atas, data biodata di bawah) dipisah garis horizontal.
     // Kolom kanan (foto) membentang penuh dari atas sampai bawah tanpa garis pemisah.
-const headerColRightW = 170; // kolom foto lebih lebar
+const headerColRightW = 170;
 const headerColLeftW = rightMarginX - leftX - headerColRightW;
 
 const judulRowH = 44;
-const biodataRowH = 80; // lebih tinggi
+const biodataRowH = 90;
+const totalRowH = judulRowH + biodataRowH; // tinggi cell tidak diubah
 
-    autoTable(doc, {
-      startY: topY,
-      margin: { left: leftX, right: pageWidth - rightMarginX },
-      theme: "grid",
-      styles: {
-      font: "times",
-      fontSize: 10,
-      fontStyle: "bold",       // teks tebal
-      textColor: [0, 0, 0],    // warna hitam
-      cellPadding: 20,
-      valign: "bottom",
-      lineColor: [0, 0, 0],
-      lineWidth: 1,
-      },
-      
-      columnStyles: {
-        0: { cellWidth: headerColLeftW },
-        1: { cellWidth: headerColRightW },
-        
-      },
-      body: [
-        [
-          { content: "", styles: { minCellHeight: judulRowH } },
-          { content: "", rowSpan: 2, styles: { minCellHeight: judulRowH + biodataRowH } },
-        ],
-        [{ content: "", styles: { minCellHeight: biodataRowH } }],
-      ] as unknown as (string | Record<string, unknown>)[][],
-      didDrawCell: (data) => {
-        const { cell, row, column } = data;
+autoTable(doc, {
+  startY: topY,
+  margin: { left: leftX, right: pageWidth - rightMarginX },
+  theme: "grid",
+  styles: {
+    font: "times",
+    fontSize: 10,
+    fontStyle: "bold",
+    textColor: [0, 0, 0],
+    cellPadding: 2,
+    valign: "bottom",
+    lineColor: [255, 255, 255],
+    lineWidth: 0,
+  },
+  columnStyles: {
+    0: { cellWidth: headerColLeftW },
+    1: { cellWidth: headerColRightW },
+  },
+  body: [
+    [
+      { content: "", styles: { minCellHeight: totalRowH } },
+      { content: "", styles: { minCellHeight: totalRowH } },
+    ],
+  ] as unknown as (string | Record<string, unknown>)[][],
 
-        if (column.index === 0 && row.index === 0) {
-          // Baris atas, kolom kiri: judul (rata tengah)
-          const centerX = cell.x + cell.width / 2;
-          doc.setFont("times", "bold");
-          doc.setFontSize(24);
-          doc.text("KARTU KOLOKIUM", centerX, cell.y + cell.height / 2 - 10, { align: "center" });
-          doc.setFontSize(12);
-          doc.text(prodiText, centerX, cell.y + cell.height / 2 + 4, {
-            align: "center",
-            maxWidth: cell.width - 12,
-          });
-          doc.text(`TAHUN AKADEMIK ${tahunAjaran}`, centerX, cell.y + cell.height / 2 + 18, {
-            align: "center",
-            maxWidth: cell.width - 12,
-          });
-        } else if (column.index === 0 && row.index === 1) {
-          // Baris bawah, kolom kiri: data biodata (Nama & NIM)
-          doc.setFont("times", "normal");
-          doc.setFontSize(12);
+  didDrawCell: (data) => {
+    const { cell, row, column } = data;
 
-          // Posisi mulai dari bawah sel
-          const bottomY = cell.y + cell.height - 6;
+    if (column.index === 0 && row.index === 0) {
+      const centerX = cell.x + cell.width / 2;
+      const biodataAreaBottom = cell.y + cell.height - 6;
 
-          doc.text("Nama Mahasiswa", cell.x + 6, bottomY - 12);
-          doc.text("NIM", cell.x + 6, bottomY);
+      // ---- Judul (digeser ke bawah, mepet ke biodata) ----
+      const judulBottomAnchor = biodataAreaBottom - (biodataRowH - 24);
 
-          doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, bottomY - 14);
-          doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, bottomY);
-          
-        } else if (column.index === 1 && row.index === 0 && fotoDataUrl) {
-          // Kolom kanan (span 2 baris): foto profil, proporsional, TANPA crop oval
-          const format = detectImageFormat(fotoDataUrl);
-          const pad = 6;
-          const maxW = cell.width - pad * 2;
-          const maxH = cell.height - pad * 2;
-          const { w, h } = computeContainSize(doc, fotoDataUrl, maxW, maxH);
-          const drawX = cell.x + (cell.width - w) / 2;
-          const drawY = cell.y + (cell.height - h) / 2;
-          doc.addImage(fotoDataUrl, format, drawX, drawY, w, h);
-        }
-      },
-    });
+      doc.setFont("times", "bold");
+      doc.setFontSize(24);
+      doc.text("KARTU KOLOKIUM", centerX, judulBottomAnchor - 24, { align: "center" });
+
+      doc.setFontSize(12);
+      doc.text("FAKULTAS KEHUTANAN DAN LINGKUNGAN", centerX, judulBottomAnchor - 10, {
+        align: "center",
+        maxWidth: cell.width - 12,
+      });
+
+      doc.text(prodiText, centerX, judulBottomAnchor + 2, {
+        align: "center",
+        maxWidth: cell.width - 12,
+      });
+
+      doc.text(`TAHUN AKADEMIK ${tahunAjaran}`, centerX, judulBottomAnchor + 14, {
+        align: "center",
+        maxWidth: cell.width - 12,
+      });
+
+      // ---- Biodata (tetap mepet ke bawah cell) ----
+      doc.setFont("times", "normal");
+      doc.setFontSize(12);
+
+      doc.text("Nama Mahasiswa", cell.x + 6, biodataAreaBottom - 12);
+      doc.text("NIM", cell.x + 6, biodataAreaBottom);
+
+      doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, biodataAreaBottom - 14);
+      doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, biodataAreaBottom);
+    } else if (column.index === 1 && row.index === 0 && fotoDataUrl) {
+      const format = detectImageFormat(fotoDataUrl);
+      const pad = 6;
+      const maxW = cell.width - pad * 2;
+      const maxH = cell.height - pad * 2;
+      const { w, h } = computeContainSize(doc, fotoDataUrl, maxW, maxH);
+      const drawX = cell.x + (cell.width - w) / 2;
+      const drawY = cell.y + (cell.height - h) / 2;
+      doc.addImage(fotoDataUrl, format, drawX, drawY, w, h);
+    }
+  },
+});
 
     // ---------- Tentukan startY tabel data: tepat di bawah tabel header ----------
     const tableStartY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
