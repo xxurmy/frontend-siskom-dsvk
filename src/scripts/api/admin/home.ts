@@ -64,9 +64,9 @@ async function apiGet<T>(path: string): Promise<T | null> {
     }
 
     if (res.status === 403) {
-      // Bukan admin -> lempar ke halaman unassigned (harusnya sudah ditangani
+      // Bukan admin -> lempar ke halaman denied (harusnya sudah ditangani
       // role guard di Layout.astro, ini cuma jaga-jaga tambahan).
-      window.location.href = "/unassigned";
+      window.location.href = "/denied";
       return null;
     }
 
