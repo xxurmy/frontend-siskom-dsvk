@@ -139,8 +139,8 @@ async function apiFetch<T>(path: string): Promise<T | null> {
   });
 
   if (res.status === 401) {
-    // token tidak valid / kedaluwarsa -> arahkan ke halaman denied
-    window.location.href = "/denied";
+    // token tidak valid / kedaluwarsa -> arahkan ke halaman login
+    window.location.href = "/";
     return null;
   }
 

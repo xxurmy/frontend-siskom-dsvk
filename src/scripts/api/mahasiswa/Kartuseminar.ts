@@ -124,7 +124,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
   });
 
   if (res.status === 401) {
-    window.location.href = "/denied";
+    window.location.href = "/";
     return null;
   }
 
