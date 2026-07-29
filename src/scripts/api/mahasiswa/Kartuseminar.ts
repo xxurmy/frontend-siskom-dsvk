@@ -18,6 +18,11 @@
 //    NOTE: PDF ini SENGAJA TANPA kop surat institusi (logo/kepala surat) dan
 //    TANPA footer form-control (No. Revisi / Hal / Tanggal Berlaku) — hanya
 //    judul "KARTU SEMINAR", biodata mahasiswa, dan tabel seminar.
+//
+// Struktur & styling PDF di file ini SUDAH DISAMAKAN persis dengan
+// KartuKolokium.ts (tabel header 1-baris gabungan, border tersembunyi,
+// judul mepet ke biodata) — cuma beda judul & endpoint/nama variabel yang
+// memang harus beda antara kolokium vs seminar.
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -200,6 +205,12 @@ function escapeHtml(value: string | null): string {
 
 // ------------------------------------------------------------------
 // Aturan aktif/nonaktif tombol Batalkan
+// - Aktif  : hari ini < tanggal seminar (masih H-1 atau lebih awal)
+// - Nonaktif: hari ini >= tanggal seminar (sudah hari-H atau lewat),
+//   atau tanggal tidak diketahui (untuk berjaga-jaga)
+// Catatan: aturan ini mencerminkan validasi yang sama di
+// PesertaSeminarController::updateStatus (backend juga menolak jika
+// sudah hari-H), jadi tombol di UI sudah konsisten dengan backend.
 // ------------------------------------------------------------------
 function isBatalDisabled(tanggal: string | null): boolean {
   if (!tanggal) return true;
@@ -253,6 +264,8 @@ async function loadKartuSeminar(page = 1): Promise<void> {
 
 // ------------------------------------------------------------------
 // Ambil SEMUA kartu seminar (lintas halaman) — dipakai khusus untuk export PDF.
+// Sengaja pakai per_page besar (MAX_PER_PAGE backend = 100) di sini supaya
+// jumlah request lebih sedikit, independen dari pilihan "Show entries" di UI.
 // ------------------------------------------------------------------
 async function fetchAllKartuSeminar(): Promise<KartuSeminar[]> {
   const all: KartuSeminar[] = [];
@@ -281,7 +294,8 @@ async function fetchAllKartuSeminar(): Promise<KartuSeminar[]> {
 }
 
 // ------------------------------------------------------------------
-// Ambil biodata mahasiswa login (untuk header PDF)
+// Ambil biodata mahasiswa login (untuk header PDF: nama, NIM, prodi, foto)
+// Endpoint asli: GET /auth/profile (UserController::profile)
 // ------------------------------------------------------------------
 async function fetchBiodataMahasiswa(): Promise<BiodataMahasiswa | null> {
   try {
@@ -429,6 +443,10 @@ function attachRowActionListeners(): void {
 }
 
 // Menjalankan PATCH /auth/peserta-seminar/{peserta_seminar_id}/status
+// dengan body { status: "batal" }. Tombol ini hanya bisa diklik selama
+// belum hari-H (lihat isBatalDisabled & renderBatalkanCell) — dan sebagai
+// lapis kedua, backend (PesertaSeminarController::updateStatus) juga
+// akan menolak permintaan jika ternyata sudah hari-H.
 async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
   const pesertaId = btn.dataset.pesertaId;
   if (!pesertaId) return;
@@ -448,7 +466,7 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
     });
 
     showMessage("Berhasil membatalkan kehadiran seminar.", "success");
-    // Refresh halaman yang sedang aktif
+    // Refresh halaman yang sedang aktif biar mahasiswa tidak "terlempar" ke halaman 1
     await loadKartuSeminar(currentPage);
   } catch (err) {
     console.error("Gagal membatalkan kartu seminar:", err);
@@ -462,7 +480,14 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
 
 // ------------------------------------------------------------------
 // Export PDF "Kartu Seminar"
+// (TANPA kop surat institusi & TANPA footer form-control)
+// Struktur SAMA PERSIS dengan generateKartuKolokiumPdf() di KartuKolokium.ts
 // ------------------------------------------------------------------
+
+// Ambil gambar sebagai dataURL, dipakai supaya jsPDF (addImage) bisa
+// render gambar dari server. `withAuth = true` menambahkan header
+// Authorization, WAJIB untuk endpoint yang ada di grup auth:sanctum
+// seperti /auth/images/{path} (foto profil).
 async function loadImageAsDataUrl(url: string, withAuth = false): Promise<string | null> {
   try {
     const headers: HeadersInit = {};
@@ -490,8 +515,11 @@ async function loadImageAsDataUrl(url: string, withAuth = false): Promise<string
   }
 }
 
+// Bangun URL foto profil dari path relatif via GET /auth/images/{path}
 function buildFotoUrl(fotoPath: string): string {
+  // Kalau backend sudah mengembalikan URL absolut (http/https), pakai langsung.
   if (/^https?:\/\//i.test(fotoPath)) return fotoPath;
+  // Path relatif -> arahkan ke route /auth/images/{path} (butuh token, lihat withAuth di loadImageAsDataUrl)
   const cleanPath = fotoPath.replace(/^\/+/, "");
   return `${API_BASE}/auth/images/${cleanPath}`;
 }
@@ -502,6 +530,8 @@ function detectImageFormat(dataUrl: string): "PNG" | "JPEG" {
     : "PNG";
 }
 
+// Hitung ukuran gambar yang proporsional (mempertahankan aspect ratio asli)
+// supaya muat di dalam kotak maxW x maxH tanpa melar/gepeng.
 function computeContainSize(
   doc: jsPDF,
   dataUrl: string,
@@ -519,6 +549,7 @@ function computeContainSize(
     }
     return { w, h };
   } catch {
+    // fallback kalau gagal baca properti gambar
     return { w: maxW, h: maxH };
   }
 }
@@ -541,32 +572,47 @@ async function generateKartuSeminarPdf(): Promise<void> {
     const pageWidth = doc.internal.pageSize.getWidth();
     const leftX = 40;
     const rightMarginX = pageWidth - 40;
+
+    // Tanpa kop surat institusi (logo/kepala surat) — konten langsung
+    // dimulai dari margin atas halaman.
     const topY = 40;
 
+    // ---------- Siapkan foto profil (dimuat dulu, dipakai di tabel header kolom kanan) ----------
     let fotoDataUrl: string | null = null;
     if (biodata?.fotoPath) {
       const fotoUrl = buildFotoUrl(biodata.fotoPath);
-      fotoDataUrl = await loadImageAsDataUrl(fotoUrl, true);
+      fotoDataUrl = await loadImageAsDataUrl(fotoUrl, true); // withAuth: route /auth/images perlu token
       if (!fotoDataUrl) {
         console.warn("Foto profil gagal dimuat untuk PDF, dilewati.");
       }
     }
 
     const prodiText = biodata?.prodi
-      ? `PROGRAM STUDI ${biodata.prodi.toUpperCase()}`
-      : "PROGRAM STUDI TEKNOLOGI REKAYASA PERANGKAT LUNAK";
+      ? `DEPARTEMEN ${biodata.prodi.toUpperCase()}`
+      : "DEPARTEMEN SILVIKULTUR";
 
     const now = new Date();
+    // Asumsi tahun akademik baru dimulai bulan Juli (indeks bulan 6).
+    // TODO: sesuaikan kalau aturan tahun akademik kampus berbeda.
     const tahunAjaran =
       now.getMonth() >= 6
         ? `${now.getFullYear()}/${now.getFullYear() + 1}`
         : `${now.getFullYear() - 1}/${now.getFullYear()}`;
 
-    const headerColRightW = 170; // kolom foto lebih lebar (sama dengan kolokium)
+    // ---------- Tabel header, sesuai layout: ----------
+    // ┌───────────────┬──────────┐
+    // │     judul      │           │
+    // ├───────────────┤  foto     │  <- foto menyatu (rowSpan) sepanjang 2 baris
+    // │  data biodata  │           │
+    // └───────────────┴──────────┘
+    // Kolom kiri (judul di atas, data biodata di bawah) dipisah garis horizontal.
+    // Kolom kanan (foto) membentang penuh dari atas sampai bawah tanpa garis pemisah.
+    const headerColRightW = 170;
     const headerColLeftW = rightMarginX - leftX - headerColRightW;
 
     const judulRowH = 44;
-    const biodataRowH = 80; // lebih tinggi
+    const biodataRowH = 90;
+    const totalRowH = judulRowH + biodataRowH; // tinggi cell tidak diubah
 
     autoTable(doc, {
       startY: topY,
@@ -575,12 +621,12 @@ async function generateKartuSeminarPdf(): Promise<void> {
       styles: {
         font: "times",
         fontSize: 10,
-        fontStyle: "bold",       // teks tebal
-        textColor: [0, 0, 0],    // warna hitam
-        cellPadding: 20,
+        fontStyle: "bold",
+        textColor: [0, 0, 0],
+        cellPadding: 2,
         valign: "bottom",
-        lineColor: [0, 0, 0],
-        lineWidth: 1,
+        lineColor: [255, 255, 255],
+        lineWidth: 0,
       },
       columnStyles: {
         0: { cellWidth: headerColLeftW },
@@ -588,40 +634,50 @@ async function generateKartuSeminarPdf(): Promise<void> {
       },
       body: [
         [
-          { content: "", styles: { minCellHeight: judulRowH } },
-          { content: "", rowSpan: 2, styles: { minCellHeight: judulRowH + biodataRowH } },
+          { content: "", styles: { minCellHeight: totalRowH } },
+          { content: "", styles: { minCellHeight: totalRowH } },
         ],
-        [{ content: "", styles: { minCellHeight: biodataRowH } }],
       ] as unknown as (string | Record<string, unknown>)[][],
+
       didDrawCell: (data) => {
         const { cell, row, column } = data;
 
         if (column.index === 0 && row.index === 0) {
           const centerX = cell.x + cell.width / 2;
+          const biodataAreaBottom = cell.y + cell.height - 6;
+
+          // ---- Judul (digeser ke bawah, mepet ke biodata) ----
+          const judulBottomAnchor = biodataAreaBottom - (biodataRowH - 24);
+
           doc.setFont("times", "bold");
           doc.setFontSize(24);
-          doc.text("KARTU SEMINAR", centerX, cell.y + cell.height / 2 - 10, { align: "center" });
+          doc.text("KARTU SEMINAR", centerX, judulBottomAnchor - 24, { align: "center" });
+
           doc.setFontSize(12);
-          doc.text(prodiText, centerX, cell.y + cell.height / 2 + 4, {
+          doc.text("FAKULTAS KEHUTANAN DAN LINGKUNGAN", centerX, judulBottomAnchor - 10, {
             align: "center",
             maxWidth: cell.width - 12,
           });
-          doc.text(`TAHUN AKADEMIK ${tahunAjaran}`, centerX, cell.y + cell.height / 2 + 18, {
+
+          doc.text(prodiText, centerX, judulBottomAnchor + 2, {
             align: "center",
             maxWidth: cell.width - 12,
           });
-        } else if (column.index === 0 && row.index === 1) {
+
+          doc.text(`TAHUN AKADEMIK ${tahunAjaran}`, centerX, judulBottomAnchor + 14, {
+            align: "center",
+            maxWidth: cell.width - 12,
+          });
+
+          // ---- Biodata (tetap mepet ke bawah cell) ----
           doc.setFont("times", "normal");
           doc.setFontSize(12);
 
-          // Posisi mulai dari bawah sel
-          const bottomY = cell.y + cell.height - 6;
+          doc.text("Nama Mahasiswa", cell.x + 6, biodataAreaBottom - 12);
+          doc.text("NIM", cell.x + 6, biodataAreaBottom);
 
-          doc.text("Nama Mahasiswa", cell.x + 6, bottomY - 12);
-          doc.text("NIM", cell.x + 6, bottomY);
-
-          doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, bottomY - 14);
-          doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, bottomY);
+          doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, biodataAreaBottom - 14);
+          doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, biodataAreaBottom);
         } else if (column.index === 1 && row.index === 0 && fotoDataUrl) {
           const format = detectImageFormat(fotoDataUrl);
           const pad = 6;
@@ -635,22 +691,29 @@ async function generateKartuSeminarPdf(): Promise<void> {
       },
     });
 
+    // ---------- Tentukan startY tabel data: tepat di bawah tabel header ----------
     const tableStartY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
 
+    // ---------- Siapkan gambar tanda tangan/paraf per baris ----------
     const signatureImages: Record<number, string> = {};
     await Promise.all(
       allKartu.map(async (kartu, idx) => {
         if (!kartu.tandatangandosen) return;
+
         if (kartu.tandatangandosen.startsWith("data:")) {
           signatureImages[idx] = kartu.tandatangandosen;
           return;
         }
+
+        // Sama seperti foto profil: kemungkinan path relatif yang disajikan
+        // lewat route /auth/images/{path}, jadi butuh token juga.
         const url = buildFotoUrl(kartu.tandatangandosen);
         const dataUrl = await loadImageAsDataUrl(url, true);
         if (dataUrl) signatureImages[idx] = dataUrl;
       })
     );
 
+    // ---------- Tabel ----------
     const body = allKartu.map((kartu, idx) => [
       String(idx + 1),
       formatTanggal(kartu.tanggal),
@@ -658,22 +721,21 @@ async function generateKartuSeminarPdf(): Promise<void> {
       kartu.namapemrasaran ?? "-",
       kartu.nimpemrasaran ?? "-",
       kartu.moderator ?? "-",
-      "", // Paraf
+      "", // kolom Paraf digambar manual via didDrawCell
     ]);
 
     autoTable(doc, {
       startY: tableStartY,
+      // Tanpa kop surat, jadi halaman lanjutan cukup pakai margin atas standar.
       margin: { top: 40, bottom: 40 },
       head: [["No", "Hari/Tanggal", "Waktu", "Nama Pemrasaran", "NIM", "Moderator", "Paraf"]],
       body,
-      styles: { 
-        font: "times",
-        fontSize: 10,
-        cellPadding: 6,
-        valign: "middle",
-        lineColor: [0, 0, 0],
-        lineWidth: 0.5, 
-      },
+      styles: {   font: "times",
+                  fontSize: 10,
+                  cellPadding: 6,
+                  valign: "middle",
+                  lineColor: [0, 0, 0],
+                  lineWidth: 0.5, },
       headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5, fontStyle: "bold" },
       theme: "grid",
       columnStyles: {
@@ -693,7 +755,6 @@ async function generateKartuSeminarPdf(): Promise<void> {
             const drawY = data.cell.y + (data.cell.height - h) / 2;
             doc.addImage(dataUrl, format, drawX, drawY, w, h);
 
-            // Manual drawing the border to match cell logic
             doc.setDrawColor(0, 0, 0);
             doc.setLineWidth(0.5);
             doc.rect(
@@ -707,6 +768,7 @@ async function generateKartuSeminarPdf(): Promise<void> {
       },
     });
 
+    // ---------- Preview dulu di tab baru, TIDAK langsung download ----------
     const blob = doc.output("blob");
     const blobUrl = URL.createObjectURL(blob);
     window.open(blobUrl, "_blank");
@@ -723,7 +785,7 @@ function handleDownload(): void {
 }
 
 // ------------------------------------------------------------------
-// Search, per_page & tombol download
+// Search, per_page (server-side) & tombol download
 // ------------------------------------------------------------------
 function initSearchAndActions(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
