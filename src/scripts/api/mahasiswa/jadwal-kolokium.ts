@@ -344,7 +344,7 @@ function renderTable(): void {
           <td class="px-4 py-4 text-body-sm font-medium">${kolokium.nama}</td>
           <td class="px-4 py-4 text-body-sm">${kolokium.nim}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.prodi}</td>
-          <td class="px-4 py-4 text-body-sm min-w-[200px]">${kolokium.judul}</td>
+          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.judul}</td>
           <td class="px-4 py-4 text-body-sm text-center">${kolokium.jumlahforum}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.namadosenpembimbing ?? "-"}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.namadosenmoderator ?? "-"}</td>

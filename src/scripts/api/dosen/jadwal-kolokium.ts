@@ -171,7 +171,7 @@ function renderTable(items: KolokiumItem[]): void {
           <td class="px-4 py-4 text-body-sm font-medium">${escapeHtml(item.nama)}</td>
           <td class="px-4 py-4 text-body-sm">${escapeHtml(item.nim)}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.prodi)}</td>
-          <td class="px-4 py-4 text-body-sm min-w-[200px]">${escapeHtml(item.judul)}</td>
+          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.judul)}</td>
           <td class="px-4 py-4 text-body-sm text-center">${item.jumlahforum}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenpembimbing ?? "-")}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>

@@ -344,7 +344,7 @@ function renderTable(): void {
           <td class="px-4 py-4 text-body-sm font-medium">${seminar.nama}</td>
           <td class="px-4 py-4 text-body-sm">${seminar.nim}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.prodi}</td>
-          <td class="px-4 py-4 text-body-sm min-w-[200px]">${seminar.judul}</td>
+          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.judul}</td>
           <td class="px-4 py-4 text-body-sm text-center">${seminar.jumlahforum}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.namadosenpembimbing ?? "-"}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.namadosenmoderator ?? "-"}</td>
