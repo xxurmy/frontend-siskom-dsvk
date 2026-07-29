@@ -603,26 +603,31 @@ async function generateKartuKolokiumPdf(): Promise<void> {
     // └───────────────┴──────────┘
     // Kolom kiri (judul di atas, data biodata di bawah) dipisah garis horizontal.
     // Kolom kanan (foto) membentang penuh dari atas sampai bawah tanpa garis pemisah.
-    const headerColRightW = 130; // lebar kolom foto
-    const headerColLeftW = rightMarginX - leftX - headerColRightW;
-    const judulRowH = 64;
-    const biodataRowH = 96;
+const headerColRightW = 170; // kolom foto lebih lebar
+const headerColLeftW = rightMarginX - leftX - headerColRightW;
+
+const judulRowH = 44;
+const biodataRowH = 80; // lebih tinggi
 
     autoTable(doc, {
       startY: topY,
       margin: { left: leftX, right: pageWidth - rightMarginX },
       theme: "grid",
       styles: {
-        font: "times",
-        fontSize: 10,
-        cellPadding: 6,
-        valign: "middle",
-        lineColor: [255, 255, 255],
-        lineWidth: 0.75,
+      font: "times",
+      fontSize: 10,
+      fontStyle: "bold",       // teks tebal
+      textColor: [0, 0, 0],    // warna hitam
+      cellPadding: 20,
+      valign: "bottom",
+      lineColor: [0, 0, 0],
+      lineWidth: 1,
       },
+      
       columnStyles: {
         0: { cellWidth: headerColLeftW },
         1: { cellWidth: headerColRightW },
+        
       },
       body: [
         [
@@ -638,9 +643,9 @@ async function generateKartuKolokiumPdf(): Promise<void> {
           // Baris atas, kolom kiri: judul (rata tengah)
           const centerX = cell.x + cell.width / 2;
           doc.setFont("times", "bold");
-          doc.setFontSize(18);
-          doc.text("KARTU KOLOKIUM", centerX, cell.y + cell.height / 2 - 12, { align: "center" });
-          doc.setFontSize(11);
+          doc.setFontSize(24);
+          doc.text("KARTU KOLOKIUM", centerX, cell.y + cell.height / 2 - 10, { align: "center" });
+          doc.setFontSize(12);
           doc.text(prodiText, centerX, cell.y + cell.height / 2 + 4, {
             align: "center",
             maxWidth: cell.width - 12,
@@ -652,12 +657,17 @@ async function generateKartuKolokiumPdf(): Promise<void> {
         } else if (column.index === 0 && row.index === 1) {
           // Baris bawah, kolom kiri: data biodata (Nama & NIM)
           doc.setFont("times", "normal");
-          doc.setFontSize(11);
-          const textY = cell.y + cell.height / 2;
-          doc.text("Nama Mahasiswa", cell.x + 6, textY - 8);
-          doc.text("NIM", cell.x + 6, textY + 8);
-          doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, textY - 8);
-          doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, textY + 8);
+          doc.setFontSize(12);
+
+          // Posisi mulai dari bawah sel
+          const bottomY = cell.y + cell.height - 6;
+
+          doc.text("Nama Mahasiswa", cell.x + 6, bottomY - 12);
+          doc.text("NIM", cell.x + 6, bottomY);
+
+          doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, bottomY - 14);
+          doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, bottomY);
+          
         } else if (column.index === 1 && row.index === 0 && fotoDataUrl) {
           // Kolom kanan (span 2 baris): foto profil, proporsional, TANPA crop oval
           const format = detectImageFormat(fotoDataUrl);
@@ -711,8 +721,13 @@ async function generateKartuKolokiumPdf(): Promise<void> {
       margin: { top: 40, bottom: 40 },
       head: [["No", "Hari/Tanggal", "Waktu", "Nama Pemrasaran", "NIM", "Moderator", "Paraf"]],
       body,
-      styles: { font: "times", fontSize: 10, cellPadding: 6, valign: "middle" },
-      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" },
+      styles: {   font: "times",
+                  fontSize: 10,
+                  cellPadding: 6,
+                  valign: "middle",
+                  lineColor: [0, 0, 0],
+                  lineWidth: 0.5, },
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], lineColor: [0, 0, 0], lineWidth: 0.5, fontStyle: "bold" },
       theme: "grid",
       columnStyles: {
         0: { cellWidth: 30, halign: "center" },
@@ -730,6 +745,15 @@ async function generateKartuKolokiumPdf(): Promise<void> {
             const drawX = data.cell.x + (data.cell.width - w) / 2;
             const drawY = data.cell.y + (data.cell.height - h) / 2;
             doc.addImage(dataUrl, format, drawX, drawY, w, h);
+
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.rect(
+              data.cell.x,
+              data.cell.y,
+              data.cell.width,
+              data.cell.height
+            );
           }
         }
       },
