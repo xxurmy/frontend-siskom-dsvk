@@ -1,17 +1,19 @@
 // src/scripts/api/mahasiswa/KartuKolokium.ts
 // Logic untuk halaman "Kartu Kolokium" (role: mahasiswa):
 // 1) fetch daftar kartu kolokium milik mahasiswa login, paginated
-//    (GET /auth/kartu-kolokium/my?page=N&search=...)
+//    (GET /auth/kartu-kolokium/my?page=N&search=...&per_page=N)
 // 2) render tabel + pagination (server-side, sinkron dengan
-//    KartuKolokiumController::my yang sudah paginate(10) & dukung `search`)
+//    KartuKolokiumController::my yang sudah paginate() & dukung `search`/`per_page`)
 // 3) search -> dikirim ke backend via query param `search`, debounce 400ms
-// 4) tombol "Batalkan":
+// 4) per_page -> select #entries-per-page dikirim ke backend via query param
+//    `per_page` (backend validasi min:1|max:100, default 10)
+// 5) tombol "Batalkan":
 //    - AKTIF jika masih H-1 atau lebih awal dari tanggal kolokium
 //    - NONAKTIF (disabled) jika sudah hari-H atau lewat
 //    - Saat diklik & dikonfirmasi -> PATCH /auth/peserta-kolokium/{peserta_kolokium_id}/status
 //      dengan body { status: "batal" } (sesuai PesertaKolokiumController::updateStatus,
 //      yang juga sudah menolak permintaan jika sudah hari-H di sisi backend)
-// 5) Download -> generate PDF "Kartu Kolokium" (jsPDF + jspdf-autotable),
+// 6) Download -> generate PDF "Kartu Kolokium" (jsPDF + jspdf-autotable),
 //    mengambil SEMUA data (bukan hanya 1 halaman) + biodata mahasiswa untuk header
 //    NOTE: PDF ini SENGAJA TANPA kop surat institusi (logo/kepala surat) dan
 //    TANPA footer form-control (No. Revisi / Hal / Tanggal Berlaku) — hanya
@@ -27,6 +29,7 @@ const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
 const SEARCH_DEBOUNCE_MS = 400;
 const COLSPAN = 8;
+const DEFAULT_PER_PAGE = 10;
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan KartuKolokiumController)
@@ -132,6 +135,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
   return json as T;
 }
 
+function getEntriesPerPage(): number {
+  const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
+  const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
+  return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
+}
+
 // ------------------------------------------------------------------
 // Pesan status
 // ------------------------------------------------------------------
@@ -222,7 +231,10 @@ async function loadKartuKolokium(page = 1): Promise<void> {
     tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
   }
 
-  const params = new URLSearchParams({ page: String(page) });
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(getEntriesPerPage()),
+  });
   if (currentSearch) {
     params.set("search", currentSearch);
   }
@@ -248,15 +260,21 @@ async function loadKartuKolokium(page = 1): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Ambil SEMUA kartu kolokium (lintas halaman) — dipakai khusus untuk export PDF
+// Ambil SEMUA kartu kolokium (lintas halaman) — dipakai khusus untuk export PDF.
+// Sengaja pakai per_page besar (MAX_PER_PAGE backend = 100) di sini supaya
+// jumlah request lebih sedikit, independen dari pilihan "Show entries" di UI.
 // ------------------------------------------------------------------
 async function fetchAllKartuKolokium(): Promise<KartuKolokium[]> {
   const all: KartuKolokium[] = [];
   let page = 1;
   let lastPage = 1;
+  const EXPORT_PER_PAGE = 100;
 
   do {
-    const params = new URLSearchParams({ page: String(page) });
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: String(EXPORT_PER_PAGE),
+    });
     if (currentSearch) params.set("search", currentSearch);
 
     const json = await apiFetch<KartuKolokiumListResponse>(
@@ -734,10 +752,11 @@ function handleDownload(): void {
 }
 
 // ------------------------------------------------------------------
-// Search (server-side, debounce 400ms) & tombol download
+// Search, per_page (server-side) & tombol download
 // ------------------------------------------------------------------
 function initSearchAndActions(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
+  const entriesSelect = document.getElementById("entries-per-page") as HTMLSelectElement | null;
   const downloadBtn = document.getElementById("download-btn") as HTMLButtonElement | null;
 
   if (searchInput && searchInput.dataset.bound !== "true") {
@@ -753,6 +772,13 @@ function initSearchAndActions(): void {
         currentSearch = value;
         loadKartuKolokium(1); // reset ke halaman 1 tiap kali kata kunci berubah
       }, SEARCH_DEBOUNCE_MS);
+    });
+  }
+
+  if (entriesSelect && entriesSelect.dataset.bound !== "true") {
+    entriesSelect.dataset.bound = "true";
+    entriesSelect.addEventListener("change", () => {
+      loadKartuKolokium(1); // reset ke halaman 1 tiap kali per_page berubah
     });
   }
 

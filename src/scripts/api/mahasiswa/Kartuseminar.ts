@@ -1,17 +1,26 @@
 // src/scripts/api/mahasiswa/Kartuseminar.ts
 // Logic untuk halaman "Kartu Seminar" (role: mahasiswa):
 // 1) fetch daftar kartu seminar milik mahasiswa login, paginated
-//    (GET /auth/kartu-seminar/my?page=N&search=...)
+//    (GET /auth/kartu-seminar/my?page=N&search=...&per_page=N)
 // 2) render tabel + pagination (server-side, sinkron dengan
-//    KartuSeminarController::my yang sudah paginate(10) & dukung `search`)
+//    KartuSeminarController::my yang sudah paginate() & dukung `search`/`per_page`)
 // 3) search -> dikirim ke backend via query param `search`, debounce 400ms
-// 4) tombol "Batalkan":
+// 4) per_page -> select #entries-per-page dikirim ke backend via query param
+//    `per_page` (backend validasi min:1|max:100, default 10)
+// 5) tombol "Batalkan":
 //    - AKTIF jika masih H-1 atau lebih awal dari tanggal seminar
 //    - NONAKTIF (disabled) jika sudah hari-H atau lewat
 //    - Saat diklik & dikonfirmasi -> PATCH /auth/peserta-seminar/{peserta_seminar_id}/status
 //      dengan body { status: "batal" } (sesuai PesertaSeminarController::updateStatus,
 //      yang juga sudah menolak permintaan jika sudah hari-H di sisi backend)
-// 5) Download (endpoint belum tersedia di controller -> stub)
+// 6) Download -> generate PDF "Kartu Seminar" (jsPDF + jspdf-autotable),
+//    mengambil SEMUA data (bukan hanya 1 halaman) + biodata mahasiswa untuk header
+//    NOTE: PDF ini SENGAJA TANPA kop surat institusi (logo/kepala surat) dan
+//    TANPA footer form-control (No. Revisi / Hal / Tanggal Berlaku) — hanya
+//    judul "KARTU SEMINAR", biodata mahasiswa, dan tabel seminar.
+
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -20,6 +29,7 @@ const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
 const SEARCH_DEBOUNCE_MS = 400;
 const COLSPAN = 8;
+const DEFAULT_PER_PAGE = 10;
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan KartuSeminarController)
@@ -63,6 +73,29 @@ interface ApiErrorResponse {
   errors?: Record<string, string[]>;
 }
 
+// Struktur data profil mahasiswa dari GET /auth/profile (UserController::profile).
+interface ProfileUser {
+  name?: string;
+  nama?: string;
+  nim?: string;
+  prodi?: string;
+  foto_profil?: string | null;
+  foto?: string | null;
+  photo?: string | null;
+}
+
+interface ProfileResponse {
+  message: string;
+  user: ProfileUser;
+}
+
+interface BiodataMahasiswa {
+  nama: string;
+  nim: string;
+  prodi: string;
+  fotoPath: string | null; // path relatif, harus diakses lewat /auth/images/{path} (butuh token)
+}
+
 // ------------------------------------------------------------------
 // State halaman
 // ------------------------------------------------------------------
@@ -98,6 +131,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
   }
 
   return json as T;
+}
+
+function getEntriesPerPage(): number {
+  const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
+  const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
+  return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
 }
 
 // ------------------------------------------------------------------
@@ -161,12 +200,6 @@ function escapeHtml(value: string | null): string {
 
 // ------------------------------------------------------------------
 // Aturan aktif/nonaktif tombol Batalkan
-// - Aktif  : hari ini < tanggal seminar (masih H-1 atau lebih awal)
-// - Nonaktif: hari ini >= tanggal seminar (sudah hari-H atau lewat),
-//   atau tanggal tidak diketahui (untuk berjaga-jaga)
-// Catatan: aturan ini mencerminkan validasi yang sama di
-// PesertaSeminarController::updateStatus (backend juga menolak jika
-// sudah hari-H), jadi tombol di UI sudah konsisten dengan backend.
 // ------------------------------------------------------------------
 function isBatalDisabled(tanggal: string | null): boolean {
   if (!tanggal) return true;
@@ -190,7 +223,10 @@ async function loadKartuSeminar(page = 1): Promise<void> {
     tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
   }
 
-  const params = new URLSearchParams({ page: String(page) });
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(getEntriesPerPage()),
+  });
   if (currentSearch) {
     params.set("search", currentSearch);
   }
@@ -212,6 +248,56 @@ async function loadKartuSeminar(page = 1): Promise<void> {
     if (tbody) {
       tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-red-700">Gagal memuat data. Coba muat ulang halaman.</td></tr>`;
     }
+  }
+}
+
+// ------------------------------------------------------------------
+// Ambil SEMUA kartu seminar (lintas halaman) — dipakai khusus untuk export PDF.
+// ------------------------------------------------------------------
+async function fetchAllKartuSeminar(): Promise<KartuSeminar[]> {
+  const all: KartuSeminar[] = [];
+  let page = 1;
+  let lastPage = 1;
+  const EXPORT_PER_PAGE = 100;
+
+  do {
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: String(EXPORT_PER_PAGE),
+    });
+    if (currentSearch) params.set("search", currentSearch);
+
+    const json = await apiFetch<KartuSeminarListResponse>(
+      `/auth/kartu-seminar/my?${params.toString()}`
+    );
+    if (!json) break;
+
+    all.push(...json.kartu_seminars.data);
+    lastPage = json.kartu_seminars.last_page;
+    page++;
+  } while (page <= lastPage);
+
+  return all;
+}
+
+// ------------------------------------------------------------------
+// Ambil biodata mahasiswa login (untuk header PDF)
+// ------------------------------------------------------------------
+async function fetchBiodataMahasiswa(): Promise<BiodataMahasiswa | null> {
+  try {
+    const json = await apiFetch<ProfileResponse>("/auth/profile");
+    const user = json?.user;
+    if (!user) return null;
+
+    return {
+      nama: user.name ?? user.nama ?? "-",
+      nim: user.nim ?? "-",
+      prodi: user.prodi ?? "-",
+      fotoPath: user.foto_profil ?? user.foto ?? user.photo ?? null,
+    };
+  } catch (err) {
+    console.error("Gagal memuat profil mahasiswa:", err);
+    return null;
   }
 }
 
@@ -334,7 +420,7 @@ function renderPaginationButtons(data: PaginatedResponse<KartuSeminar>): void {
 }
 
 // ------------------------------------------------------------------
-// Aksi Batalkan & Download
+// Aksi Batalkan
 // ------------------------------------------------------------------
 function attachRowActionListeners(): void {
   document.querySelectorAll<HTMLButtonElement>(".btn-batalkan-kartu").forEach((btn) => {
@@ -343,10 +429,6 @@ function attachRowActionListeners(): void {
 }
 
 // Menjalankan PATCH /auth/peserta-seminar/{peserta_seminar_id}/status
-// dengan body { status: "batal" }. Tombol ini hanya bisa diklik selama
-// belum hari-H (lihat isBatalDisabled & renderBatalkanCell) — dan sebagai
-// lapis kedua, backend (PesertaSeminarController::updateStatus) juga
-// akan menolak permintaan jika ternyata sudah hari-H.
 async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
   const pesertaId = btn.dataset.pesertaId;
   if (!pesertaId) return;
@@ -366,7 +448,7 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
     });
 
     showMessage("Berhasil membatalkan kehadiran seminar.", "success");
-    // Refresh halaman yang sedang aktif biar mahasiswa tidak "terlempar" ke halaman 1
+    // Refresh halaman yang sedang aktif
     await loadKartuSeminar(currentPage);
   } catch (err) {
     console.error("Gagal membatalkan kartu seminar:", err);
@@ -378,18 +460,250 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
   }
 }
 
+// ------------------------------------------------------------------
+// Export PDF "Kartu Seminar"
+// ------------------------------------------------------------------
+async function loadImageAsDataUrl(url: string, withAuth = false): Promise<string | null> {
+  try {
+    const headers: HeadersInit = {};
+    if (withAuth) {
+      const token = localStorage.getItem(TOKEN_KEY);
+      headers.Authorization = `Bearer ${token ?? ""}`;
+    }
+
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      console.error(`Gagal memuat gambar (${res.status}):`, url);
+      return null;
+    }
+
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.error("Gagal memuat gambar:", url, err);
+    return null;
+  }
+}
+
+function buildFotoUrl(fotoPath: string): string {
+  if (/^https?:\/\//i.test(fotoPath)) return fotoPath;
+  const cleanPath = fotoPath.replace(/^\/+/, "");
+  return `${API_BASE}/auth/images/${cleanPath}`;
+}
+
+function detectImageFormat(dataUrl: string): "PNG" | "JPEG" {
+  return dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg")
+    ? "JPEG"
+    : "PNG";
+}
+
+function computeContainSize(
+  doc: jsPDF,
+  dataUrl: string,
+  maxW: number,
+  maxH: number
+): { w: number; h: number } {
+  try {
+    const props = doc.getImageProperties(dataUrl);
+    const ratio = props.width / props.height;
+    let w = maxW;
+    let h = w / ratio;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
+    return { w, h };
+  } catch {
+    return { w: maxW, h: maxH };
+  }
+}
+
+async function generateKartuSeminarPdf(): Promise<void> {
+  showMessage("Menyiapkan PDF...", "success");
+
+  try {
+    const [biodata, allKartu] = await Promise.all([
+      fetchBiodataMahasiswa(),
+      fetchAllKartuSeminar(),
+    ]);
+
+    if (allKartu.length === 0) {
+      showMessage("Tidak ada data kartu seminar untuk diekspor.", "error");
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const leftX = 40;
+    const rightMarginX = pageWidth - 40;
+    const topY = 40;
+
+    let fotoDataUrl: string | null = null;
+    if (biodata?.fotoPath) {
+      const fotoUrl = buildFotoUrl(biodata.fotoPath);
+      fotoDataUrl = await loadImageAsDataUrl(fotoUrl, true);
+      if (!fotoDataUrl) {
+        console.warn("Foto profil gagal dimuat untuk PDF, dilewati.");
+      }
+    }
+
+    const prodiText = biodata?.prodi
+      ? `PROGRAM STUDI ${biodata.prodi.toUpperCase()}`
+      : "PROGRAM STUDI TEKNOLOGI REKAYASA PERANGKAT LUNAK";
+
+    const now = new Date();
+    const tahunAjaran =
+      now.getMonth() >= 6
+        ? `${now.getFullYear()}/${now.getFullYear() + 1}`
+        : `${now.getFullYear() - 1}/${now.getFullYear()}`;
+
+    const headerColRightW = 130;
+    const headerColLeftW = rightMarginX - leftX - headerColRightW;
+    const judulRowH = 64;
+    const biodataRowH = 96;
+
+    autoTable(doc, {
+      startY: topY,
+      margin: { left: leftX, right: pageWidth - rightMarginX },
+      theme: "grid",
+      styles: {
+        font: "times",
+        fontSize: 10,
+        cellPadding: 6,
+        valign: "middle",
+        lineColor: [255, 255, 255],
+        lineWidth: 0.75,
+      },
+      columnStyles: {
+        0: { cellWidth: headerColLeftW },
+        1: { cellWidth: headerColRightW },
+      },
+      body: [
+        [
+          { content: "", styles: { minCellHeight: judulRowH } },
+          { content: "", rowSpan: 2, styles: { minCellHeight: judulRowH + biodataRowH } },
+        ],
+        [{ content: "", styles: { minCellHeight: biodataRowH } }],
+      ] as unknown as (string | Record<string, unknown>)[][],
+      didDrawCell: (data) => {
+        const { cell, row, column } = data;
+
+        if (column.index === 0 && row.index === 0) {
+          const centerX = cell.x + cell.width / 2;
+          doc.setFont("times", "bold");
+          doc.setFontSize(18);
+          doc.text("KARTU SEMINAR", centerX, cell.y + cell.height / 2 - 12, { align: "center" });
+          doc.setFontSize(11);
+          doc.text(prodiText, centerX, cell.y + cell.height / 2 + 4, {
+            align: "center",
+            maxWidth: cell.width - 12,
+          });
+          doc.text(`TAHUN AKADEMIK ${tahunAjaran}`, centerX, cell.y + cell.height / 2 + 18, {
+            align: "center",
+            maxWidth: cell.width - 12,
+          });
+        } else if (column.index === 0 && row.index === 1) {
+          doc.setFont("times", "normal");
+          doc.setFontSize(11);
+          const textY = cell.y + cell.height / 2;
+          doc.text("Nama Mahasiswa", cell.x + 6, textY - 8);
+          doc.text("NIM", cell.x + 6, textY + 8);
+          doc.text(`: ${biodata?.nama ?? "-"}`, cell.x + 106, textY - 8);
+          doc.text(`: ${biodata?.nim ?? "-"}`, cell.x + 106, textY + 8);
+        } else if (column.index === 1 && row.index === 0 && fotoDataUrl) {
+          const format = detectImageFormat(fotoDataUrl);
+          const pad = 6;
+          const maxW = cell.width - pad * 2;
+          const maxH = cell.height - pad * 2;
+          const { w, h } = computeContainSize(doc, fotoDataUrl, maxW, maxH);
+          const drawX = cell.x + (cell.width - w) / 2;
+          const drawY = cell.y + (cell.height - h) / 2;
+          doc.addImage(fotoDataUrl, format, drawX, drawY, w, h);
+        }
+      },
+    });
+
+    const tableStartY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 16;
+
+    const signatureImages: Record<number, string> = {};
+    await Promise.all(
+      allKartu.map(async (kartu, idx) => {
+        if (!kartu.tandatangandosen) return;
+        if (kartu.tandatangandosen.startsWith("data:")) {
+          signatureImages[idx] = kartu.tandatangandosen;
+          return;
+        }
+        const url = buildFotoUrl(kartu.tandatangandosen);
+        const dataUrl = await loadImageAsDataUrl(url, true);
+        if (dataUrl) signatureImages[idx] = dataUrl;
+      })
+    );
+
+    const body = allKartu.map((kartu, idx) => [
+      String(idx + 1),
+      formatTanggal(kartu.tanggal),
+      formatWaktu(kartu.waktu),
+      kartu.namapemrasaran ?? "-",
+      kartu.nimpemrasaran ?? "-",
+      kartu.moderator ?? "-",
+      "", // Paraf
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      margin: { top: 40, bottom: 40 },
+      head: [["No", "Hari/Tanggal", "Waktu", "Nama Pemrasaran", "NIM", "Moderator", "Paraf"]],
+      body,
+      styles: { font: "times", fontSize: 10, cellPadding: 6, valign: "middle" },
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold" },
+      theme: "grid",
+      columnStyles: {
+        0: { cellWidth: 30, halign: "center" },
+        6: { cellWidth: 70 },
+      },
+      didDrawCell: (data) => {
+        if (data.section === "body" && data.column.index === 6) {
+          const dataUrl = signatureImages[data.row.index];
+          if (dataUrl) {
+            const format = detectImageFormat(dataUrl);
+            const pad = 4;
+            const maxW = data.cell.width - pad * 2;
+            const maxH = data.cell.height - pad * 2;
+            const { w, h } = computeContainSize(doc, dataUrl, maxW, maxH);
+            const drawX = data.cell.x + (data.cell.width - w) / 2;
+            const drawY = data.cell.y + (data.cell.height - h) / 2;
+            doc.addImage(dataUrl, format, drawX, drawY, w, h);
+          }
+        }
+      },
+    });
+
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank");
+
+    showMessage("PDF siap ditinjau — dibuka di tab baru.", "success");
+  } catch (err) {
+    console.error("Gagal membuat PDF kartu seminar:", err);
+    showMessage("Gagal membuat PDF. Coba lagi.", "error");
+  }
+}
+
 function handleDownload(): void {
-  // TODO: controller yang diberikan belum punya endpoint untuk download kartu
-  // seminar (mis. PDF). Tambahkan endpoint di backend lalu panggil
-  // fetch/window.open di sini.
-  showMessage("Fitur download belum tersedia.", "error");
+  void generateKartuSeminarPdf();
 }
 
 // ------------------------------------------------------------------
-// Search (server-side, debounce 400ms)
+// Search, per_page & tombol download
 // ------------------------------------------------------------------
 function initSearchAndActions(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
+  const entriesSelect = document.getElementById("entries-per-page") as HTMLSelectElement | null;
   const downloadBtn = document.getElementById("download-btn") as HTMLButtonElement | null;
 
   if (searchInput && searchInput.dataset.bound !== "true") {
@@ -405,6 +719,13 @@ function initSearchAndActions(): void {
         currentSearch = value;
         loadKartuSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
       }, SEARCH_DEBOUNCE_MS);
+    });
+  }
+
+  if (entriesSelect && entriesSelect.dataset.bound !== "true") {
+    entriesSelect.dataset.bound = "true";
+    entriesSelect.addEventListener("change", () => {
+      loadKartuSeminar(1); // reset ke halaman 1 tiap kali per_page berubah
     });
   }
 
