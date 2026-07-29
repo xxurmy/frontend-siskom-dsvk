@@ -51,7 +51,7 @@ function clearMessage(): void {
 async function loadAdminProfile(): Promise<void> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 
@@ -66,7 +66,7 @@ async function loadAdminProfile(): Promise<void> {
     if (res.status === 401) {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
-      window.location.href = "/login";
+      window.location.href = "/";
       return;
     }
 
@@ -117,7 +117,7 @@ function initSubmitProfilForm(): void {
 
     const token = getToken();
     if (!token) {
-      window.location.href = "/login";
+      window.location.href = "/";
       return;
     }
 
@@ -140,7 +140,7 @@ function initSubmitProfilForm(): void {
       if (res.status === 401) {
         localStorage.removeItem("auth_token");
         localStorage.removeItem("auth_user");
-        window.location.href = "/login";
+        window.location.href = "/";
         return;
       }
 

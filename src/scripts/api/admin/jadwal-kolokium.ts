@@ -85,7 +85,7 @@ function redirectIfUnauthorized(status: number): boolean {
   if (status === 401) {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
-    window.location.href = "/login";
+    window.location.href = "/";
     return true;
   }
   return false;
@@ -240,7 +240,7 @@ function renderTable(data: PaginatedResponse<KolokiumItem>): void {
 async function loadJadwalKolokium(page = 1): Promise<void> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 
@@ -282,7 +282,7 @@ async function loadJadwalKolokium(page = 1): Promise<void> {
 async function deleteKolokium(id: number): Promise<void> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 

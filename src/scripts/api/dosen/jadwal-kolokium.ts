@@ -83,7 +83,7 @@ function formatTanggal(tanggal: string | null): string {
 async function fetchKolokium(page: number): Promise<void> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 
@@ -113,7 +113,7 @@ async function fetchKolokium(page: number): Promise<void> {
     if (res.status === 401) {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
-      window.location.href = "/login";
+      window.location.href = "/";
       return;
     }
 

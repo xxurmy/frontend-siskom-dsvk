@@ -43,7 +43,7 @@ function getToken(): string | null {
 async function apiGet<T>(path: string): Promise<T | null> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return null;
   }
 
@@ -59,7 +59,7 @@ async function apiGet<T>(path: string): Promise<T | null> {
     if (res.status === 401) {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
-      window.location.href = "/login";
+      window.location.href = "/";
       return null;
     }
 

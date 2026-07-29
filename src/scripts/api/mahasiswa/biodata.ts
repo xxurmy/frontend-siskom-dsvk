@@ -90,7 +90,7 @@ function redirectIfUnauthorized(status: number): boolean {
   if (status === 401) {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
-    window.location.href = "/login";
+    window.location.href = "/";
     return true;
   }
   return false;
@@ -154,7 +154,7 @@ async function setProtectedImageSrc(
 async function loadBiodata(): Promise<void> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 
@@ -271,7 +271,7 @@ async function saveBiodata(): Promise<void> {
 
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 
@@ -329,7 +329,7 @@ function initFotoUpload(): void {
 
     const token = getToken();
     if (!token) {
-      window.location.href = "/login";
+      window.location.href = "/";
       return;
     }
 

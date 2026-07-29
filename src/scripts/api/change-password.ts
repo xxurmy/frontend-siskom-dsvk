@@ -109,10 +109,10 @@ function initSubmitForm(): void {
       });
 
       if (res.status === 401) {
-        // Token invalid/expired -> konsisten dengan script lain: lempar ke /login
+        // Token invalid/expired -> konsisten dengan script lain: lempar ke / (halaman login)
         localStorage.removeItem("auth_token");
         localStorage.removeItem("auth_user");
-        window.location.href = "/login";
+        window.location.href = "/";
         return;
       }
 

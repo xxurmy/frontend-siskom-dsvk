@@ -93,7 +93,7 @@ function redirectIfUnauthorized(status: number): boolean {
   if (status === 401) {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
-    window.location.href = "/login";
+    window.location.href = "/";
     return true;
   }
   return false;
@@ -270,7 +270,7 @@ function renderPaginationInfo(data: PaginatedResponse<KartuSeminar>): void {
 async function loadKartuSeminar(page = 1): Promise<void> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 
@@ -314,7 +314,7 @@ async function loadKartuSeminar(page = 1): Promise<void> {
 async function updateStatusParaf(id: number, statusparaf: "signed" | "absent"): Promise<void> {
   const token = getToken();
   if (!token) {
-    window.location.href = "/login";
+    window.location.href = "/";
     return;
   }
 

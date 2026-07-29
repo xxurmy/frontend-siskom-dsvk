@@ -134,7 +134,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
   if (res.status === 401) {
     localStorage.removeItem("auth_token");
     localStorage.removeItem("auth_user");
-    window.location.href = "/login";
+    window.location.href = "/";
     return null;
   }
 

@@ -159,7 +159,7 @@ function initRegisterForm(): void {
         localStorage.setItem("auth_user", JSON.stringify(data.user));
       }
 
-      window.location.href = REDIRECT_BY_ROLE[role] || "/login";
+      window.location.href = REDIRECT_BY_ROLE[role] || "/";
     } catch (err) {
       console.error(err);
       showError("Tidak bisa terhubung ke server. Coba lagi.");
