@@ -1,6 +1,6 @@
 // src/scripts/api/dosen/kartu-seminar.ts
-// GET   /auth/kartu-seminar/my?page=N&search=...  -> daftar kartu seminar yang dimoderatori dosen ini (paginated)
-// PATCH /auth/kartu-seminar/{id}/status-paraf      -> ubah status jadi 'signed' atau 'absent'
+// GET   /auth/kartu-seminar/my?page=N&search=...&per_page=N -> daftar kartu seminar yang dimoderatori dosen ini (paginated)
+// PATCH /auth/kartu-seminar/{id}/status-paraf               -> ubah status jadi 'signed' atau 'absent'
 //
 // Aturan tombol aksi (sesuai status):
 // - pending -> tombol "Tandatangani" & "Tidak Hadir" sama-sama muncul
@@ -13,6 +13,10 @@
 // `search` (di-debounce 400ms), backend nge-LIKE ke nama/nim pemrasaran,
 // prodi, moderator, serta nama/nim forum. Kalau hasil kosong SAAT sedang
 // search, tampilkan pesan khusus yang beda dari pesan "belum ada data" biasa.
+//
+// PER PAGE: select #entries-per-page dikirim ke backend lewat query param
+// `per_page` (backend KartuSeminarController::my sudah validasi
+// min:1|max:100, default 10 kalau tidak dikirim/invalid).
 
 interface KartuSeminar {
   id: number;
@@ -63,6 +67,7 @@ const TOKEN_KEY = "auth_token";
 const TBODY_ID = "kartu-seminar-tbody";
 const COLSPAN = 10;
 const SEARCH_DEBOUNCE_MS = 400;
+const DEFAULT_PER_PAGE = 10;
 
 const STATUS_LABEL: Record<KartuSeminar["statusparaf"], string> = {
   pending: "Belum ditanda tangani",
@@ -92,6 +97,12 @@ function redirectIfUnauthorized(status: number): boolean {
     return true;
   }
   return false;
+}
+
+function getEntriesPerPage(): number {
+  const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
+  const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
+  return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
 }
 
 function escapeHtml(value: string): string {
@@ -265,7 +276,10 @@ async function loadKartuSeminar(page = 1): Promise<void> {
 
   renderMessageRow("Memuat data...");
 
-  const params = new URLSearchParams({ page: String(page) });
+  const params = new URLSearchParams({
+    page: String(page),
+    per_page: String(getEntriesPerPage()),
+  });
   if (currentSearch) {
     params.set("search", currentSearch);
   }
@@ -381,10 +395,22 @@ function initSearch(): void {
   });
 }
 
+function initPerPage(): void {
+  const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
+  if (!select) return;
+  if (select.dataset.bound === "true") return;
+  select.dataset.bound = "true";
+
+  select.addEventListener("change", () => {
+    loadKartuSeminar(1); // reset ke halaman 1 tiap kali per_page berubah
+  });
+}
+
 function initKartuSeminarPage(): void {
   loadKartuSeminar(1);
   initActionButtons();
   initSearch();
+  initPerPage();
 }
 
 initKartuSeminarPage();
