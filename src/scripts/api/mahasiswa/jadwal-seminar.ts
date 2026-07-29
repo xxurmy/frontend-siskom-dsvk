@@ -5,12 +5,15 @@
 //    seminar yang saya ikuti + status kehadiran saya
 //    (GET /auth/peserta-seminar/my-seminar)
 // 3) render tabel + pagination dari Laravel paginator
-// 4) tombol "Kehadiran" punya 3 state:
+// 4) tombol "Kehadiran" punya 4 state:
 //    - Belum pernah ada record PesertaSeminar sama sekali -> tombol "Hadir"
 //      (POST /peserta-seminar, status dibuat "hadir")
 //    - Record ada tapi status "batal" -> tombol "Hadir Ulang"
 //      (PATCH /peserta-seminar/{id}/status, status diubah jadi "hadir")
 //    - Record ada dan status "hadir" -> TIDAK ADA tombol apapun, cuma badge "Hadir"
+//    - Tanggal seminar SUDAH LEWAT (dan belum/sedang batal, bukan status
+//      "hadir") -> tombol "Hadir"/"Hadir Ulang" tetap tampil tapi disabled,
+//      abu-abu, cursor jadi ikon "block" saat hover.
 // 5) SEARCH: disamakan polanya dengan admin & dosen — dikirim ke backend lewat
 //    query param `search` (di-debounce), BUKAN cuma filter di data yang sedang
 //    tampil di halaman itu.
@@ -68,7 +71,6 @@ interface LaravelPaginator<T> {
 }
 
 // Record ringkas status kehadiran milik saya untuk satu seminar
-// (di-derive dari response /auth/peserta-seminar/my-seminar)
 interface MyPesertaStatus {
   id: number; // peserta_seminar_id
   seminar_id: number;
@@ -76,7 +78,6 @@ interface MyPesertaStatus {
 }
 
 // SISI PESERTA: seminar yang saya ikuti + peserta_seminar_id & status_kehadiran saya
-// GET /auth/peserta-seminar/my-seminar
 interface MySeminarPesertaItem {
   id: number; // seminar_id
   peserta_seminar_id: number;
@@ -113,7 +114,6 @@ let currentSearch = "";
 let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 let lastPaginator: LaravelPaginator<Seminar> | null = null;
 let currentSeminars: Seminar[] = [];
-// map seminar_id -> status kehadiran saya (kalau pernah ada record)
 let myPesertaMap: Map<number, MyPesertaStatus> = new Map();
 
 // ------------------------------------------------------------------
@@ -197,6 +197,20 @@ function formatTanggal(value: string | null): string {
   });
 }
 
+function todayISO(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Mengecek apakah sudah hari H atau lewat
+function isTanggalLewat(tanggal: string | null): boolean {
+  if (!tanggal) return false;
+  return tanggal.slice(0, 10) <= todayISO();
+}
+
 // ------------------------------------------------------------------
 // Muat data profil (sekali di awal, untuk tahu siapa yang login)
 // ------------------------------------------------------------------
@@ -209,8 +223,6 @@ async function loadProfil(): Promise<void> {
 
 // ------------------------------------------------------------------
 // Muat status kehadiran mahasiswa login untuk semua seminar
-// (SISI PESERTA: seminar yang saya ikuti + status kehadiran saya,
-// termasuk yang "batal" — supaya tombol "Hadir Ulang" bisa dibangun)
 // ------------------------------------------------------------------
 async function loadMyPeserta(): Promise<void> {
   const json = await apiFetch<MySeminarPesertaResponse>("/auth/peserta-seminar/my-seminar");
@@ -265,10 +277,7 @@ async function loadSeminar(page: number): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Render badge / tombol kolom Kehadiran — 3 state:
-// 1. Belum ada record sama sekali      -> tombol "Hadir" (POST, buat baru)
-// 2. Record ada, status "batal"        -> tombol "Hadir Ulang" (PATCH -> hadir)
-// 3. Record ada, status "hadir"        -> tidak ada tombol, cuma badge
+// Render badge / tombol kolom Kehadiran — 4 state:
 // ------------------------------------------------------------------
 function renderKehadiranCell(seminar: Seminar): string {
   // mahasiswa pemilik seminar tidak bisa mendaftar jadi peserta di seminarnya sendiri
@@ -287,8 +296,26 @@ function renderKehadiranCell(seminar: Seminar): string {
     `;
   }
 
+  const lewat = isTanggalLewat(seminar.tanggal);
+  const isHadirUlang = !!peserta && peserta.status === "batal";
+  const label = isHadirUlang ? "Hadir Ulang" : "Hadir";
+
+  // State 4: tanggal sudah lewat -> tombol disabled, abu-abu, cursor "block" saat hover
+  if (lewat) {
+    return `
+      <button
+        type="button"
+        disabled
+        title="Jadwal seminar ini sudah lewat"
+        class="bg-outline/20 text-on-surface-variant/60 px-3 py-1 rounded-full text-[12px] font-bold cursor-not-allowed"
+      >
+        ${label}
+      </button>
+    `;
+  }
+
   // State 2: record ada tapi statusnya "batal" -> tombol "Hadir Ulang"
-  if (peserta && peserta.status === "batal") {
+  if (isHadirUlang && peserta) {
     return `
       <button
         type="button"
@@ -314,9 +341,7 @@ function renderKehadiranCell(seminar: Seminar): string {
 }
 
 // ------------------------------------------------------------------
-// Render isi tabel — search & jumlah baris sekarang sepenuhnya
-// ditentukan backend (query param search & per_page), jadi di sini
-// tinggal render currentSeminars apa adanya.
+// Render isi tabel
 // ------------------------------------------------------------------
 function renderTable(): void {
   const tbody = document.getElementById("seminar-tbody");
@@ -478,8 +503,7 @@ async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Search & per_page — keduanya dikirim ke backend (sama seperti pola
-// admin & dosen), reset ke halaman 1 setiap kali berubah.
+// Search & per_page — keduanya dikirim ke backend
 // ------------------------------------------------------------------
 function initSearchAndEntries(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;

@@ -5,12 +5,16 @@
 //    kolokium yang saya ikuti + status kehadiran saya
 //    (GET /auth/peserta-kolokium/my-kolokium)
 // 3) render tabel + pagination dari Laravel paginator
-// 4) tombol "Kehadiran" punya 3 state:
+// 4) tombol "Kehadiran" punya 4 state:
 //    - Belum pernah ada record PesertaKolokium sama sekali -> tombol "Hadir"
 //      (POST /peserta-kolokium, status dibuat "hadir")
 //    - Record ada tapi status "batal" -> tombol "Hadir Ulang"
 //      (PATCH /peserta-kolokium/{id}/status, status diubah jadi "hadir")
 //    - Record ada dan status "hadir" -> TIDAK ADA tombol apapun, cuma badge "Hadir"
+//    - Tanggal kolokium SUDAH LEWAT (dan belum/sedang batal, bukan status
+//      "hadir") -> tombol "Hadir"/"Hadir Ulang" tetap tampil tapi disabled,
+//      abu-abu, cursor jadi ikon "block" saat hover (bawaan browser dari
+//      kombinasi disabled + cursor-not-allowed).
 // 5) SEARCH: disamakan polanya dengan admin & dosen — dikirim ke backend lewat
 //    query param `search` (di-debounce), BUKAN cuma filter di data yang sedang
 //    tampil di halaman itu.
@@ -197,6 +201,23 @@ function formatTanggal(value: string | null): string {
   });
 }
 
+function todayISO(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Sudah hari H atau lewat (>=)? Dipakai buat nge-disable tombol Hadir/Hadir
+// Ulang — konsisten dengan validasi backend (PesertaKolokiumController)
+// yang juga menolak pendaftaran mulai hari H itu sendiri, bukan cuma yang
+// benar-benar sudah lewat.
+function isTanggalLewat(tanggal: string | null): boolean {
+  if (!tanggal) return false;
+  return tanggal.slice(0, 10) <= todayISO();
+}
+
 // ------------------------------------------------------------------
 // Muat data profil (sekali di awal, untuk tahu siapa yang login)
 // ------------------------------------------------------------------
@@ -265,10 +286,12 @@ async function loadKolokium(page: number): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Render badge / tombol kolom Kehadiran — 3 state:
+// Render badge / tombol kolom Kehadiran — 4 state:
 // 1. Belum ada record sama sekali      -> tombol "Hadir" (POST, buat baru)
 // 2. Record ada, status "batal"        -> tombol "Hadir Ulang" (PATCH -> hadir)
 // 3. Record ada, status "hadir"        -> tidak ada tombol, cuma badge
+// 4. Tanggal kolokium sudah lewat (dan bukan status "hadir") -> tombol
+//    Hadir/Hadir Ulang tetap tampil tapi disabled & abu-abu
 // ------------------------------------------------------------------
 function renderKehadiranCell(kolokium: Kolokium): string {
   // mahasiswa pemilik kolokium tidak bisa mendaftar jadi peserta di kolokiumnya sendiri
@@ -287,8 +310,26 @@ function renderKehadiranCell(kolokium: Kolokium): string {
     `;
   }
 
+  const lewat = isTanggalLewat(kolokium.tanggal);
+  const isHadirUlang = !!peserta && peserta.status === "batal";
+  const label = isHadirUlang ? "Hadir Ulang" : "Hadir";
+
+  // State 4: tanggal sudah lewat -> tombol disabled, abu-abu, cursor "block" saat hover
+  if (lewat) {
+    return `
+      <button
+        type="button"
+        disabled
+        title="Jadwal kolokium ini sudah lewat"
+        class="bg-outline/20 text-on-surface-variant/60 px-3 py-1 rounded-full text-[12px] font-bold cursor-not-allowed"
+      >
+        ${label}
+      </button>
+    `;
+  }
+
   // State 2: record ada tapi statusnya "batal" -> tombol "Hadir Ulang"
-  if (peserta && peserta.status === "batal") {
+  if (isHadirUlang && peserta) {
     return `
       <button
         type="button"
