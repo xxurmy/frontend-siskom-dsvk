@@ -73,14 +73,14 @@ interface LaravelPaginator<T> {
 // Record ringkas status kehadiran milik saya untuk satu seminar
 interface MyPesertaStatus {
   id: number; // peserta_seminar_id
-  seminar_id: number;
+  seminar_id: number; 
   status: StatusPeserta;
 }
 
 // SISI PESERTA: seminar yang saya ikuti + peserta_seminar_id & status_kehadiran saya
 interface MySeminarPesertaItem {
   id: number; // seminar_id
-  peserta_seminar_id: number;
+  peserta_seminar_id: number; //dipakai sebagai target PATCH /peserta-seminar/{id}/status
   status_kehadiran: StatusPeserta;
 }
 
@@ -187,7 +187,7 @@ function clearMessage(): void {
 // ------------------------------------------------------------------
 function formatTanggal(value: string | null): string {
   if (!value) return "-";
-  const date = new Date(value);
+  const date = new Date(value); // parse UTC → lokal browser
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("id-ID", {
     weekday: "long",
@@ -197,7 +197,9 @@ function formatTanggal(value: string | null): string {
   });
 }
 
-function todayISO(): string {
+function todayLocalISO(): string {
+  // Pakai date lokal browser (bukan UTC) supaya konsisten dengan
+  // konversi tanggal dari backend yang di-parse ke lokal di bawah.
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -205,10 +207,19 @@ function todayISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function toLocalDateISO(tanggal: string): string {
+  const d = new Date(tanggal); // parse UTC string ke objek Date lokal
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 // Mengecek apakah sudah hari H atau lewat
 function isTanggalLewat(tanggal: string | null): boolean {
   if (!tanggal) return false;
-  return tanggal.slice(0, 10) <= todayISO();
+  const tanggalLocal = toLocalDateISO(tanggal);
+  return tanggalLocal <= todayLocalISO();
 }
 
 // ------------------------------------------------------------------
@@ -227,7 +238,7 @@ async function loadProfil(): Promise<void> {
 async function loadMyPeserta(): Promise<void> {
   const json = await apiFetch<MySeminarPesertaResponse>("/auth/peserta-seminar/my-seminar");
   myPesertaMap = new Map();
-  if (json) {
+  if (json?.seminars) {
     for (const item of json.seminars) {
       myPesertaMap.set(item.id, {
         id: item.peserta_seminar_id,

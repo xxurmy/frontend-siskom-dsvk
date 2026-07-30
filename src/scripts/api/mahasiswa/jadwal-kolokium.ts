@@ -81,9 +81,21 @@ interface MyPesertaStatus {
 
 // SISI PESERTA: kolokium yang saya ikuti + peserta_kolokium_id & status_kehadiran saya
 // GET /auth/peserta-kolokium/my-kolokium
+// Response backend:
+// {
+//   "message": "...",
+//   "kolokiums": [
+//     {
+//       "id": 5,                         <- kolokium_id
+//       "peserta_kolokium_id": 5,        <- dipakai sebagai key untuk PATCH status
+//       "status_kehadiran": "hadir",     <- status kehadiran saya
+//       ...
+//     }
+//   ]
+// }
 interface MyKolokiumPesertaItem {
-  id: number; // kolokium_id
-  peserta_kolokium_id: number;
+  id: number;                    // kolokium_id
+  peserta_kolokium_id: number;   // dipakai sebagai target PATCH /peserta-kolokium/{id}/status
   status_kehadiran: StatusPeserta;
 }
 
@@ -191,7 +203,7 @@ function clearMessage(): void {
 // ------------------------------------------------------------------
 function formatTanggal(value: string | null): string {
   if (!value) return "-";
-  const date = new Date(value);
+  const date = new Date(value); // parse UTC → lokal browser
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("id-ID", {
     weekday: "long",
@@ -201,7 +213,9 @@ function formatTanggal(value: string | null): string {
   });
 }
 
-function todayISO(): string {
+function todayLocalISO(): string {
+  // Pakai date lokal browser (bukan UTC) supaya konsisten dengan
+  // konversi tanggal dari backend yang di-parse ke lokal di bawah.
   const now = new Date();
   const yyyy = now.getFullYear();
   const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -209,13 +223,30 @@ function todayISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// Konversi tanggal dari backend (bisa berupa string UTC seperti
+// "2026-07-30T17:00:00.000000Z") ke tanggal lokal browser (WIB),
+// lalu format ke "YYYY-MM-DD". Ini penting karena backend menyimpan
+// tanggal sebagai UTC, tapi secara semantik tanggalnya adalah tanggal
+// lokal (30 Juli UTC+7 = "2026-07-30T17:00:00.000000Z" dalam UTC).
+// Slice langsung dari string UTC akan menghasilkan tanggal yang salah
+// (kelihatan "2026-07-30" padahal di WIB sudah masuk 31 Juli, atau
+// sebaliknya seperti kasus ini: backend kirim "2026-07-30T17:00:00Z"
+// tapi user WIB membacanya sebagai 31 Juli jam 00:00).
+function toLocalDateISO(tanggal: string): string {
+  const d = new Date(tanggal); // parse UTC string ke objek Date lokal
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 // Sudah hari H atau lewat (>=)? Dipakai buat nge-disable tombol Hadir/Hadir
 // Ulang — konsisten dengan validasi backend (PesertaKolokiumController)
-// yang juga menolak pendaftaran mulai hari H itu sendiri, bukan cuma yang
-// benar-benar sudah lewat.
+// yang juga menolak pendaftaran mulai hari H itu sendiri.
 function isTanggalLewat(tanggal: string | null): boolean {
   if (!tanggal) return false;
-  return tanggal.slice(0, 10) <= todayISO();
+  const tanggalLokal = toLocalDateISO(tanggal);
+  return tanggalLokal <= todayLocalISO();
 }
 
 // ------------------------------------------------------------------
@@ -236,10 +267,10 @@ async function loadProfil(): Promise<void> {
 async function loadMyPeserta(): Promise<void> {
   const json = await apiFetch<MyKolokiumPesertaResponse>("/auth/peserta-kolokium/my-kolokium");
   myPesertaMap = new Map();
-  if (json) {
+  if (json?.kolokiums) {
     for (const item of json.kolokiums) {
       myPesertaMap.set(item.id, {
-        id: item.peserta_kolokium_id,
+        id: item.peserta_kolokium_id,   // id PesertaKolokium, dipakai buat PATCH
         kolokium_id: item.id,
         status: item.status_kehadiran,
       });
