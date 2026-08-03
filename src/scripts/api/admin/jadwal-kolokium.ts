@@ -20,6 +20,12 @@
 // PER PAGE: select #jadwal-kolokium-per-page dikirim ke backend lewat query
 // param `per_page` (backend KolokiumController::index sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
+//
+// KONFIRMASI HAPUS: menggunakan ConfirmModal (src/components/ConfirmModal.astro)
+// lewat helper confirmDialog() di src/scripts/lib/confirm-dialog.ts, bukan
+// window.confirm() bawaan browser.
+
+import { confirmDialog } from "../../lib/confirm-dialog";
 
 interface KolokiumItem {
   id: number;
@@ -316,14 +322,22 @@ function initActionButtons(): void {
   if (tbody.dataset.bound === "true") return;
   tbody.dataset.bound = "true";
 
-  tbody.addEventListener("click", (e) => {
+  tbody.addEventListener("click", async (e) => {
     const target = e.target as HTMLElement;
     const deleteBtn = target.closest<HTMLElement>(".kolokium-delete-btn");
     if (!deleteBtn) return;
 
     const id = Number(deleteBtn.dataset.id);
     if (!id) return;
-    if (!confirm("Hapus kolokium ini? Tindakan ini tidak bisa dibatalkan.")) return;
+
+    const ok = await confirmDialog({
+      title: "Hapus Kolokium?",
+      message: "Data kolokium yang dihapus tidak bisa dikembalikan. Lanjutkan?",
+      variant: "danger",
+      confirmText: "Ya, Hapus",
+    });
+    if (!ok) return;
+
     deleteKolokium(id);
   });
 }

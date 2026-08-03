@@ -20,6 +20,7 @@
 // PER PAGE: select #jadwal-seminar-per-page dikirim ke backend lewat query
 // param `per_page` (backend SeminarController::index sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
+import { confirmDialog } from "../../lib/confirm-dialog";
 
 interface SeminarItem {
   id: number;
@@ -316,14 +317,22 @@ function initActionButtons(): void {
   if (tbody.dataset.bound === "true") return;
   tbody.dataset.bound = "true";
 
-  tbody.addEventListener("click", (e) => {
+  tbody.addEventListener("click", async (e) => {
     const target = e.target as HTMLElement;
     const deleteBtn = target.closest<HTMLElement>(".seminar-delete-btn");
     if (!deleteBtn) return;
 
     const id = Number(deleteBtn.dataset.id);
     if (!id) return;
-    if (!confirm("Hapus seminar ini? Tindakan ini tidak bisa dibatalkan.")) return;
+
+    const ok = await confirmDialog({
+      title: "Hapus Seminar?",
+      message: "Data seminar yang dihapus tidak bisa dikembalikan. Lanjutkan?",
+      variant: "danger",
+      confirmText: "Ya, Hapus",
+    });
+    if (!ok) return;
+
     deleteSeminar(id);
   });
 }
