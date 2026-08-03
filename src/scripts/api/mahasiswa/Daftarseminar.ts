@@ -1,27 +1,48 @@
 // src/scripts/daftar-seminar.ts
-// Logic untuk halaman "Daftar Seminar" (form pendaftaran seminar oleh mahasiswa):
-// 1) fetch profil login (GET /auth/profile) -> isi Nama/NIM/Prodi (readonly)
-// 2) fetch status pengajuan seminar milik mahasiswa (GET /auth/seminar/my) -> isi Status Card
-//    & kunci form kalau mahasiswa sudah pernah mendaftar
-// 3) fetch daftar dosen (GET /auth/dosen) -> isi <select> Pembimbing Utama & Kedua
-// 4) submit form -> POST /auth/seminar
+// Logic untuk halaman "Daftar Seminar" (role: mahasiswa):
+// 1) fetch profil login untuk isi field readonly (Nama/NIM/Prodi) -> GET /auth/profile
+// 2) fetch status seminar terbaru milik mahasiswa login -> GET /auth/seminar/my
+//    - kalau status masih 'pending' atau 'approved', form disembunyikan (tidak boleh
+//      daftar dobel), hanya status card yang tampil
+//    - kalau belum pernah daftar / status 'rejected', form ditampilkan untuk isi ulang
+// 3) submit form pendaftaran -> POST /auth/seminar (SeminarController@store)
 //
-// PENTING: semua endpoint di routes/api.php ada di dalam Route::prefix('auth'),
-// jadi WAJIB pakai prefix /auth di setiap path (mis. /auth/seminar, /auth/dosen),
-// bukan cuma /auth/profile & /auth/change-password.
+// Dropdown "Dosen Pembimbing" diisi dari endpoint khusus
+// (bukan UserController@index yang admin-only): GET /auth/dosen.
+// Endpoint ini hanya butuh login (role apa saja), lihat UserController@dosenList.
 //
-// CATATAN: SeminarController@store hanya mengizinkan role "mahasiswa" (403 kalau
-// bukan), dan field "moderator_id" / "ruangan" sengaja TIDAK dikirim dari form ini
-// karena diisi belakangan oleh panitia/admin (lihat kolom "akan diisi oleh panitia").
+// PESAN ERROR: memakai modal InfoModal (src/components/InfoModal.astro) lewat
+// helper showError() di src/scripts/lib/info-dialog.ts.
+// PESAN BERHASIL: TETAP memakai banner inline showMessage()/#seminar-message
+// seperti sebelumnya (tidak dipindah ke modal, sesuai permintaan).
+//
+// VALIDASI SEBELUM SUBMIT (client-side, mirip form-update-seminar.ts admin,
+// TAPI tanpa status/moderator/ruangan karena field itu tidak diisi mahasiswa):
+// 1. Dosen pembimbing utama wajib dipilih.
+// 2. Dosen pembimbing utama & kedua tidak boleh sama/ganda.
+// 3. Tanggal seminar (kalau diisi) wajib SESUDAH hari ini (tidak boleh hari
+//    ini atau lewat).
+// 4. Rencana tugas akhir (judul) wajib diisi.
+
+import { showError } from "../../lib/info-dialog";
 
 // ------------------------------------------------------------------
 // Konfigurasi
 // ------------------------------------------------------------------
+// PENTING: nama env HARUS berprefix PUBLIC_ (mis. PUBLIC_BASE_URL) supaya
+// terbaca di client-side. Astro hanya meng-expose env yang berprefix
+// PUBLIC_ ke kode yang berjalan di browser. Jika tetap memakai VITE_BASE_URL,
+// tambahkan `envPrefix: ["VITE_", "PUBLIC_"]` di astro.config.mjs.
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
+const statusCard = document.getElementById("status-card");
+
+if (statusCard) {
+  statusCard.classList.remove("hidden");
+}
 
 // ------------------------------------------------------------------
-// Tipe data (disesuaikan dengan SeminarController & UserController)
+// Tipe data
 // ------------------------------------------------------------------
 type StatusPengajuan = "pending" | "approved" | "rejected";
 
@@ -29,7 +50,6 @@ interface UserProfil {
   id: number;
   nama: string;
   nim?: string | null;
-  nip?: string | null;
   prodi?: string | null;
   role: "mahasiswa" | "dosen" | "admin";
 }
@@ -64,22 +84,18 @@ interface LaravelPaginator<T> {
   total: number;
 }
 
-// Dipakai untuk isi <select> pembimbing (dosen).
-// Nama key list di response (dosen/users/data) belum pasti,
-// makanya di-extract pakai extractList() di bawah biar toleran.
-interface UserOption {
+interface UserListItem {
   id: number;
+  role: string;
   nama: string;
   nim?: string | null;
   nip?: string | null;
-  prodi?: string | null;
 }
 
-type UserOptionListResponse =
-  | UserOption[]
-  | { dosen: UserOption[] }
-  | { users: UserOption[] }
-  | { data: UserOption[] };
+interface UserListResponse {
+  message: string;
+  users: UserListItem[];
+}
 
 interface StoreSeminarResponse {
   message: string;
@@ -95,8 +111,7 @@ interface ApiErrorResponse {
 // State halaman
 // ------------------------------------------------------------------
 let currentUser: UserProfil | null = null;
-let existingSeminar: Seminar | null = null;
-let dosenOptions: UserOption[] = [];
+let currentSeminar: Seminar | null = null;
 
 // ------------------------------------------------------------------
 // Helper fetch
@@ -122,8 +137,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
 
   if (!res.ok) {
     const err = json as ApiErrorResponse;
-    const firstFieldError = err.errors ? Object.values(err.errors)[0]?.[0] : undefined;
-    throw new Error(firstFieldError ?? err.message ?? `Request ke ${path} gagal (status ${res.status})`);
+    throw new Error(err.message ?? `Request ke ${path} gagal (status ${res.status})`);
   }
 
   return json as T;
@@ -135,89 +149,67 @@ function extractUser(json: ProfilResponse): UserProfil {
   return json;
 }
 
-// Toleran terhadap beberapa kemungkinan bentuk response list dosen.
-function extractList(json: UserOptionListResponse): UserOption[] {
-  if (Array.isArray(json)) return json;
-  if ("dosen" in json) return json.dosen;
-  if ("users" in json) return json.users;
-  if ("data" in json) return json.data;
-  return [];
-}
-
 // ------------------------------------------------------------------
-// Pesan status
+// Pesan status (khusus BERHASIL, tetap banner inline seperti sebelumnya)
 // ------------------------------------------------------------------
 function showMessage(text: string, variant: "success" | "error"): void {
-  const el = document.getElementById("daftar-seminar-message");
+  const el = document.getElementById("seminar-message");
   if (!el) return;
   el.textContent = text;
   el.classList.remove("hidden", "bg-green-100", "text-green-800", "bg-red-100", "text-red-800");
-  el.classList.add(...(variant === "success" ? ["bg-green-100", "text-green-800"] : ["bg-red-100", "text-red-800"]));
+  el.classList.add(variant === "success" ? "bg-green-100" : "bg-red-100");
+  el.classList.add(variant === "success" ? "text-green-800" : "text-red-800");
 }
 
 function clearMessage(): void {
-  const el = document.getElementById("daftar-seminar-message");
+  const el = document.getElementById("seminar-message");
   if (!el) return;
   el.classList.add("hidden");
   el.textContent = "";
 }
 
 // ------------------------------------------------------------------
-// Status Card (badge "Belum Mendaftar" / "Pending" / "Disetujui" / "Ditolak")
+// Tanggal hari ini (lokal browser) dalam format "YYYY-MM-DD", dipakai
+// untuk validasi #3 (tanggal seminar harus sesudah hari ini).
 // ------------------------------------------------------------------
-function renderStatusBadge(): void {
-  const el = document.getElementById("status-badge");
-  if (!el) return;
+function todayLocalISO(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
-  el.classList.remove(
-    "bg-outline",
-    "bg-yellow-500",
-    "bg-green-600",
-    "bg-red-600"
-  );
+// ------------------------------------------------------------------
+// Status badge
+// ------------------------------------------------------------------
+function renderStatusBadge(status: StatusPengajuan | null): void {
+  const badge = document.getElementById("status-badge");
+  if (!badge) return;
 
-  if (!existingSeminar) {
-    el.textContent = "Belum Mendaftar";
-    el.classList.add("bg-outline");
-    return;
-  }
+  badge.className = "px-4 py-1.5 rounded-full font-body-sm text-body-sm text-white";
 
-  switch (existingSeminar.status) {
+  switch (status) {
     case "pending":
-      el.textContent = "Menunggu Persetujuan";
-      el.classList.add("bg-yellow-500");
+      badge.classList.add("bg-yellow-500");
+      badge.textContent = "Menunggu Persetujuan";
       break;
     case "approved":
-      el.textContent = "Disetujui";
-      el.classList.add("bg-green-600");
+      badge.classList.add("bg-secondary");
+      badge.textContent = "Disetujui";
       break;
     case "rejected":
-      el.textContent = "Ditolak";
-      el.classList.add("bg-red-600");
+      badge.classList.add("bg-error");
+      badge.textContent = "Ditolak";
       break;
-  }
-}
-
-// Kalau mahasiswa sudah pernah mendaftar (status apa pun), form dikunci
-// karena backend tidak menyediakan endpoint update/delete untuk mahasiswa
-// (SeminarController@update & @destroy hanya untuk role admin).
-function lockFormIfAlreadyRegistered(): void {
-  const form = document.getElementById("form-daftar-seminar") as HTMLFormElement | null;
-  const submitBtn = document.getElementById("btn-submit-seminar") as HTMLButtonElement | null;
-  if (!form) return;
-
-  if (existingSeminar) {
-    form.querySelectorAll("input, select, textarea, button").forEach((el) => {
-      (el as HTMLInputElement | HTMLSelectElement | HTMLButtonElement).disabled = true;
-    });
-    if (submitBtn) {
-      submitBtn.textContent = "Anda sudah mendaftar seminar";
-    }
+    default:
+      badge.classList.add("bg-outline");
+      badge.textContent = "Belum Mendaftar";
   }
 }
 
 // ------------------------------------------------------------------
-// Muat data profil (Nama, NIM, Prodi)
+// Muat profil login -> isi field readonly
 // ------------------------------------------------------------------
 async function loadProfil(): Promise<void> {
   const json = await apiFetch<ProfilResponse>("/auth/profile");
@@ -225,9 +217,9 @@ async function loadProfil(): Promise<void> {
 
   currentUser = extractUser(json);
 
-  const namaInput = document.getElementById("input-nama") as HTMLInputElement | null;
-  const nimInput = document.getElementById("input-nim") as HTMLInputElement | null;
-  const prodiInput = document.getElementById("input-prodi") as HTMLInputElement | null;
+  const namaInput = document.getElementById("nama-input") as HTMLInputElement | null;
+  const nimInput = document.getElementById("nim-input") as HTMLInputElement | null;
+  const prodiInput = document.getElementById("prodi-input") as HTMLInputElement | null;
 
   if (namaInput) namaInput.value = currentUser.nama ?? "";
   if (nimInput) nimInput.value = currentUser.nim ?? "";
@@ -235,81 +227,169 @@ async function loadProfil(): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Muat status pengajuan seminar milik mahasiswa login
+// Muat status seminar terbaru milik mahasiswa login
 // ------------------------------------------------------------------
-async function loadMySeminarStatus(): Promise<void> {
-  const json = await apiFetch<LaravelPaginator<Seminar>>("/auth/seminar/my");
-  existingSeminar = json && json.data.length > 0 ? json.data[0] : null;
-  renderStatusBadge();
-  lockFormIfAlreadyRegistered();
+async function loadMySeminar(): Promise<void> {
+  try {
+    const json = await apiFetch<LaravelPaginator<Seminar>>("/auth/seminar/my");
+
+    currentSeminar =
+      json && json.data.length > 0
+        ? json.data[0]
+        : null;
+  } catch (err) {
+    console.error("Gagal memuat status seminar:", err);
+    currentSeminar = null;
+  }
+
+  renderStatusBadge(currentSeminar?.status ?? null);
+  toggleForm();
+}
+
+// Form hanya ditampilkan jika belum pernah daftar, atau pengajuan terakhir ditolak.
+function toggleForm(): void {
+  const formWrapper = document.getElementById("form-wrapper");
+
+  if (!formWrapper) return;
+
+  // Jika belum pernah daftar atau ditolak, tampilkan form
+  if (!currentSeminar || currentSeminar.status === "rejected") {
+    formWrapper.classList.remove("hidden");
+  } else {
+    // Pending atau approved, sembunyikan form
+    formWrapper.classList.add("hidden");
+  }
 }
 
 // ------------------------------------------------------------------
-// Muat daftar dosen -> isi select Pembimbing Utama & Kedua
+// Muat opsi dosen (pembimbing)
 // ------------------------------------------------------------------
-async function loadDosenOptions(): Promise<void> {
-  const json = await apiFetch<UserOptionListResponse>("/auth/dosen");
-  dosenOptions = json ? extractList(json) : [];
+async function initDosenOptions(): Promise<void> {
+  const utamaSelect = document.getElementById("pembimbing-utama-select") as HTMLSelectElement | null;
+  const keduaSelect = document.getElementById("pembimbing-kedua-select") as HTMLSelectElement | null;
 
-  const utamaSelect = document.getElementById("select-pembimbing-utama") as HTMLSelectElement | null;
-  const keduaSelect = document.getElementById("select-pembimbing-kedua") as HTMLSelectElement | null;
+  await loadDosenOptions(utamaSelect, keduaSelect);
+}
 
-  const optionsHtml = dosenOptions
-    .map((d) => `<option value="${d.id}">${d.nama}${d.nip ? ` (NIP: ${d.nip})` : ""}</option>`)
-    .join("");
+async function loadDosenOptions(
+  utamaSelect: HTMLSelectElement | null,
+  keduaSelect: HTMLSelectElement | null
+): Promise<void> {
+  try {
+    const json = await apiFetch<UserListResponse>("/auth/dosen");
+    if (!json) return;
 
-  if (utamaSelect) {
-    utamaSelect.innerHTML = `<option value="">-- Pilih Dosen Pembimbing Utama --</option>${optionsHtml}`;
-  }
-  if (keduaSelect) {
-    keduaSelect.innerHTML = `<option value="">-- Pilih Dosen Pembimbing Kedua --</option>${optionsHtml}`;
+    fillSelectOptions(utamaSelect, json.users, "-- Pilih Dosen Pembimbing Utama --");
+    fillSelectOptions(keduaSelect, json.users, "-- Pilih Dosen Pembimbing Kedua --");
+  } catch (err) {
+    console.error("Gagal memuat daftar dosen:", err);
+    setSelectFallback(utamaSelect, "Daftar dosen tidak dapat dimuat");
+    setSelectFallback(keduaSelect, "Daftar dosen tidak dapat dimuat");
   }
 }
 
+function fillSelectOptions(
+  select: HTMLSelectElement | null,
+  items: UserListItem[],
+  placeholder: string
+): void {
+  if (!select) return;
+  select.innerHTML = `<option value="">${placeholder}</option>`;
+  items.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.value = String(item.id);
+    opt.textContent = item.nip ? `${item.nama} (${item.nip})` : item.nama;
+    select.appendChild(opt);
+  });
+}
+
+function setSelectFallback(select: HTMLSelectElement | null, message: string): void {
+  if (!select) return;
+  select.innerHTML = `<option value="">${message}</option>`;
+  select.disabled = true;
+}
+
 // ------------------------------------------------------------------
-// Submit form -> POST /auth/seminar
+// Validasi form sebelum submit. Return pesan error spesifik (string)
+// kalau ada yang gagal, atau null kalau semua valid.
+// Catatan: TIDAK ada validasi status/moderator/ruangan di sini karena
+// field-field itu tidak diisi oleh mahasiswa (beda dengan form admin).
+// ------------------------------------------------------------------
+interface FormValues {
+  pembimbingUtamaId: number | null;
+  pembimbingKeduaId: number | null;
+  tanggal: string; // "YYYY-MM-DD" atau ""
+  judul: string;
+}
+
+function validateForm(values: FormValues): string | null {
+  const { pembimbingUtamaId, pembimbingKeduaId, tanggal, judul } = values;
+
+  // 1. Dosen pembimbing utama wajib dipilih
+  if (!pembimbingUtamaId) {
+    return "Dosen pembimbing utama wajib dipilih.";
+  }
+
+  // 2. Dosen pembimbing tidak boleh sama/ganda
+  if (pembimbingKeduaId && pembimbingKeduaId === pembimbingUtamaId) {
+    return "Dosen pembimbing tidak boleh sama/ganda. Pilih dosen yang berbeda untuk pembimbing kedua.";
+  }
+
+  // 3. Tanggal seminar (kalau diisi) wajib SESUDAH hari ini
+  if (tanggal && tanggal <= todayLocalISO()) {
+    return "Tanggal seminar tidak boleh hari ini atau sudah lewat. Pilih tanggal setelah hari ini.";
+  }
+
+  // 4. Rencana tugas akhir (judul) wajib diisi
+  if (!judul) {
+    return "Rencana tugas akhir wajib diisi.";
+  }
+
+  return null;
+}
+
+// ------------------------------------------------------------------
+// Submit form pendaftaran seminar
 // ------------------------------------------------------------------
 async function handleSubmit(e: SubmitEvent): Promise<void> {
   e.preventDefault();
   clearMessage();
 
-  const utamaSelect = document.getElementById("select-pembimbing-utama") as HTMLSelectElement | null;
-  const keduaSelect = document.getElementById("select-pembimbing-kedua") as HTMLSelectElement | null;
-  const judulInput = document.getElementById("input-judul") as HTMLTextAreaElement | null;
-  const lokasiInput = document.getElementById("input-lokasi") as HTMLInputElement | null;
-  const tanggalInput = document.getElementById("input-tanggal") as HTMLInputElement | null;
-  const waktuInput = document.getElementById("input-waktu") as HTMLInputElement | null;
-  const submitBtn = document.getElementById("btn-submit-seminar") as HTMLButtonElement | null;
+  const utamaSelect = document.getElementById("pembimbing-utama-select") as HTMLSelectElement | null;
+  const keduaSelect = document.getElementById("pembimbing-kedua-select") as HTMLSelectElement | null;
+  const judulInput = document.getElementById("judul-textarea") as HTMLTextAreaElement | null;
+  const lokasiInput = document.getElementById("lokasi-input") as HTMLInputElement | null;
+  const tanggalInput = document.getElementById("tanggal-input") as HTMLInputElement | null;
+  const waktuInput = document.getElementById("waktu-input") as HTMLInputElement | null;
+  const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement | null;
 
-  const pembimbingUtamaId = utamaSelect?.value ?? "";
-  const pembimbingKeduaId = keduaSelect?.value ?? "";
+  const pembimbingUtamaId = utamaSelect?.value ? Number(utamaSelect.value) : null;
+  const pembimbingKeduaId = keduaSelect?.value ? Number(keduaSelect.value) : null;
+  const tanggal = tanggalInput?.value ?? "";
   const judul = judulInput?.value.trim() ?? "";
 
-  if (!pembimbingUtamaId) {
-    showMessage("Dosen Pembimbing Utama wajib dipilih.", "error");
-    return;
-  }
-  if (!judul) {
-    showMessage("Rencana Tugas Akhir (judul) wajib diisi.", "error");
-    return;
-  }
-  if (pembimbingKeduaId && pembimbingKeduaId === pembimbingUtamaId) {
-    showMessage("Dosen Pembimbing Kedua harus berbeda dari Pembimbing Utama.", "error");
+  const validationError = validateForm({
+    pembimbingUtamaId,
+    pembimbingKeduaId,
+    tanggal,
+    judul,
+  });
+
+  if (validationError) {
+    showError(validationError);
     return;
   }
 
-  const pembimbingId = [Number(pembimbingUtamaId)];
-  if (pembimbingKeduaId) pembimbingId.push(Number(pembimbingKeduaId));
+  const pembimbingId = [pembimbingUtamaId as number];
+  if (pembimbingKeduaId) pembimbingId.push(pembimbingKeduaId);
 
   const payload: Record<string, unknown> = {
     pembimbing_id: pembimbingId,
     judul,
     lokasi: lokasiInput?.value.trim() || null,
-    tanggal: tanggalInput?.value || null,
+    tanggal: tanggal || null,
     waktu: waktuInput?.value || null,
   };
-
-  // moderator_id & ruangan sengaja tidak dikirim: diisi belakangan oleh panitia.
 
   if (submitBtn) {
     submitBtn.disabled = true;
@@ -317,20 +397,17 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   }
 
   try {
-    const json = await apiFetch<StoreSeminarResponse>("/auth/seminar", {
+    await apiFetch<StoreSeminarResponse>("/auth/seminar", {
       method: "POST",
       body: JSON.stringify(payload),
     });
 
-    if (json) {
-      existingSeminar = json.seminar;
-      showMessage(json.message ?? "Seminar berhasil didaftarkan.", "success");
-      renderStatusBadge();
-      lockFormIfAlreadyRegistered();
-    }
+    showMessage("Seminar berhasil diajukan. Menunggu persetujuan panitia.", "success");
+    await loadMySeminar();
   } catch (err) {
-    console.error("Gagal mendaftar seminar:", err);
-    showMessage(err instanceof Error ? err.message : "Gagal mendaftar seminar.", "error");
+    console.error("Gagal mengajukan seminar:", err);
+    showError(err instanceof Error ? err.message : "Gagal mengajukan seminar.");
+  } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.innerHTML = `<span class="material-symbols-outlined text-sm">save</span> Kirim`;
@@ -338,17 +415,26 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   }
 }
 
-function initForm(): void {
-  const form = document.getElementById("form-daftar-seminar") as HTMLFormElement | null;
-  form?.addEventListener("submit", handleSubmit);
-}
-
 // ------------------------------------------------------------------
 // Jalankan saat halaman siap
 // ------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
-  initForm();
+  clearMessage();
+
+  const form = document.getElementById("seminar-form") as HTMLFormElement | null;
+  form?.addEventListener("submit", handleSubmit);
+
+  // Ambil status pengajuan terlebih dahulu
+  await loadMySeminar();
+
+  // Jika sudah memiliki pengajuan (pending atau approved),
+  // cukup tampilkan status dan hentikan proses.
+  if (currentSeminar && currentSeminar.status !== "rejected") {
+    return;
+  }
+
+  // Jika belum pernah mendaftar atau status ditolak,
+  // baru ambil data untuk mengisi form.
   await loadProfil();
-  // Hanya meload status seminar dan opsi dosen
-  await Promise.all([loadMySeminarStatus(), loadDosenOptions()]);
+  await initDosenOptions();
 });

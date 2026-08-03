@@ -10,6 +10,21 @@
 // Dropdown "Dosen Pembimbing" diisi dari endpoint khusus
 // (bukan UserController@index yang admin-only): GET /auth/dosen.
 // Endpoint ini hanya butuh login (role apa saja), lihat UserController@dosenList.
+//
+// PESAN ERROR: memakai modal InfoModal (src/components/InfoModal.astro) lewat
+// helper showError() di src/scripts/lib/info-dialog.ts.
+// PESAN BERHASIL: TETAP memakai banner inline showMessage()/#kolokium-message
+// seperti sebelumnya (tidak dipindah ke modal, sesuai permintaan).
+//
+// VALIDASI SEBELUM SUBMIT (client-side, mirip form-update-kolokium.ts admin,
+// TAPI tanpa status/moderator/ruangan karena field itu tidak diisi mahasiswa):
+// 1. Dosen pembimbing utama wajib dipilih.
+// 2. Dosen pembimbing utama & kedua tidak boleh sama/ganda.
+// 3. Tanggal kolokium (kalau diisi) wajib SESUDAH hari ini (tidak boleh hari
+//    ini atau lewat).
+// 4. Rencana tugas akhir (judul) wajib diisi.
+
+import { showError } from "../../lib/info-dialog";
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -135,7 +150,7 @@ function extractUser(json: ProfilResponse): UserProfil {
 }
 
 // ------------------------------------------------------------------
-// Pesan status
+// Pesan status (khusus BERHASIL, tetap banner inline seperti sebelumnya)
 // ------------------------------------------------------------------
 function showMessage(text: string, variant: "success" | "error"): void {
   const el = document.getElementById("kolokium-message");
@@ -151,6 +166,18 @@ function clearMessage(): void {
   if (!el) return;
   el.classList.add("hidden");
   el.textContent = "";
+}
+
+// ------------------------------------------------------------------
+// Tanggal hari ini (lokal browser) dalam format "YYYY-MM-DD", dipakai
+// untuk validasi #3 (tanggal kolokium harus sesudah hari ini).
+// ------------------------------------------------------------------
+function todayLocalISO(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // ------------------------------------------------------------------
@@ -283,6 +310,45 @@ function setSelectFallback(select: HTMLSelectElement | null, message: string): v
 }
 
 // ------------------------------------------------------------------
+// Validasi form sebelum submit. Return pesan error spesifik (string)
+// kalau ada yang gagal, atau null kalau semua valid.
+// Catatan: TIDAK ada validasi status/moderator/ruangan di sini karena
+// field-field itu tidak diisi oleh mahasiswa (beda dengan form admin).
+// ------------------------------------------------------------------
+interface FormValues {
+  pembimbingUtamaId: number | null;
+  pembimbingKeduaId: number | null;
+  tanggal: string; // "YYYY-MM-DD" atau ""
+  judul: string;
+}
+
+function validateForm(values: FormValues): string | null {
+  const { pembimbingUtamaId, pembimbingKeduaId, tanggal, judul } = values;
+
+  // 1. Dosen pembimbing utama wajib dipilih
+  if (!pembimbingUtamaId) {
+    return "Dosen pembimbing utama wajib dipilih.";
+  }
+
+  // 2. Dosen pembimbing tidak boleh sama/ganda
+  if (pembimbingKeduaId && pembimbingKeduaId === pembimbingUtamaId) {
+    return "Dosen pembimbing tidak boleh sama/ganda. Pilih dosen yang berbeda untuk pembimbing kedua.";
+  }
+
+  // 3. Tanggal kolokium (kalau diisi) wajib SESUDAH hari ini
+  if (tanggal && tanggal <= todayLocalISO()) {
+    return "Tanggal kolokium tidak boleh hari ini atau sudah lewat. Pilih tanggal setelah hari ini.";
+  }
+
+  // 4. Rencana tugas akhir (judul) wajib diisi
+  if (!judul) {
+    return "Rencana tugas akhir wajib diisi.";
+  }
+
+  return null;
+}
+
+// ------------------------------------------------------------------
 // Submit form pendaftaran kolokium
 // ------------------------------------------------------------------
 async function handleSubmit(e: SubmitEvent): Promise<void> {
@@ -297,26 +363,31 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   const waktuInput = document.getElementById("waktu-input") as HTMLInputElement | null;
   const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement | null;
 
-  const pembimbingUtama = utamaSelect?.value ?? "";
-  const pembimbingKedua = keduaSelect?.value ?? "";
+  const pembimbingUtamaId = utamaSelect?.value ? Number(utamaSelect.value) : null;
+  const pembimbingKeduaId = keduaSelect?.value ? Number(keduaSelect.value) : null;
+  const tanggal = tanggalInput?.value ?? "";
+  const judul = judulInput?.value.trim() ?? "";
 
-  if (!pembimbingUtama) {
-    showMessage("Dosen pembimbing utama wajib dipilih.", "error");
+  const validationError = validateForm({
+    pembimbingUtamaId,
+    pembimbingKeduaId,
+    tanggal,
+    judul,
+  });
+
+  if (validationError) {
+    showError(validationError);
     return;
   }
-  if (!judulInput?.value.trim()) {
-    showMessage("Rencana tugas akhir wajib diisi.", "error");
-    return;
-  }
 
-  const pembimbingId = [Number(pembimbingUtama)];
-  if (pembimbingKedua) pembimbingId.push(Number(pembimbingKedua));
+  const pembimbingId = [pembimbingUtamaId as number];
+  if (pembimbingKeduaId) pembimbingId.push(pembimbingKeduaId);
 
   const payload: Record<string, unknown> = {
     pembimbing_id: pembimbingId,
-    judul: judulInput.value.trim(),
+    judul,
     lokasi: lokasiInput?.value.trim() || null,
-    tanggal: tanggalInput?.value || null,
+    tanggal: tanggal || null,
     waktu: waktuInput?.value || null,
   };
 
@@ -335,7 +406,7 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     await loadMyKolokium();
   } catch (err) {
     console.error("Gagal mengajukan kolokium:", err);
-    showMessage(err instanceof Error ? err.message : "Gagal mengajukan kolokium.", "error");
+    showError(err instanceof Error ? err.message : "Gagal mengajukan kolokium.");
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
