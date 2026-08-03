@@ -21,6 +21,7 @@
 // param `per_page` (backend SeminarController::index sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
 import { confirmDialog } from "../../lib/confirm-dialog";
+import { showSuccess, showError } from "../../lib/info-dialog";
 
 interface SeminarItem {
   id: number;
@@ -300,14 +301,15 @@ async function deleteSeminar(id: number): Promise<void> {
 
     if (!res.ok) {
       const errJson = (await res.json().catch(() => ({}))) as ApiErrorResponse;
-      alert(errJson.message ?? "Gagal menghapus seminar.");
+      showError(errJson.message ?? "Gagal menghapus seminar.");
       return;
     }
 
+    showSuccess("Seminar berhasil dihapus.");
     await loadJadwalSeminars(currentPage);
   } catch (err) {
     console.error("Gagal menghapus seminar:", err);
-    alert("Terjadi kesalahan jaringan. Coba lagi.");
+    showError("Terjadi kesalahan jaringan. Coba lagi.");
   }
 }
 

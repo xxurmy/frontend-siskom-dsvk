@@ -1,0 +1,61 @@
+---
+// src/components/InfoModal.astro
+// Modal notifikasi reusable untuk pesan berhasil/gagal (mis. setelah Update/Delete).
+// Bukan modal konfirmasi — tidak ada tombol Ya/Batal, cuma pesan + tombol close (×).
+//
+// CARA PAKAI:
+// 1) Import & taruh SEKALI di Layout.astro, di luar <slot />, sejajar <ConfirmModal />:
+//
+//      import InfoModal from "../components/InfoModal.astro";
+//      ...
+//      <slot />
+//      <ConfirmModal />
+//      <InfoModal />
+//
+// 2) Di script (.ts) halaman mana pun, panggil helper showInfoDialog() dari
+//    src/scripts/lib/info-dialog.ts setelah aksi update/delete selesai:
+//
+//      import { showInfoDialog } from "../lib/info-dialog";
+//
+//      showInfoDialog({
+//        title: "Berhasil Dihapus",
+//        message: "Data kolokium sudah dihapus.",
+//        variant: "success",
+//      });
+---
+
+<div
+  id="info-modal"
+  class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+>
+  <div
+    id="info-modal-panel"
+    class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4 relative"
+  >
+    <button
+      id="info-modal-close-btn"
+      type="button"
+      aria-label="Tutup"
+      class="absolute top-3 right-3 text-on-surface-variant hover:text-on-surface transition-colors"
+    >
+      <span class="material-symbols-outlined text-[20px]">close</span>
+    </button>
+
+    <div class="flex items-start gap-3 pr-4">
+      <div
+        id="info-modal-icon-wrap"
+        class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-green-100 text-green-600"
+      >
+        <span id="info-modal-icon" class="material-symbols-outlined">check_circle</span>
+      </div>
+      <div class="flex-1">
+        <h3 id="info-modal-title" class="font-title-md text-title-md text-on-surface font-bold">
+          Berhasil
+        </h3>
+        <p id="info-modal-message" class="mt-1 text-body-sm text-on-surface-variant">
+          Aksi berhasil dilakukan.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

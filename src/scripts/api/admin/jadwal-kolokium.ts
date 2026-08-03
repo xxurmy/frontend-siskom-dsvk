@@ -26,6 +26,7 @@
 // window.confirm() bawaan browser.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
+import { showSuccess, showError } from "../../lib/info-dialog";
 
 interface KolokiumItem {
   id: number;
@@ -305,14 +306,15 @@ async function deleteKolokium(id: number): Promise<void> {
 
     if (!res.ok) {
       const errJson = (await res.json().catch(() => ({}))) as ApiErrorResponse;
-      alert(errJson.message ?? "Gagal menghapus kolokium.");
+      showError(errJson.message ?? "Gagal menghapus kolokium.");
       return;
     }
 
+    showSuccess("Kolokium berhasil dihapus.");
     await loadJadwalKolokium(currentPage);
   } catch (err) {
     console.error("Gagal menghapus kolokium:", err);
-    alert("Terjadi kesalahan jaringan. Coba lagi.");
+    showError("Terjadi kesalahan jaringan. Coba lagi.");
   }
 }
 

@@ -8,6 +8,7 @@ import SidebarAdmin from "../components/layout/SidebarAdmin.astro";
 import SidebarDosen from "../components/layout/SidebarDosen.astro";
 import SidebarMahasiswa from "../components/layout/SidebarMahasiswa.astro";
 import ConfirmModal from "../components/layout/ConfirmModal.astro";
+import InfoModal from "../components/layout/InfoModal.astro";
 
 interface Props {
   pageTitle?: string;
@@ -187,6 +188,7 @@ const {
       <div class="p-gutter max-w-container-max mx-auto min-h-[calc(100vh-100px)] flex flex-col">
         <slot />
         <ConfirmModal />
+        <InfoModal />
       </div>
     </main>
 
