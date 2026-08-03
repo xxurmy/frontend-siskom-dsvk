@@ -15,6 +15,17 @@
 //   });
 //   if (!ok) return;
 //   // lanjut proses delete/update ke API...
+//
+// Icon modal default mengikuti `variant` ("danger" -> delete, "primary" -> help),
+// tapi bisa ditimpa manual lewat opsi `icon` supaya modal bisa mengikuti icon
+// tombol aksi yang memicunya, misal:
+//
+//   await confirmDialog({
+//     title: "Tandatangani Kolokium?",
+//     message: "...",
+//     variant: "primary",
+//     icon: "draw", // menimpa default "help"
+//   });
 
 export type ConfirmVariant = "danger" | "primary";
 
@@ -25,6 +36,13 @@ export interface ConfirmDialogOptions {
   cancelText?: string;
   /** "danger" untuk aksi hapus/batal (merah), "primary" untuk aksi update biasa (biru) */
   variant?: ConfirmVariant;
+  /**
+   * Nama Material Symbols icon yang menimpa icon default dari `variant`.
+   * Berguna supaya icon modal konsisten dengan icon tombol yang memicunya
+   * (mis. "draw" untuk tandatangani, "person_off" untuk tidak hadir).
+   * Kalau tidak diisi, pakai icon default sesuai variant.
+   */
+  icon?: string;
 }
 
 const variantStyles: Record<
@@ -76,6 +94,7 @@ export function confirmDialog(options: ConfirmDialogOptions): Promise<boolean> {
     confirmText = "Ya, Lanjutkan",
     cancelText = "Batal",
     variant = "danger",
+    icon,
   } = options;
 
   return new Promise((resolve) => {
@@ -85,7 +104,7 @@ export function confirmDialog(options: ConfirmDialogOptions): Promise<boolean> {
     const confirmBtn = document.getElementById("confirm-modal-confirm-btn") as HTMLButtonElement | null;
     const cancelBtn = document.getElementById("confirm-modal-cancel-btn") as HTMLButtonElement | null;
     const iconWrap = document.getElementById("confirm-modal-icon-wrap");
-    const icon = document.getElementById("confirm-modal-icon");
+    const iconEl = document.getElementById("confirm-modal-icon");
 
     if (!modal || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
       console.error(
@@ -106,7 +125,7 @@ export function confirmDialog(options: ConfirmDialogOptions): Promise<boolean> {
     if (iconWrap) {
       iconWrap.className = `w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${style.iconWrap}`;
     }
-    if (icon) icon.textContent = style.icon;
+    if (iconEl) iconEl.textContent = icon ?? style.icon;
     confirmBtn.className = `px-4 py-2 text-white text-label-md font-bold rounded-lg transition-opacity ${style.confirmBtn}`;
 
     modal.classList.remove("hidden");

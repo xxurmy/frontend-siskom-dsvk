@@ -23,6 +23,15 @@
 // PER PAGE: select #entries-per-page dikirim ke backend lewat query param
 // `per_page` (backend KartuSeminarController::my sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
+//
+// KONFIRMASI TANDATANGANI / TIDAK HADIR: menggunakan ConfirmModal
+// (src/components/ConfirmModal.astro) lewat helper confirmDialog() di
+// src/scripts/lib/confirm-dialog.ts, bukan window.confirm() bawaan browser.
+// Ikon & warna modal disesuaikan dengan tombol yang memicunya:
+// - Tandatangani -> ikon "draw", variant "primary"
+// - Tidak Hadir   -> ikon "person_off", variant "danger"
+
+import { confirmDialog } from "../../lib/confirm-dialog";
 
 interface KartuSeminar {
   id: number;
@@ -395,7 +404,7 @@ function initActionButtons(): void {
   if (tbody.dataset.bound === "true") return;
   tbody.dataset.bound = "true";
 
-  tbody.addEventListener("click", (e) => {
+  tbody.addEventListener("click", async (e) => {
     const target = e.target as HTMLElement;
 
     const signBtn = target.closest<HTMLElement>(".kartu-sign-btn");
@@ -403,7 +412,16 @@ function initActionButtons(): void {
       if (signBtn.hasAttribute("disabled")) return;
       const id = Number(signBtn.dataset.id);
       if (!id) return;
-      if (!confirm("Tandatangani kartu seminar ini?")) return;
+
+      const ok = await confirmDialog({
+        title: "Tandatangani Kolokium?",
+        message: "Kartu kolokium ini akan ditandai sebagai sudah ditandatangani.",
+        variant: "primary",
+        confirmText: "Ya, Tandatangani",
+        icon: "draw", // menimpa icon default "help" milik variant primary
+      })
+      if (!ok) return;
+      
       updateStatusParaf(id, "signed");
       return;
     }
@@ -413,7 +431,16 @@ function initActionButtons(): void {
       if (absentBtn.hasAttribute("disabled")) return;
       const id = Number(absentBtn.dataset.id);
       if (!id) return;
-      if (!confirm("Tandai mahasiswa ini tidak hadir?")) return;
+      
+      const ok = await confirmDialog({
+        title: "Tandai Tidak Hadir?",
+        message: "Kartu kolokium ini akan ditandai sebagai tidak hadir.",
+        variant: "danger",
+        confirmText: "Ya, Tandai Tidak Hadir",
+        icon: "person_off", // menimpa icon default "help" milik variant danger
+      });
+      if (!ok) return;
+
       updateStatusParaf(id, "absent");
     }
   });
