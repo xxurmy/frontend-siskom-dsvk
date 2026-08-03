@@ -84,7 +84,7 @@ function closeInfoModal(): void {
  * silently hilang.
  */
 export function showInfoDialog(options: InfoDialogOptions): void {
-  const { title, message, variant = "success", icon, autoCloseMs = 1500 } = options;
+  const { title, message, variant = "success", icon, autoCloseMs = 2000 } = options;
 
   const modal = document.getElementById("info-modal");
   const titleEl = document.getElementById("info-modal-title");

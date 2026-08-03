@@ -6,9 +6,23 @@
 //
 // PENTING: semua endpoint di routes/api.php ada di dalam Route::prefix('auth'),
 // jadi WAJIB pakai prefix /auth di setiap path.
+//
+// PESAN BERHASIL/GAGAL: memakai modal InfoModal (src/components/InfoModal.astro)
+// lewat helper showSuccess()/showError() di src/scripts/lib/info-dialog.ts,
+// BUKAN banner inline #update-kolokium-message lagi — supaya konsisten dengan
+// aksi Update/Delete kolokium lain di sisi admin.
+//
+// VALIDASI SEBELUM SUBMIT (client-side, sebelum request PATCH dikirim):
+// 1. Dosen pembimbing utama wajib dipilih.
+// 2. Dosen pembimbing utama & kedua tidak boleh sama/ganda.
+// 3. Tanggal kolokium wajib SESUDAH hari ini (tidak boleh hari ini atau lewat).
+// 4. Dosen moderator tidak boleh sama dengan dosen pembimbing (utama/kedua).
+// 5. Dosen moderator & ruangan wajib diisi.
+// Semua pesan validasi ini spesifik per kasus, ditampilkan lewat showError().
 
 import TomSelect from "tom-select";
 import "tom-select/dist/css/tom-select.css";
+import { showError, showSuccess } from "../../lib/info-dialog";
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -42,12 +56,10 @@ interface Kolokium {
   namadosenpembimbing: string | null;
   pembimbing?: { id: number; nama?: string; pivot?: { urutan: number } }[];
   moderator_id: number | null;
-
   judul: string;
   lokasi: string | null;
   tanggal: string | null;
   waktu: string | null;
-
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
@@ -141,25 +153,15 @@ function toTimeInputValue(value: string | null): string {
 }
 
 // ------------------------------------------------------------------
-// Pesan status
+// Tanggal hari ini (lokal browser) dalam format "YYYY-MM-DD", dipakai
+// untuk validasi #3 (tanggal kolokium harus sesudah hari ini).
 // ------------------------------------------------------------------
-function showMessage(text: string, variant: "success" | "error"): void {
-  const el = document.getElementById("update-kolokium-message");
-  if (!el) return;
-  el.textContent = text;
-  el.classList.remove("hidden", "bg-green-100", "text-green-800", "bg-red-100", "text-red-800");
-  el.classList.add(
-    ...(variant === "success" 
-      ? ["bg-green-100", "text-green-800"] 
-      : ["bg-red-100", "text-red-800"])
-  );
-}
-
-function clearMessage(): void {
-  const el = document.getElementById("update-kolokium-message");
-  if (!el) return;
-  el.classList.add("hidden");
-  el.textContent = "";
+function todayLocalISO(): string {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // ------------------------------------------------------------------
@@ -257,61 +259,61 @@ function applyPreselections(): void {
 
   // Preselect moderator
   selectAndUpdatePlaceholder("select-moderator", currentKolokium.moderator_id, "-- Pilih Dosen Moderator --");
-  
+
   // Preselect pembimbing jika data tersedia dari backend
   if (currentKolokium.pembimbing && currentKolokium.pembimbing.length > 0) {
     const sorted = [...currentKolokium.pembimbing].sort(
       (a, b) => (a.pivot?.urutan ?? 1) - (b.pivot?.urutan ?? 2)
     );
-    
+
     const pembimbingUtamaId = sorted[0]?.id ?? null;
     const pembimbingKeduaId = sorted[1]?.id ?? null;
-    
+
     // Preselect dan update placeholder untuk pembimbing utama
     selectAndUpdatePlaceholder(
-      "select-pembimbing-utama", 
-      pembimbingUtamaId, 
+      "select-pembimbing-utama",
+      pembimbingUtamaId,
       "-- Pilih Dosen Pembimbing Utama --"
     );
-    
+
     // Preselect dan update placeholder untuk pembimbing kedua
     selectAndUpdatePlaceholder(
-      "select-pembimbing-kedua", 
-      pembimbingKeduaId, 
+      "select-pembimbing-kedua",
+      pembimbingKeduaId,
       "-- Pilih Dosen Pembimbing Kedua --"
     );
   }
 }
 
 function selectAndUpdatePlaceholder(
-  selectId: string, 
-  value: number | null | undefined, 
+  selectId: string,
+  value: number | null | undefined,
   defaultPlaceholder: string
 ): void {
   const select = document.getElementById(selectId) as HTMLSelectElement | null;
   if (!select) return;
-  
+
   const tomSelectInstance = (select as any).tomselect;
   if (!tomSelectInstance) return;
-  
+
   // Jika ada value (dosen sudah dipilih)
   if (value != null) {
     // Set value
     tomSelectInstance.setValue(String(value));
-    
+
     // Cari nama dosen dari dosenOptions
     const dosenName = getDosenNameById(value);
-    
+
     if (dosenName) {
       // Update placeholder text melalui DOM langsung
       const placeholderEl = tomSelectInstance.control.querySelector('.ts-placeholder') as HTMLElement;
       if (placeholderEl) {
         placeholderEl.textContent = dosenName;
       }
-      
+
       // Update settings placeholder
       tomSelectInstance.settings.placeholder = dosenName;
-      
+
       // Update option placeholder di select asli
       const placeholderOpt = select.querySelector('option[value=""]') as HTMLOptionElement | null;
       if (placeholderOpt) {
@@ -325,9 +327,9 @@ function selectAndUpdatePlaceholder(
     if (placeholderEl) {
       placeholderEl.textContent = defaultPlaceholder;
     }
-    
+
     tomSelectInstance.settings.placeholder = defaultPlaceholder;
-    
+
     const placeholderOpt = select.querySelector('option[value=""]') as HTMLOptionElement | null;
     if (placeholderOpt) {
       placeholderOpt.textContent = defaultPlaceholder;
@@ -352,16 +354,16 @@ async function loadDosenOptions(): Promise<void> {
 
   // Konfigurasi untuk setiap select dosen dengan placeholder
   const selectConfigs = [
-    { 
-      id: "select-pembimbing-utama", 
+    {
+      id: "select-pembimbing-utama",
       defaultPlaceholder: "-- Pilih Dosen Pembimbing Utama --",
     },
-    { 
-      id: "select-pembimbing-kedua", 
+    {
+      id: "select-pembimbing-kedua",
       defaultPlaceholder: "-- Pilih Dosen Pembimbing Kedua --",
     },
-    { 
-      id: "select-moderator", 
+    {
+      id: "select-moderator",
       defaultPlaceholder: "-- Pilih Dosen Moderator --",
     },
   ];
@@ -391,7 +393,7 @@ async function loadDosenOptions(): Promise<void> {
         if (placeholderOpt) {
           placeholderOpt.disabled = true;
         }
-        
+
         // Update placeholder dengan nama dosen yang dipilih
         const dosenId = parseInt(value);
         const dosenName = getDosenNameById(dosenId);
@@ -428,14 +430,67 @@ async function loadDosenOptions(): Promise<void> {
 }
 
 // ------------------------------------------------------------------
+// Validasi form sebelum submit. Return pesan error spesifik (string)
+// kalau ada yang gagal, atau null kalau semua valid.
+// ------------------------------------------------------------------
+interface FormValues {
+  pembimbingUtamaId: number | null;
+  pembimbingKeduaId: number | null;
+  tanggal: string; // "YYYY-MM-DD" atau ""
+  moderatorId: number | null;
+  ruangan: string;
+  status: StatusPengajuan;
+}
+
+function validateForm(values: FormValues): string | null {
+  const { pembimbingUtamaId, pembimbingKeduaId, tanggal, moderatorId, ruangan, status } = values;
+
+  // 1. Dosen pembimbing (utama) wajib dipilih
+  if (!pembimbingUtamaId) {
+    return "Dosen pembimbing wajib dipilih.";
+  }
+
+  // 2. Dosen pembimbing tidak boleh sama/ganda
+  if (pembimbingKeduaId && pembimbingKeduaId === pembimbingUtamaId) {
+    return "Dosen pembimbing tidak boleh sama/ganda. Pilih dosen yang berbeda untuk pembimbing kedua.";
+  }
+
+  // 3. Tanggal kolokium harus SESUDAH hari ini (tidak boleh hari ini atau lewat)
+  if (!tanggal) {
+    return "Tanggal kolokium wajib diisi.";
+  }
+  if (tanggal <= todayLocalISO()) {
+    return "Tanggal kolokium tidak boleh hari ini atau sudah lewat. Pilih tanggal setelah hari ini.";
+  }
+
+  // 5. Moderator & ruangan pada dasarnya boleh kosong, TAPI wajib diisi
+  //    begitu admin mengubah status kolokium menjadi "approved".
+  if (status === "approved") {
+    if (!moderatorId) {
+      return "Dosen moderator wajib diisi untuk kolokium yang disetujui (approved).";
+    }
+    if (!ruangan) {
+      return "Ruangan wajib diisi untuk kolokium yang disetujui (approved).";
+    }
+  }
+
+  // 4. Kalau moderator sudah diisi (baik karena wajib approved atau opsional
+  //    di status lain), moderator tidak boleh sama dengan dosen pembimbing.
+  if (moderatorId && (moderatorId === pembimbingUtamaId || moderatorId === pembimbingKeduaId)) {
+    return "Dosen moderator tidak boleh sama dengan dosen pembimbing.";
+  }
+
+  return null;
+}
+
+// ------------------------------------------------------------------
 // Submit form -> PATCH /auth/kolokium/{id}
 // ------------------------------------------------------------------
 async function handleSubmit(e: SubmitEvent): Promise<void> {
   e.preventDefault();
-  clearMessage();
 
   if (!kolokiumId) {
-    showMessage("ID Kolokium tidak ditemukan, tidak bisa menyimpan perubahan.", "error");
+    showError("ID Kolokium tidak ditemukan, tidak bisa menyimpan perubahan.");
     return;
   }
 
@@ -450,43 +505,41 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   const statusSelect = document.getElementById("status_kolokium") as HTMLSelectElement | null;
   const submitBtn = document.getElementById("btn-submit-kolokium") as HTMLButtonElement | null;
 
-  const pembimbingUtamaId = utamaSelect?.value ?? "";
-  const pembimbingKeduaId = keduaSelect?.value ?? "";
-
-  if (pembimbingKeduaId && pembimbingKeduaId === pembimbingUtamaId) {
-    showMessage("Dosen Pembimbing Kedua harus berbeda dari Pembimbing Utama.", "error");
-    return;
-  }
-
+  const pembimbingUtamaId = utamaSelect?.value ? Number(utamaSelect.value) : null;
+  const pembimbingKeduaId = keduaSelect?.value ? Number(keduaSelect.value) : null;
   const moderatorId = moderatorSelect?.value ? Number(moderatorSelect.value) : null;
-  const pembimbingUtamaNum = pembimbingUtamaId ? Number(pembimbingUtamaId) : null;
-  const pembimbingKeduaNum = pembimbingKeduaId ? Number(pembimbingKeduaId) : null;
+  const tanggal = tanggalInput?.value ?? "";
+  const ruangan = ruanganInput?.value.trim() ?? "";
+  const status = (statusSelect?.value as StatusPengajuan) ?? "pending";
 
-  if (moderatorId !== null && (moderatorId === pembimbingUtamaNum || moderatorId === pembimbingKeduaNum)) {
-    showMessage("Moderator harus berbeda dari dosen pembimbing.", "error");
-    return;
-  }
+  const validationError = validateForm({
+    pembimbingUtamaId,
+    pembimbingKeduaId,
+    tanggal,
+    moderatorId,
+    ruangan,
+    status,
+  });
 
-  // Validasi minimal pembimbing utama harus dipilih
-  if (!pembimbingUtamaNum) {
-    showMessage("Dosen Pembimbing Utama harus dipilih.", "error");
+  if (validationError) {
+    showError(validationError);
     return;
   }
 
   const payload: Record<string, unknown> = {
     judul: judulInput?.value.trim() || undefined,
     lokasi: lokasiInput?.value.trim() || null,
-    tanggal: tanggalInput?.value || null,
+    tanggal: tanggal || null,
     waktu: waktuInput?.value || null,
-    ruangan: ruanganInput?.value.trim() || null,
+    ruangan: ruangan || null,
     moderator_id: moderatorId,
     status: statusSelect?.value ?? undefined,
   };
 
   // Kirim pembimbing_id dengan array
-  payload.pembimbing_id = pembimbingKeduaNum
-    ? [pembimbingUtamaNum, pembimbingKeduaNum]
-    : [pembimbingUtamaNum];
+  payload.pembimbing_id = pembimbingKeduaId
+    ? [pembimbingUtamaId, pembimbingKeduaId]
+    : [pembimbingUtamaId];
 
   if (submitBtn) {
     submitBtn.disabled = true;
@@ -503,11 +556,11 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
       currentKolokium = json.kolokium;
       await loadKolokium(kolokiumId!);
       applyPreselections();
-      showMessage(json.message ?? "Kolokium berhasil diperbarui.", "success");
+      showSuccess(json.message ?? "Kolokium berhasil diperbarui.");
     }
   } catch (err) {
     console.error("Gagal memperbarui kolokium:", err);
-    showMessage(err instanceof Error ? err.message : "Gagal memperbarui kolokium.", "error");
+    showError(err instanceof Error ? err.message : "Gagal memperbarui kolokium.");
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -530,7 +583,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   kolokiumId = getKolokiumIdFromUrl();
   if (!kolokiumId) {
-    showMessage("ID Kolokium tidak ditemukan di URL (contoh: ?id=1).", "error");
+    showError("ID Kolokium tidak ditemukan di URL (contoh: ?id=1).");
     disableForm();
     return;
   }
@@ -542,7 +595,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     applyPreselections();
   } catch (err) {
     console.error("Gagal memuat data kolokium:", err);
-    showMessage(err instanceof Error ? err.message : "Gagal memuat data kolokium.", "error");
+    showError(err instanceof Error ? err.message : "Gagal memuat data kolokium.");
     disableForm();
   }
 });
