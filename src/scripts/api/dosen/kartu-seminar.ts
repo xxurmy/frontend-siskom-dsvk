@@ -30,6 +30,11 @@
 // Ikon & warna modal disesuaikan dengan tombol yang memicunya:
 // - Tandatangani -> ikon "draw", variant "primary"
 // - Tidak Hadir   -> ikon "person_off", variant "danger"
+//
+// PESAN STATUS: menggunakan showMessage()/clearMessage() ke elemen
+// #kartu-message (strukturnya disamakan dengan halaman mahasiswa
+// src/scripts/api/mahasiswa/KartuKolokium.ts & jadwal-kolokium.ts),
+// dipakai untuk pesan berhasil/gagal setelah Tandatangani / Tidak Hadir.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
 
@@ -118,6 +123,28 @@ function getEntriesPerPage(): number {
   const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
   const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
   return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
+}
+
+// ------------------------------------------------------------------
+// Pesan status (samakan strukturnya dengan halaman mahasiswa)
+// ------------------------------------------------------------------
+function showMessage(text: string, variant: "success" | "error"): void {
+  const el = document.getElementById("kartu-message");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove("hidden", "bg-green-100", "text-green-800", "bg-red-100", "text-red-800");
+  if (variant === "success") {
+    el.classList.add("bg-green-100", "text-green-800");
+  } else {
+    el.classList.add("bg-red-100", "text-red-800");
+  }
+}
+
+function clearMessage(): void {
+  const el = document.getElementById("kartu-message");
+  if (!el) return;
+  el.classList.add("hidden");
+  el.textContent = "";
 }
 
 // ------------------------------------------------------------------
@@ -369,6 +396,8 @@ async function updateStatusParaf(id: number, statusparaf: "signed" | "absent"): 
     return;
   }
 
+  clearMessage();
+
   try {
     const res = await fetch(`${API_BASE_URL}/auth/kartu-seminar/${id}/status-paraf`, {
       method: "PATCH",
@@ -386,15 +415,21 @@ async function updateStatusParaf(id: number, statusparaf: "signed" | "absent"): 
 
     if (!res.ok) {
       const errJson = json as ApiErrorResponse;
-      alert(errJson.message ?? "Gagal memperbarui status paraf.");
+      showMessage(errJson.message ?? "Gagal memperbarui status paraf.", "error");
       return;
     }
+
+    const successText =
+      statusparaf === "signed"
+        ? "Berhasil menandatangani kartu kolokium."
+        : "Berhasil menandai mahasiswa tidak hadir.";
+    showMessage(successText, "success");
 
     // Refresh halaman yang sedang aktif biar data & tombol aksi tetap konsisten dengan server
     await loadKartuSeminar(currentPage);
   } catch (err) {
     console.error("Gagal update status paraf kartu seminar:", err);
-    alert("Terjadi kesalahan jaringan. Coba lagi.");
+    showMessage("Terjadi kesalahan jaringan. Coba lagi.", "error");
   }
 }
 
@@ -431,7 +466,7 @@ function initActionButtons(): void {
       if (absentBtn.hasAttribute("disabled")) return;
       const id = Number(absentBtn.dataset.id);
       if (!id) return;
-      
+
       const ok = await confirmDialog({
         title: "Tandai Tidak Hadir?",
         message: "Kartu kolokium ini akan ditandai sebagai tidak hadir.",
@@ -478,6 +513,7 @@ function initPerPage(): void {
 }
 
 function initKartuSeminarPage(): void {
+  clearMessage();
   loadKartuSeminar(1);
   initActionButtons();
   initSearch();
