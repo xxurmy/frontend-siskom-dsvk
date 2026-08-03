@@ -20,6 +20,14 @@
 // 6) "show entries" (select #entries-per-page) sekarang dikirim ke backend
 //    lewat query param `per_page` (backend SeminarController::index sudah
 //    validasi min:1|max:100, default 10). Tidak lagi slicing client-side.
+//
+// KONFIRMASI HADIR / HADIR ULANG: menggunakan ConfirmModal
+// (src/components/ConfirmModal.astro) lewat helper confirmDialog() di
+// src/scripts/lib/confirm-dialog.ts, bukan window.confirm() bawaan browser.
+// Bukan aksi destruktif (masih bisa dibatalkan lewat halaman Kartu Kolokium
+// selama belum hari-H), jadi pakai variant "primary" (biru), bukan "danger".
+
+import { confirmDialog } from "../../lib/confirm-dialog";
 
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
@@ -467,6 +475,15 @@ function attachRowActionListeners(): void {
 async function handleHadirBaru(btn: HTMLButtonElement): Promise<void> {
   const seminarId = parseInt(btn.dataset.seminarId ?? "", 10);
   if (Number.isNaN(seminarId)) return;
+  
+  const ok = await confirmDialog({
+    title: "Daftar Hadir Kolokium?",
+    message: "Anda akan didaftarkan sebagai peserta hadir pada kolokium ini.",
+    variant: "primary",
+    confirmText: "Ya, Hadir",
+    icon: "event_available",
+  });
+  if (!ok) return;
 
   clearMessage();
   btn.disabled = true;
@@ -492,6 +509,15 @@ async function handleHadirBaru(btn: HTMLButtonElement): Promise<void> {
 async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
   const pesertaId = parseInt(btn.dataset.pesertaId ?? "", 10);
   if (Number.isNaN(pesertaId)) return;
+
+  const ok = await confirmDialog({
+    title: "Daftar Hadir Ulang Kolokium?",
+    message: "Status kehadiran Anda pada kolokium ini akan diaktifkan kembali menjadi hadir.",
+    variant: "primary",
+    confirmText: "Ya, Hadir Ulang",
+    icon: "event_available",
+  });
+  if (!ok) return;
 
   clearMessage();
   btn.disabled = true;
