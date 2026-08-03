@@ -26,6 +26,7 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { confirmDialog } from "../../lib/confirm-dialog";
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -451,9 +452,12 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
   const pesertaId = btn.dataset.pesertaId;
   if (!pesertaId) return;
 
-  const confirmed = window.confirm(
-    "Apakah Anda yakin ingin membatalkan kehadiran seminar ini?"
-  );
+  const confirmed = await confirmDialog({
+    title: "Batalkan Seminar?",
+    message: "Apakah Anda yakin ingin membatalkan kehadiran seminar ini? Tindakan ini tidak bisa dibatalkan.",
+    variant: "danger",
+    confirmText: "Ya, Batalkan",
+  });
   if (!confirmed) return;
 
   clearMessage();

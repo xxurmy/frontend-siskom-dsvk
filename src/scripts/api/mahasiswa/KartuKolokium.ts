@@ -10,7 +10,7 @@
 // 5) tombol "Batalkan":
 //    - AKTIF jika masih H-1 atau lebih awal dari tanggal kolokium
 //    - NONAKTIF (disabled) jika sudah hari-H atau lewat
-//    - Saat diklik & dikonfirmasi -> PATCH /auth/peserta-kolokium/{peserta_kolokium_id}/status
+//    - Saat diklik & dikonfirmasi (via ConfirmModal) -> PATCH /auth/peserta-kolokium/{peserta_kolokium_id}/status
 //      dengan body { status: "batal" } (sesuai PesertaKolokiumController::updateStatus,
 //      yang juga sudah menolak permintaan jika sudah hari-H di sisi backend)
 // 6) Download -> generate PDF "Kartu Kolokium" (jsPDF + jspdf-autotable),
@@ -18,9 +18,14 @@
 //    NOTE: PDF ini SENGAJA TANPA kop surat institusi (logo/kepala surat) dan
 //    TANPA footer form-control (No. Revisi / Hal / Tanggal Berlaku) — hanya
 //    judul "KARTU KOLOKIUM", biodata mahasiswa, dan tabel kolokium.
+//
+// KONFIRMASI BATALKAN: menggunakan ConfirmModal (src/components/ConfirmModal.astro)
+// lewat helper confirmDialog() di src/scripts/lib/confirm-dialog.ts, bukan
+// window.confirm() bawaan browser.
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { confirmDialog } from "../../lib/confirm-dialog";
 
 // ------------------------------------------------------------------
 // Konfigurasi
@@ -448,9 +453,12 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
   const pesertaId = btn.dataset.pesertaId;
   if (!pesertaId) return;
 
-  const confirmed = window.confirm(
-    "Apakah Anda yakin ingin membatalkan kehadiran kolokium ini?"
-  );
+  const confirmed = await confirmDialog({
+    title: "Batalkan Kolokium?",
+    message: "Apakah Anda yakin ingin membatalkan kehadiran kolokium ini? Tindakan ini tidak bisa dibatalkan.",
+    variant: "danger",
+    confirmText: "Ya, Batalkan",
+  });
   if (!confirmed) return;
 
   clearMessage();
