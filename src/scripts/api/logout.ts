@@ -2,6 +2,12 @@
 // Logic logout SISKOM DSVK — generik untuk semua role (admin, dosen, mahasiswa).
 // Pasang attribute `data-logout` di elemen apa pun (button/link) yang mau
 // jadi tombol logout, lalu panggil initLogoutButtons() di script sidebar masing-masing.
+//
+// KONFIRMASI LOGOUT: menggunakan ConfirmModal (src/components/ConfirmModal.astro)
+// lewat helper confirmDialog() di src/scripts/lib/confirm-dialog.ts, bukan
+// window.confirm() bawaan browser.
+
+import { confirmDialog } from "../lib/confirm-dialog";
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -40,8 +46,22 @@ export function initLogoutButtons(): void {
     if (el.dataset.logoutBound === "true") return;
     el.dataset.logoutBound = "true";
 
-    el.addEventListener("click", (e) => {
+    el.addEventListener("click", async (e) => {
       e.preventDefault();
+
+      // Kalau trigger lagi disabled (proses logout sebelumnya masih jalan / sudah diklik),
+      // jangan buka modal lagi.
+      if (el.getAttribute("aria-disabled") === "true") return;
+
+      const ok = await confirmDialog({
+        title: "Keluar dari Akun?",
+        message: "Anda akan keluar dari sesi ini dan perlu login kembali untuk melanjutkan.",
+        variant: "danger",
+        confirmText: "Ya, Keluar",
+        icon: "logout",
+      });
+      if (!ok) return;
+
       performLogout(el);
     });
   });
