@@ -1,0 +1,73 @@
+---
+// src/components/ConfirmModal.astro
+// Modal konfirmasi reusable untuk aksi Update/Delete di seluruh halaman.
+//
+// CARA PAKAI:
+// 1) Import & taruh komponen ini SEKALI di Layout.astro, di luar <slot />, mis:
+//
+//      import ConfirmModal from "../components/ConfirmModal.astro";
+//      ...
+//      <slot />
+//      <ConfirmModal />
+//
+//    Karena Layout.astro dipakai di semua halaman, modal ini otomatis tersedia
+//    di mana pun tanpa perlu diimpor ulang per halaman.
+//
+// 2) Di script (.ts) halaman mana pun, panggil helper confirmDialog() dari
+//    src/scripts/lib/confirm-dialog.ts sebelum melakukan aksi update/delete:
+//
+//      import { confirmDialog } from "../lib/confirm-dialog";
+//
+//      const ok = await confirmDialog({
+//        title: "Hapus Kolokium?",
+//        message: "Data yang dihapus tidak bisa dikembalikan.",
+//        variant: "danger",
+//        confirmText: "Ya, Hapus",
+//      });
+//      if (!ok) return;
+//      // lanjut proses delete/update ke API...
+---
+
+<div
+  id="confirm-modal"
+  class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+>
+  <div
+    id="confirm-modal-panel"
+    class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4"
+  >
+    <div class="flex items-start gap-3">
+      <div
+        id="confirm-modal-icon-wrap"
+        class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-red-100 text-red-600"
+      >
+        <span id="confirm-modal-icon" class="material-symbols-outlined">warning</span>
+      </div>
+      <div class="flex-1">
+        <h3 id="confirm-modal-title" class="font-title-md text-title-md text-on-surface font-bold">
+          Konfirmasi
+        </h3>
+        <p id="confirm-modal-message" class="mt-1 text-body-sm text-on-surface-variant">
+          Apakah Anda yakin?
+        </p>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 pt-2">
+      <button
+        id="confirm-modal-cancel-btn"
+        type="button"
+        class="px-4 py-2 border border-outline-variant text-on-surface-variant text-label-md font-medium rounded-lg hover:bg-surface-container transition-colors"
+      >
+        Batal
+      </button>
+      <button
+        id="confirm-modal-confirm-btn"
+        type="button"
+        class="px-4 py-2 bg-red-600 text-white text-label-md font-bold rounded-lg hover:opacity-90 transition-opacity"
+      >
+        Ya, Lanjutkan
+      </button>
+    </div>
+  </div>
+</div>
