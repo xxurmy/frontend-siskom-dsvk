@@ -10,6 +10,14 @@
 // - submit button: #ubah-password-submit
 // - pesan status: #password-form-message
 // - tombol show/hide: class="toggle-password" + data-target="<id-input>"
+//
+// KONFIRMASI SEBELUM SUBMIT: menggunakan ConfirmModal (src/components/ConfirmModal.astro)
+// lewat helper confirmDialog() di src/scripts/lib/confirm-dialog.ts, bukan
+// window.confirm() bawaan browser. Modal dimunculkan SETELAH validasi client-side
+// lolos (semua field terisi, panjang password cukup, konfirmasi cocok), supaya
+// admin/dosen/mahasiswa tidak dikonfirmasi untuk input yang jelas-jelas invalid.
+
+import { confirmDialog } from "../lib/confirm-dialog";
 
 interface ChangePasswordSuccessResponse {
   message: string;
@@ -85,6 +93,16 @@ function initSubmitForm(): void {
       showMessage("Password baru dan konfirmasi tidak sama.", "error");
       return;
     }
+
+    // Validasi client-side lolos -> baru minta konfirmasi ke user sebelum submit.
+    const ok = await confirmDialog({
+      title: "Ubah Password?",
+      message: "Anda akan mengganti password akun ini. Pastikan password baru sudah benar.",
+      variant: "primary",
+      confirmText: "Ya, Ubah Password",
+      icon: "lock_reset",
+    });
+    if (!ok) return;
 
     const token = localStorage.getItem(TOKEN_KEY);
 
