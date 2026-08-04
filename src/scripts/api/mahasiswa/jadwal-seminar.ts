@@ -24,7 +24,7 @@
 // KONFIRMASI HADIR / HADIR ULANG: menggunakan ConfirmModal
 // (src/components/ConfirmModal.astro) lewat helper confirmDialog() di
 // src/scripts/lib/confirm-dialog.ts, bukan window.confirm() bawaan browser.
-// Bukan aksi destruktif (masih bisa dibatalkan lewat halaman Kartu Kolokium
+// Bukan aksi destruktif (masih bisa dibatalkan lewat halaman Kartu Seminar
 // selama belum hari-H), jadi pakai variant "primary" (biru), bukan "danger".
 
 import { confirmDialog } from "../../lib/confirm-dialog";
@@ -477,8 +477,8 @@ async function handleHadirBaru(btn: HTMLButtonElement): Promise<void> {
   if (Number.isNaN(seminarId)) return;
   
   const ok = await confirmDialog({
-    title: "Daftar Hadir Kolokium?",
-    message: "Anda akan didaftarkan sebagai peserta hadir pada kolokium ini.",
+    title: "Daftar Hadir Seminar?",
+    message: "Anda akan didaftarkan sebagai peserta hadir pada seminar ini.",
     variant: "primary",
     confirmText: "Ya, Hadir",
     icon: "event_available",
@@ -511,8 +511,8 @@ async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
   if (Number.isNaN(pesertaId)) return;
 
   const ok = await confirmDialog({
-    title: "Daftar Hadir Ulang Kolokium?",
-    message: "Status kehadiran Anda pada kolokium ini akan diaktifkan kembali menjadi hadir.",
+    title: "Daftar Hadir Ulang Seminar?",
+    message: "Status kehadiran Anda pada seminar ini akan diaktifkan kembali menjadi hadir.",
     variant: "primary",
     confirmText: "Ya, Hadir Ulang",
     icon: "event_available",

@@ -33,7 +33,7 @@
 //
 // PESAN STATUS: menggunakan showMessage()/clearMessage() ke elemen
 // #kartu-message (strukturnya disamakan dengan halaman mahasiswa
-// src/scripts/api/mahasiswa/KartuKolokium.ts & jadwal-kolokium.ts),
+// src/scripts/api/mahasiswa/KartuSeminar.ts & jadwal-seminar.ts),
 // dipakai untuk pesan berhasil/gagal setelah Tandatangani / Tidak Hadir.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
@@ -421,7 +421,7 @@ async function updateStatusParaf(id: number, statusparaf: "signed" | "absent"): 
 
     const successText =
       statusparaf === "signed"
-        ? "Berhasil menandatangani kartu kolokium."
+        ? "Berhasil menandatangani kartu seminar."
         : "Berhasil menandai mahasiswa tidak hadir.";
     showMessage(successText, "success");
 
@@ -449,8 +449,8 @@ function initActionButtons(): void {
       if (!id) return;
 
       const ok = await confirmDialog({
-        title: "Tandatangani Kolokium?",
-        message: "Kartu kolokium ini akan ditandai sebagai sudah ditandatangani.",
+        title: "Tandatangani Seminar?",
+        message: "Kartu seminar ini akan ditandai sebagai sudah ditandatangani.",
         variant: "primary",
         confirmText: "Ya, Tandatangani",
         icon: "draw", // menimpa icon default "help" milik variant primary
@@ -469,7 +469,7 @@ function initActionButtons(): void {
 
       const ok = await confirmDialog({
         title: "Tandai Tidak Hadir?",
-        message: "Kartu kolokium ini akan ditandai sebagai tidak hadir.",
+        message: "Kartu seminar ini akan ditandai sebagai tidak hadir.",
         variant: "danger",
         confirmText: "Ya, Tandai Tidak Hadir",
         icon: "person_off", // menimpa icon default "help" milik variant danger
