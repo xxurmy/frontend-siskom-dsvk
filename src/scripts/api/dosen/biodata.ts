@@ -15,6 +15,17 @@
 // Sebagai gantinya, gambar di-fetch manual via loadAuthenticatedImage() dengan
 // header Authorization, lalu hasilnya (blob) diubah jadi Object URL yang baru
 // dipasang ke img.src.
+//
+// PESAN BERHASIL/GAGAL SIMPAN (tombol "Simpan" -> PATCH email + POST tandatangan):
+// memakai modal InfoModal (src/components/InfoModal.astro) lewat helper
+// showSuccess()/showError() di src/scripts/lib/info-dialog.ts.
+//
+// PESAN UPLOAD FOTO PROFIL: TETAP memakai banner inline showMessage()/
+// #biodata-form-message seperti sebelumnya (tidak dipindah ke modal, sesuai
+// permintaan — upload foto langsung terjadi saat file dipilih, bukan lewat
+// tombol Simpan, jadi modal dianggap terlalu mengganggu untuk aksi itu).
+
+import { showError, showSuccess } from "../../lib/info-dialog";
 
 interface ApiUser {
   id: number;
@@ -96,6 +107,7 @@ function redirectIfUnauthorized(status: number): boolean {
   return false;
 }
 
+// Banner inline — SEKARANG cuma dipakai untuk pesan upload foto profil.
 function showMessage(text: string, variant: "success" | "error"): void {
   const el = document.getElementById("biodata-form-message");
   if (!el) return;
@@ -201,7 +213,7 @@ async function savePatchProfile(token: string): Promise<boolean> {
 
   const email = emailEl.value.trim();
   if (!email) {
-    showMessage("Email wajib diisi.", "error");
+    showError("Email wajib diisi.");
     return false;
   }
 
@@ -223,9 +235,9 @@ async function savePatchProfile(token: string): Promise<boolean> {
     const errJson = json as ProfilePatchErrorResponse;
     if (errJson.errors) {
       const firstError = Object.values(errJson.errors)[0]?.[0];
-      showMessage(firstError ?? errJson.message ?? "Gagal menyimpan biodata.", "error");
+      showError(firstError ?? errJson.message ?? "Gagal menyimpan biodata.");
     } else {
-      showMessage(errJson.message ?? "Gagal menyimpan biodata.", "error");
+      showError(errJson.message ?? "Gagal menyimpan biodata.");
     }
     return false;
   }
@@ -258,7 +270,7 @@ async function saveTandaTanganIfAny(token: string): Promise<boolean> {
 
   if (!res.ok) {
     const errJson = (await res.json().catch(() => ({}))) as ApiErrorResponse;
-    showMessage(errJson.message ?? "Gagal menyimpan tanda tangan.", "error");
+    showError(errJson.message ?? "Gagal menyimpan tanda tangan.");
     return false;
   }
 
@@ -270,8 +282,6 @@ async function saveTandaTanganIfAny(token: string): Promise<boolean> {
 
 // ---------- Simpan (PATCH email + POST tandatangan kalau ada) ----------
 async function saveBiodata(): Promise<void> {
-  clearMessage();
-
   const token = getToken();
   if (!token) {
     window.location.href = "/";
@@ -291,10 +301,10 @@ async function saveBiodata(): Promise<void> {
     const ttdOk = await saveTandaTanganIfAny(token);
     if (!ttdOk) return;
 
-    showMessage("Biodata berhasil disimpan.", "success");
+    showSuccess("Biodata berhasil disimpan.");
   } catch (err) {
     console.error("Gagal menyimpan biodata dosen:", err);
-    showMessage("Terjadi kesalahan jaringan. Coba lagi.", "error");
+    showError("Terjadi kesalahan jaringan. Coba lagi.");
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -316,6 +326,8 @@ function initSubmitBiodata(): void {
 }
 
 // ---------- POST (store) foto profil ----------
+// CATATAN: pesan berhasil/gagal upload foto SENGAJA TETAP pakai banner inline
+// showMessage()/#biodata-form-message, TIDAK dipindah ke InfoModal.
 function initFotoUpload(): void {
   const editBtn = document.getElementById("biodata-edit-foto-btn");
   const fileInput = document.getElementById("biodata-foto-input") as HTMLInputElement | null;
