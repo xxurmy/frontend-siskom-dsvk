@@ -16,7 +16,7 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 const isActive = (path: string) => currentPath === path;
 
 // Class helper biar nggak nulis berkali-kali
-const topActiveClass = "text-primary font-bold bg-primary-fixed-dim/10";
+const topActiveClass = "text-primary font-bold bg-primary/10 border-primary";
 const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-container-high";
 ---
 

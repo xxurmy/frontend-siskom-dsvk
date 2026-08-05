@@ -27,12 +27,17 @@ const isKolokiumGroupActive = kolokiumPaths.includes(currentPath);
 const isSeminarGroupActive = seminarPaths.includes(currentPath);
 
 // Class helper biar nggak nulis berkali-kali
-const topActiveClass = "text-primary font-bold bg-primary-fixed-dim/10";
-const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-container-high";
+const topActiveClass =
+  "text-primary font-bold bg-primary/10 border-primary";
+
+const topDefaultClass =
+  "text-on-surface-variant font-medium hover:bg-surface-container-high";
 
 const subActiveClass =
-  "text-on-primary-container font-bold bg-secondary-container border-l-4 border-secondary";
-const subDefaultClass = "text-on-surface-variant hover:text-primary font-medium";
+  "text-primary font-bold bg-primary/10 border-l-2 border-primary";
+
+const subDefaultClass =
+  "text-on-surface-variant font-medium hover:bg-surface-container-high";
 ---
 
 <aside
