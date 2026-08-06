@@ -6,7 +6,7 @@
 // ------------------------------------------------------------------
 type Role = "mahasiswa" | "dosen" | "admin";
 type StatusPengajuan = "pending" | "approved" | "rejected";
-type StatusParaf = "signed" | "absent";
+type StatusParaf = "pending" | "signed" | "absent";
 
 interface UserProfil {
   id: number;
@@ -206,12 +206,17 @@ async function loadStatusPengajuan(): Promise<void> {
 // ------------------------------------------------------------------
 // Load Jumlah Kehadiran (dari kartu kolokium / kartu seminar milik user)
 // ------------------------------------------------------------------
+function hitungKehadiran<T extends { statusparaf: StatusParaf }>(data: T[] | undefined): number {
+  if (!data) return 0;
+  return data.filter((item) => item.statusparaf !== "absent").length;
+}
+
 async function loadKehadiran(): Promise<void> {
   try {
     const json = await apiFetch<KartuKolokiumListResponse>("/auth/kartu-kolokium/my");
     if (!json) return;
 
-    const jumlah = json.kartu_kolokiums?.total ?? 0;
+    const jumlah = hitungKehadiran(json.kartu_kolokiums?.data);
     setText("count-kolokium-dihadiri", jumlah);
   } catch (err) {
     console.error("Gagal memuat kehadiran kolokium:", err);
@@ -222,7 +227,7 @@ async function loadKehadiran(): Promise<void> {
     const json = await apiFetch<KartuSeminarListResponse>("/auth/kartu-seminar/my");
     if (!json) return;
 
-    const jumlah = json.kartu_seminars?.total ?? 0;
+    const jumlah = hitungKehadiran(json.kartu_seminars?.data);
     setText("count-seminar-dihadiri", jumlah);
   } catch (err) {
     console.error("Gagal memuat kehadiran seminar:", err);
