@@ -562,10 +562,12 @@ async function generateKartuKolokiumPdf(): Promise<void> {
   showMessage("Menyiapkan PDF...", "success");
 
   try {
-    const [biodata, allKartu] = await Promise.all([
+    const [biodata, allKartuRaw] = await Promise.all([
       fetchBiodataMahasiswa(),
       fetchAllKartuKolokium(),
     ]);
+
+    const allKartu = allKartuRaw.filter((kartu) => kartu.statusparaf !== "absent");
 
     if (allKartu.length === 0) {
       showMessage("Tidak ada data kartu kolokium untuk diekspor.", "error");

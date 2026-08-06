@@ -562,10 +562,12 @@ async function generateKartuSeminarPdf(): Promise<void> {
   showMessage("Menyiapkan PDF...", "success");
 
   try {
-    const [biodata, allKartu] = await Promise.all([
+    const [biodata, allKartuRaw] = await Promise.all([
       fetchBiodataMahasiswa(),
       fetchAllKartuSeminar(),
     ]);
+
+    const allKartu = allKartuRaw.filter((kartu) => kartu.statusparaf !== "absent");
 
     if (allKartu.length === 0) {
       showMessage("Tidak ada data kartu seminar untuk diekspor.", "error");
