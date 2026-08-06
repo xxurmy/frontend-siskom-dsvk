@@ -27,9 +27,15 @@ form?.addEventListener("submit", async (e) => {
   hideMessages();
 
   const email = (document.getElementById("email") as HTMLInputElement).value.trim();
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!email) {
     showError("Email wajib diisi");
+    return;
+  }
+
+  if (!emailPattern.test(email)) {
+    showError("Format email tidak valid");
     return;
   }
 
@@ -49,11 +55,14 @@ form?.addEventListener("submit", async (e) => {
     const data = await res.json();
 
     if (!res.ok) {
+      // 404 -> email tidak terdaftar (pesan spesifik dari backend)
+      // 422 -> validasi gagal
+      // status lain -> error umum
       showError(data.message || "Terjadi kesalahan, coba lagi");
       return;
     }
 
-    showSuccess(data.message || "Jika email terdaftar, link reset password telah dikirim");
+    showSuccess(data.message || "Link reset password telah dikirim ke email Anda");
     form.reset();
   } catch (err) {
     showError("Tidak dapat terhubung ke server, coba lagi nanti");
