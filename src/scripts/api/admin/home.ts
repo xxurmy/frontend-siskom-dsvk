@@ -2,10 +2,13 @@
 // Fetch data untuk halaman admin/home.astro:
 // - Total Kolokium (total, accepted, pending) dari /auth/kolokium (filter ?status)
 // - Total Seminar (total, accepted, pending) dari /auth/seminar (filter ?status)
-// - Total Akun Mahasiswa & Dosen dari /auth/users (hitung berdasarkan field role)
+// - Total Akun Mahasiswa & Dosen dari /auth/users (filter ?role, ambil dari meta paginator)
 //
-// Catatan: field `total` diambil dari meta paginator Laravel (paginate(10)),
-// bukan `data.length`, supaya angkanya benar meski hasilnya lebih dari 10 baris.
+// Catatan: field `total` diambil dari meta paginator Laravel (paginate()),
+// bukan `data.length`, supaya angkanya benar meski hasilnya lebih dari 1 halaman.
+// /auth/users sekarang juga mengembalikan hasil dalam bentuk paginator
+// (bukan array polos lagi), jadi hitungannya pakai pola yang sama seperti
+// loadForumStats: filter di query string + baca `total` dari respons.
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -24,16 +27,16 @@ interface ApiUserListItem {
   [key: string]: unknown;
 }
 
-interface UsersResponse {
-  message?: string;
-  users?: ApiUserListItem[];
-}
-
 interface PaginatedResponse<T = unknown> {
   data: T[];
   total?: number;
   current_page?: number;
   [key: string]: unknown;
+}
+
+interface UsersResponse {
+  message?: string;
+  users?: PaginatedResponse<ApiUserListItem>;
 }
 
 function getToken(): string | null {
@@ -104,12 +107,19 @@ async function loadForumStats(
 }
 
 // ---------- Total Akun Mahasiswa & Dosen ----------
+// /auth/users sekarang dipaginasi (lihat UserController::index), jadi tidak
+// bisa lagi menghitung total lewat `users.length`. Alih-alih ambil banyak
+// data, cukup filter per role dan baca meta `total` dari paginator.
+// per_page=1 dipakai supaya payload tetap kecil (kita cuma butuh angkanya).
 async function loadUserStats(): Promise<void> {
-  const data = await apiGet<UsersResponse>("/auth/users");
-  const users = data?.users ?? [];
+  const [mahasiswaRes, dosenRes] = await Promise.all([
+    apiGet<UsersResponse>("/auth/users?role=mahasiswa&per_page=1"),
+    apiGet<UsersResponse>("/auth/users?role=dosen&per_page=1"),
+  ]);
 
-  const totalMahasiswa = users.filter((u) => u.role === "mahasiswa").length;
-  const totalDosen = users.filter((u) => u.role === "dosen").length;
+  const totalMahasiswa =
+    mahasiswaRes?.users?.total ?? mahasiswaRes?.users?.data?.length ?? 0;
+  const totalDosen = dosenRes?.users?.total ?? dosenRes?.users?.data?.length ?? 0;
 
   setText("stat-akun-mahasiswa", String(totalMahasiswa));
   setText("stat-akun-dosen", String(totalDosen));
