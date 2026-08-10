@@ -1,4 +1,4 @@
-// src/scripts/api/admin/tabel-akun.ts
+// src/scripts/api/admin/manajemen-akun.ts
 // GET    /auth/users?page=N&search=...&per_page=N  -> daftar semua user (paginated, admin)
 // DELETE /auth/users/{id}                          -> hapus user (hanya admin)
 //

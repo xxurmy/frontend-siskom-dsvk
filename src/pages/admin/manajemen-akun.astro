@@ -1,6 +1,6 @@
 ---
-// src/pages/tabel-akun.astro
-// Halaman Tabel Akun (User) — pakai Layout.astro yang sudah ada
+// src/pages/manajemen-akun.astro
+// Halaman Manajemen Akun (User) — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini; footer juga sudah ada di Layout).
 // Berbeda dari jadwal-kolokium.astro: kolom Aksi di sini cuma tombol Delete,
 // tidak ada Edit.
@@ -8,7 +8,7 @@
 import Layout from "../../layouts/Layout.astro";
 ---
 
-<Layout userRole="admin" pageTitle="Tabel Akun - SISKOM DSVK" navTitle="Tabel Akun">
+<Layout userRole="admin" pageTitle="Manajemen Akun - SISKOM DSVK" navTitle="Manajemen Akun">
   <!-- Content Card -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
     <!-- Table Header -->
@@ -92,5 +92,5 @@ import Layout from "../../layouts/Layout.astro";
     </div>
   </div>
 
-  <script src="../../scripts/api/admin/tabel-akun.ts"></script>
+  <script src="../../scripts/api/admin/manajemen-akun.ts"></script>
 </Layout>
