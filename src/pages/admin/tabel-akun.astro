@@ -1,0 +1,96 @@
+---
+// src/pages/tabel-akun.astro
+// Halaman Tabel Akun (User) — pakai Layout.astro yang sudah ada
+// (Navbar + Sidebar tidak dibuat ulang di sini; footer juga sudah ada di Layout).
+// Berbeda dari jadwal-kolokium.astro: kolom Aksi di sini cuma tombol Delete,
+// tidak ada Edit.
+
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout userRole="admin" pageTitle="Tabel Akun - SISKOM DSVK" navTitle="Tabel Akun">
+  <!-- Content Card -->
+  <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex-1 flex flex-col overflow-hidden shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+    <!-- Table Header -->
+    <div class="p-6 flex flex-col items-center justify-center border-b border-outline-variant">
+      <h2 class="font-headline-md text-headline-md text-primary font-bold tracking-wide">TABEL AKUN</h2>
+    </div>
+
+    <!-- Search and Entries Filter -->
+    <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low/50">
+      <div class="flex items-center gap-2 text-body-sm text-on-surface-variant">
+        <span>Show</span>
+        <select id="tabel-akun-per-page" class="w-14 h-9 border border-outline-variant rounded-md bg-surface px-2 text-sm outline-none focus:border-primary">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+        </select>
+        <span>entries</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-body-sm text-on-surface-variant">Search:</span>
+        <input
+          id="tabel-akun-search"
+          type="text"
+          placeholder="Cari nama, username, email, NIM/NIP..."
+          class="px-3 py-1 border border-outline-variant rounded-lg w-full sm:w-64 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+        />
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="flex-1 overflow-x-auto custom-scrollbar">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-surface-container-high sticky top-0 z-10">
+          <tr>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              No <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Nama <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Username <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Email <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Role <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              NIM/NIP <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Prodi <span class="material-symbols-outlined text-[12px]">unfold_more</span>
+            </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+              Aksi
+            </th>
+          </tr>
+        </thead>
+        <tbody id="tabel-akun-tbody" class="divide-y divide-outline-variant/30">
+          <tr>
+            <td colspan="8" class="px-4 py-8 text-center text-body-sm text-on-surface-variant">
+              Memuat data...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Footer -->
+    <div class="px-6 py-4 border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface-container-low/30">
+      <p id="tabel-akun-pagination-info" class="text-body-sm text-on-surface-variant">Memuat data...</p>
+      <div class="flex items-center gap-1">
+        <button id="tabel-akun-first-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">First</button>
+        <button id="tabel-akun-prev-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">«</button>
+        <span id="tabel-akun-page-label" class="px-3 py-1 text-body-sm bg-ipb-blue text-white rounded font-bold whitespace-nowrap">1 / 1</span>
+        <button id="tabel-akun-next-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">»</button>
+        <button id="tabel-akun-last-btn" class="px-3 py-1 text-body-sm border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Last</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../../scripts/api/admin/tabel-akun.ts"></script>
+</Layout>

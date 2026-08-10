@@ -54,8 +54,8 @@ const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-co
       <span class="font-label-md text-label-md">Profil</span>
     </a>
 
-    <!-- Kolokium (Dropdown) -->
-        <a
+    <!-- Jadwal Kolokium -->
+    <a
       href="/admin/jadwal-kolokium"
       class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
         isActive("/admin/jadwal-kolokium") ? topActiveClass : topDefaultClass
@@ -65,7 +65,8 @@ const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-co
       <span class="font-label-md text-label-md">Jadwal Kolokium</span>
     </a>
 
-       <a
+    <!-- Jadwal Seminar -->
+    <a
       href="/admin/jadwal-seminar"
       class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
         isActive("/admin/jadwal-seminar") ? topActiveClass : topDefaultClass
@@ -73,6 +74,17 @@ const topDefaultClass = "text-on-surface-variant font-medium hover:bg-surface-co
     >
       <span class="material-symbols-outlined group-hover:text-primary">co_present</span>
       <span class="font-label-md text-label-md">Jadwal Seminar</span>
+    </a>
+
+    <!-- Manajemen Akun -->
+    <a
+      href="/admin/tabel-akun"
+      class={`flex items-center gap-3 px-4 py-3 rounded-lg group transition-colors ${
+        isActive("/admin/tabel-akun") ? topActiveClass : topDefaultClass
+      }`}
+    >
+      <span class="material-symbols-outlined group-hover:text-primary">people</span>
+      <span class="font-label-md text-label-md">Manajemen Akun</span>
     </a>
 
     <!-- Keluar -->
