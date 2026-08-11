@@ -11,6 +11,15 @@
 // Tombol Hapus akan memanggil DELETE /auth/kolokium/{id} untuk menghapus kolokium tersebut, hanya bisa dilakukan oleh admin.
 // Tombol Edit & Hapus hanya muncul untuk kolokium yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk kolokium yang sudah disetujui (approved).
 //
+// KOLOM ABSENSI: tombol "Absensi" membuka halaman /admin/absensi-kolokium
+// dengan query param kolokium_id, tempat admin bisa menandai kehadiran
+// (statusparaf) peserta forum kolokium tsb. Tombol hanya aktif kalau
+// status kolokium sudah "approved" — karena mahasiswa baru bisa daftar
+// hadir (jadi peserta_kolokium) setelah kolokium disetujui admin
+// (lihat PesertaKolokiumController::store, validasi status === 'approved').
+// Kalau belum approved, tombol disabled (tidak ada peserta yang mungkin
+// terdaftar).
+//
 // SEARCH: input #jadwal-kolokium-search dikirim ke backend lewat query param
 // `search` (di-debounce 400ms), backend sudah nge-LIKE ke banyak kolom
 // sekaligus (nama, nim, prodi, judul, dosen pembimbing/moderator, lokasi,
@@ -65,6 +74,7 @@ const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-kolokium-tbody";
 const COLSPAN = 14;
 const EDIT_FORM_PATH = "/admin/form-update-kolokium";
+const ABSENSI_PATH = "/admin/absensi-kolokium";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
 
@@ -155,6 +165,27 @@ function renderActionButtons(item: KolokiumItem): string {
   `;
 }
 
+function renderAbsensiButton(item: KolokiumItem): string {
+  const isApproved = item.status === "approved";
+  const disabledClass = "opacity-40 cursor-not-allowed";
+  const title = isApproved
+    ? "Buka Absensi"
+    : "Kolokium harus berstatus disetujui sebelum bisa diabsen";
+
+  return `
+    <button
+      type="button"
+      class="kolokium-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isApproved ? disabledClass : ""}"
+      data-kolokium-id="${item.id}"
+      title="${title}"
+      ${!isApproved ? "disabled" : ""}
+    >
+      <span class="material-symbols-outlined text-[18px]">fact_check</span>
+      Absensi
+    </button>
+  `;
+}
+
 function renderRow(item: KolokiumItem, rowNumber: number): string {
   return `
     <tr class="table-row-hover transition-colors" data-row-id="${item.id}">
@@ -169,6 +200,9 @@ function renderRow(item: KolokiumItem, rowNumber: number): string {
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.ruangan ?? "-")}</td>
+      <td class="px-4 py-4 text-center">
+        ${renderAbsensiButton(item)}
+      </td>
       <td class="px-4 py-4 text-body-sm">
         <span class="px-2 py-1 rounded text-white text-xs font-medium ${STATUS_BADGE_CLASS[item.status]} whitespace-nowrap">
           ${STATUS_LABEL[item.status]}
@@ -344,6 +378,25 @@ function initActionButtons(): void {
   });
 }
 
+function initAbsensiButtons(): void {
+  const tbody = document.getElementById(TBODY_ID);
+  if (!tbody) return;
+  if (tbody.dataset.absensiBound === "true") return;
+  tbody.dataset.absensiBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".kolokium-absensi-btn");
+    if (!btn) return;
+    if (btn.hasAttribute("disabled")) return;
+
+    const kolokiumId = btn.dataset.kolokiumId;
+    if (!kolokiumId) return;
+
+    window.location.href = `${ABSENSI_PATH}?kolokium_id=${kolokiumId}`;
+  });
+}
+
 function initPagination(): void {
   const firstBtn = document.getElementById("jadwal-kolokium-first-btn");
   const prevBtn = document.getElementById("jadwal-kolokium-prev-btn");
@@ -394,6 +447,7 @@ function initPerPage(): void {
 function initJadwalKolokiumPage(): void {
   loadJadwalKolokium(1);
   initActionButtons();
+  initAbsensiButtons();
   initPagination();
   initSearch();
   initPerPage();
