@@ -41,6 +41,12 @@ interface PaginatedResponse<T> {
   [key: string]: unknown;
 }
 
+interface StoredUser {
+  id: number;
+  role: string;
+  [key: string]: unknown;
+}
+
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
@@ -79,6 +85,17 @@ function formatTanggal(tanggal: string | null): string {
   });
 }
 
+function getCurrentUserId(): number | null {
+  const raw = localStorage.getItem("auth_user");
+  if (!raw) return null;
+  try {
+    const user: StoredUser = JSON.parse(raw);
+    return typeof user.id === "number" ? user.id : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------- Fetch ----------
 async function fetchSeminar(page: number): Promise<void> {
   const token = getToken();
@@ -90,7 +107,7 @@ async function fetchSeminar(page: number): Promise<void> {
   const tbody = document.getElementById("seminar-table-body");
   if (tbody) {
     tbody.innerHTML = `
-      <tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>
+      <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>
     `;
   }
 
@@ -120,7 +137,7 @@ async function fetchSeminar(page: number): Promise<void> {
     if (!res.ok) {
       if (tbody) {
         tbody.innerHTML = `
-          <tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-error">Gagal memuat data (status ${res.status}).</td></tr>
+          <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-error">Gagal memuat data (status ${res.status}).</td></tr>
         `;
       }
       return;
@@ -137,7 +154,7 @@ async function fetchSeminar(page: number): Promise<void> {
     console.error("Gagal fetch jadwal seminar:", err);
     if (tbody) {
       tbody.innerHTML = `
-        <tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-error">Terjadi kesalahan jaringan.</td></tr>
+        <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-error">Terjadi kesalahan jaringan.</td></tr>
       `;
     }
   }
@@ -153,15 +170,22 @@ function renderTable(items: SeminarItem[]): void {
       ? `Tidak ditemukan hasil untuk pencarian "${escapeHtml(currentSearch)}".`
       : "Tidak ada data seminar.";
     tbody.innerHTML = `
-      <tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>
+      <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>
     `;
     return;
   }
 
   const startNumber = lastResponse?.from ?? 1;
+  const currentUserId = getCurrentUserId();
 
   tbody.innerHTML = items
     .map((item, index) => {
+      const isModerator = currentUserId !== null && item.moderator_id === currentUserId;
+      const disabledClass = "opacity-40 cursor-not-allowed";
+      const absensiTitle = isModerator
+        ? "Buka Absensi"
+        : "Hanya dosen moderator yang dapat membuka absensi seminar ini";
+
       return `
         <tr class="table-row-hover transition-colors">
           <td class="px-4 py-4 text-body-sm">${startNumber + index}</td>
@@ -175,6 +199,18 @@ function renderTable(items: SeminarItem[]): void {
           <td class="px-4 py-4 text-body-sm text-center">${item.jumlahforum}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenpembimbing ?? "-")}</td>
           <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
+          <td class="px-4 py-4 text-center">
+            <button
+              type="button"
+              class="seminar-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isModerator ? disabledClass : ""}"
+              data-seminar-id="${item.id}"
+              title="${absensiTitle}"
+              ${!isModerator ? "disabled" : ""}
+            >
+              <span class="material-symbols-outlined text-[18px]">fact_check</span>
+              Absensi
+            </button>
+          </td>
         </tr>
       `;
     })
@@ -239,7 +275,7 @@ function renderPaginationButtons(data: PaginatedResponse<SeminarItem>): void {
   });
 }
 
-// ---------- Search (debounce ke backend) ----------
+// ---------- Search (debounce ke backend, sama seperti admin) ----------
 function initSearch(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
   if (!searchInput) return;
@@ -272,9 +308,30 @@ function initPerPage(): void {
   });
 }
 
+// ---------- Tombol Absensi ----------
+function initAbsensiButtons(): void {
+  const tbody = document.getElementById("seminar-table-body");
+  if (!tbody) return;
+  if (tbody.dataset.absensiBound === "true") return;
+  tbody.dataset.absensiBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".seminar-absensi-btn");
+    if (!btn) return;
+    if (btn.hasAttribute("disabled")) return;
+
+    const seminarId = btn.dataset.seminarId;
+    if (!seminarId) return;
+
+    window.location.href = `/dosen/absensi-seminar?seminar_id=${seminarId}`;
+  });
+}
+
 function initJadwalSeminarPage(): void {
   initSearch();
   initPerPage();
+  initAbsensiButtons();
   fetchSeminar(currentPage);
 }
 
