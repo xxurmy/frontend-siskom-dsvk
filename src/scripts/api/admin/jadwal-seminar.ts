@@ -11,6 +11,15 @@
 // Tombol Hapus akan memanggil DELETE /auth/seminar/{id} untuk menghapus seminar tersebut, hanya bisa dilakukan oleh admin.
 // Tombol Edit & Hapus hanya muncul untuk seminar yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk seminar yang sudah disetujui (approved).
 //
+// KOLOM ABSENSI: tombol "Absensi" membuka halaman /admin/absensi-seminar
+// dengan query param seminar_id, tempat admin bisa menandai kehadiran
+// (statusparaf) peserta forum seminar tsb. Tombol hanya aktif kalau
+// status seminar sudah "approved" — karena mahasiswa baru bisa daftar
+// hadir (jadi peserta_seminar) setelah seminar disetujui admin
+// (lihat PesertaSeminarController::store, validasi status === 'approved').
+// Kalau belum approved, tombol disabled (tidak ada peserta yang mungkin
+// terdaftar).
+//
 // SEARCH: input #jadwal-seminar-search dikirim ke backend lewat query param
 // `search` (di-debounce 400ms), backend sudah nge-LIKE ke banyak kolom
 // sekaligus (nama, nim, prodi, judul, dosen pembimbing/moderator, lokasi,
@@ -20,6 +29,11 @@
 // PER PAGE: select #jadwal-seminar-per-page dikirim ke backend lewat query
 // param `per_page` (backend SeminarController::index sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
+//
+// KONFIRMASI HAPUS: menggunakan ConfirmModal (src/components/ConfirmModal.astro)
+// lewat helper confirmDialog() di src/scripts/lib/confirm-dialog.ts, bukan
+// window.confirm() bawaan browser.
+
 import { confirmDialog } from "../../lib/confirm-dialog";
 import { showSuccess, showError } from "../../lib/info-dialog";
 
@@ -60,6 +74,7 @@ const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-seminar-tbody";
 const COLSPAN = 14;
 const EDIT_FORM_PATH = "/admin/form-update-seminar";
+const ABSENSI_PATH = "/admin/absensi-seminar";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
 
@@ -150,6 +165,27 @@ function renderActionButtons(item: SeminarItem): string {
   `;
 }
 
+function renderAbsensiButton(item: SeminarItem): string {
+  const isApproved = item.status === "approved";
+  const disabledClass = "opacity-40 cursor-not-allowed";
+  const title = isApproved
+    ? "Buka Absensi"
+    : "Seminar harus berstatus disetujui sebelum bisa diabsen";
+
+  return `
+    <button
+      type="button"
+      class="seminar-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isApproved ? disabledClass : ""}"
+      data-seminar-id="${item.id}"
+      title="${title}"
+      ${!isApproved ? "disabled" : ""}
+    >
+      <span class="material-symbols-outlined text-[18px]">fact_check</span>
+      Absensi
+    </button>
+  `;
+}
+
 function renderRow(item: SeminarItem, rowNumber: number): string {
   return `
     <tr class="table-row-hover transition-colors" data-row-id="${item.id}">
@@ -164,6 +200,9 @@ function renderRow(item: SeminarItem, rowNumber: number): string {
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.ruangan ?? "-")}</td>
+      <td class="px-4 py-4 text-center">
+        ${renderAbsensiButton(item)}
+      </td>
       <td class="px-4 py-4 text-body-sm">
         <span class="px-2 py-1 rounded text-white text-xs font-medium ${STATUS_BADGE_CLASS[item.status]} whitespace-nowrap">
           ${STATUS_LABEL[item.status]}
@@ -339,6 +378,25 @@ function initActionButtons(): void {
   });
 }
 
+function initAbsensiButtons(): void {
+  const tbody = document.getElementById(TBODY_ID);
+  if (!tbody) return;
+  if (tbody.dataset.absensiBound === "true") return;
+  tbody.dataset.absensiBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".seminar-absensi-btn");
+    if (!btn) return;
+    if (btn.hasAttribute("disabled")) return;
+
+    const seminarId = btn.dataset.seminarId;
+    if (!seminarId) return;
+
+    window.location.href = `${ABSENSI_PATH}?seminar_id=${seminarId}`;
+  });
+}
+
 function initPagination(): void {
   const firstBtn = document.getElementById("jadwal-seminar-first-btn");
   const prevBtn = document.getElementById("jadwal-seminar-prev-btn");
@@ -389,6 +447,7 @@ function initPerPage(): void {
 function initJadwalSeminarsPage(): void {
   loadJadwalSeminars(1);
   initActionButtons();
+  initAbsensiButtons();
   initPagination();
   initSearch();
   initPerPage();
