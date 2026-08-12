@@ -483,6 +483,7 @@ function openBerkasModal(kolokiumId: number, nama: string): void {
 
   if (subtitle) subtitle.textContent = nama;
   overlay.dataset.kolokiumId = String(kolokiumId);
+  overlay.dataset.kolokiumNama = nama;
 
   renderBerkasModalBody(kolokiumId);
 
@@ -508,7 +509,17 @@ function extractFilename(res: Response, fallback: string): string {
   return match?.[1] ?? fallback;
 }
 
-async function downloadBerkas(berkas: BerkasDefinition, kolokiumId: number): Promise<void> {
+// Label per key dipakai buat nama file fallback, biar hasilnya konsisten
+// sama pola nama file yang dibuat backend (mis. "Rekap_Nilai_Kolokium_Budi.docx")
+// alih-alih "rekap-nilai-4.docx" yang kurang deskriptif.
+const BERKAS_FALLBACK_PREFIX: Record<string, string> = {
+  "rekap-nilai": "Rekap_Nilai_Kolokium",
+  "lembar-penilaian": "Lembar_Penilaian_Kolokium",
+  "daftar-hadir": "Daftar_Hadir_Kolokium",
+  "berita-acara": "Berita_Acara_Kolokium",
+};
+
+async function downloadBerkas(berkas: BerkasDefinition, kolokiumId: number, kolokiumNama: string): Promise<void> {
   const token = getToken();
   if (!token) {
     window.location.href = "/";
@@ -535,7 +546,9 @@ async function downloadBerkas(berkas: BerkasDefinition, kolokiumId: number): Pro
     }
 
     const blob = await res.blob();
-    const fileName = extractFilename(res, `${berkas.key}-${kolokiumId}.docx`);
+    const namaFile = kolokiumNama.trim() ? kolokiumNama.replace(/\s+/g, "_") : String(kolokiumId);
+    const prefix = BERKAS_FALLBACK_PREFIX[berkas.key] ?? berkas.key;
+    const fileName = extractFilename(res, `${prefix}_${namaFile}.docx`);
 
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -580,7 +593,8 @@ function initBerkasModal(): void {
     const berkas = BERKAS_LIST.find((b) => b.key === key);
     if (!berkas || !kolokiumId) return;
 
-    downloadBerkas(berkas, kolokiumId);
+    const kolokiumNama = overlay.dataset.kolokiumNama ?? "";
+    downloadBerkas(berkas, kolokiumId, kolokiumNama);
   });
 }
 
