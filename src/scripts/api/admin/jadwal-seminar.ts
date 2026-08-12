@@ -72,11 +72,49 @@ interface ApiErrorResponse {
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-seminar-tbody";
-const COLSPAN = 14;
+const COLSPAN = 15;
 const EDIT_FORM_PATH = "/admin/form-update-seminar";
 const ABSENSI_PATH = "/admin/absensi-seminar";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
+
+// BERKAS: daftar dokumen yang bisa di-export per seminar, mengikuti
+// routes/api.php (SeminarController) — semua GET, butuh Bearer token,
+// response-nya file .docx (bukan JSON), makanya di-download lewat fetch+blob
+// bukan window.location, supaya header Authorization bisa disertakan.
+interface BerkasDefinition {
+  key: string;
+  label: string;
+  icon: string;
+  path: (id: number) => string;
+}
+
+const BERKAS_LIST: BerkasDefinition[] = [
+  {
+    key: "rekap-nilai",
+    label: "Rekapitulasi Nilai Seminar",
+    icon: "assignment",
+    path: (id) => `/seminar/${id}/export-rekapitulasi-nilai-seminar`,
+  },
+  {
+    key: "lembar-penilaian",
+    label: "Lembar Penilaian Seminar",
+    icon: "fact_check",
+    path: (id) => `/seminar/${id}/export-lembar-penilaian`,
+  },
+  {
+    key: "daftar-hadir",
+    label: "Daftar Hadir Seminar",
+    icon: "how_to_reg",
+    path: (id) => `/seminar/${id}/export-daftar-hadir-seminar`,
+  },
+  {
+    key: "berita-acara",
+    label: "Berita Acara Pelaksanaan Seminar",
+    icon: "description",
+    path: (id) => `/seminar/${id}/export-berita-acara-seminar`,
+  },
+];
 
 const STATUS_LABEL: Record<SeminarItem["status"], string> = {
   pending: "Belum diterima",
@@ -165,6 +203,21 @@ function renderActionButtons(item: SeminarItem): string {
   `;
 }
 
+function renderBerkasButton(item: SeminarItem): string {
+  return `
+    <button
+      type="button"
+      class="seminar-berkas-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95"
+      data-seminar-id="${item.id}"
+      data-seminar-nama="${escapeHtml(item.nama ?? "-")}"
+      title="Lihat Berkas"
+    >
+      <span class="material-symbols-outlined text-[18px]">folder_open</span>
+      Berkas
+    </button>
+  `;
+}
+
 function renderAbsensiButton(item: SeminarItem): string {
   const isApproved = item.status === "approved";
   const disabledClass = "opacity-40 cursor-not-allowed";
@@ -200,6 +253,9 @@ function renderRow(item: SeminarItem, rowNumber: number): string {
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.ruangan ?? "-")}</td>
+      <td class="px-4 py-4 text-center">
+        ${renderBerkasButton(item)}
+      </td>
       <td class="px-4 py-4 text-center">
         ${renderAbsensiButton(item)}
       </td>
@@ -378,6 +434,189 @@ function initActionButtons(): void {
   });
 }
 
+// ============================================================
+// MODAL BERKAS
+// ============================================================
+
+// state file yang lagi didownload, biar tombolnya dikasih loading state
+// dan tidak bisa diklik dobel selagi proses download berjalan
+const downloadingKeys = new Set<string>();
+
+function getBerkasModalEls() {
+  return {
+    overlay: document.getElementById("berkas-modal-overlay"),
+    subtitle: document.getElementById("berkas-modal-subtitle"),
+    body: document.getElementById("berkas-modal-body"),
+    closeBtn: document.getElementById("berkas-modal-close-btn"),
+  };
+}
+
+function renderBerkasModalBody(seminarId: number): void {
+  const { body } = getBerkasModalEls();
+  if (!body) return;
+
+  body.innerHTML = BERKAS_LIST.map((berkas) => {
+    const isLoading = downloadingKeys.has(berkas.key);
+    return `
+      <button
+        type="button"
+        class="berkas-download-btn flex items-center justify-between gap-3 px-4 py-3 border border-outline-variant rounded-lg hover:bg-surface-container-low transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
+        data-berkas-key="${berkas.key}"
+        data-seminar-id="${seminarId}"
+        ${isLoading ? "disabled" : ""}
+      >
+        <span class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary">${berkas.icon}</span>
+          <span class="text-body-sm font-medium">${berkas.label}</span>
+        </span>
+        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">
+          ${isLoading ? "progress_activity" : "download"}
+        </span>
+      </button>
+    `;
+  }).join("");
+}
+
+function openBerkasModal(seminarId: number, nama: string): void {
+  const { overlay, subtitle } = getBerkasModalEls();
+  if (!overlay) return;
+
+  if (subtitle) subtitle.textContent = nama;
+  overlay.dataset.seminarId = String(seminarId);
+  overlay.dataset.seminarNama = nama;
+
+  renderBerkasModalBody(seminarId);
+
+  overlay.classList.remove("hidden");
+  overlay.classList.add("flex");
+}
+
+function closeBerkasModal(): void {
+  const { overlay } = getBerkasModalEls();
+  if (!overlay) return;
+
+  overlay.classList.add("hidden");
+  overlay.classList.remove("flex");
+}
+
+// Ambil nama file asli dari header Content-Disposition kalau ada,
+// fallback ke nama default kalau backend tidak mengirimnya.
+function extractFilename(res: Response, fallback: string): string {
+  const disposition = res.headers.get("Content-Disposition");
+  if (!disposition) return fallback;
+
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  return match?.[1] ?? fallback;
+}
+
+// Label per key dipakai buat nama file fallback, biar hasilnya konsisten
+// sama pola nama file yang dibuat backend (mis. "Rekap_Nilai_Seminar_Budi.docx")
+// alih-alih "rekap-nilai-4.docx" yang kurang deskriptif.
+const BERKAS_FALLBACK_PREFIX: Record<string, string> = {
+  "rekap-nilai": "Rekap_Nilai_Seminar",
+  "lembar-penilaian": "Lembar_Penilaian_Seminar",
+  "daftar-hadir": "Daftar_Hadir_Seminar",
+  "berita-acara": "Berita_Acara_Seminar",
+};
+
+async function downloadBerkas(berkas: BerkasDefinition, seminarId: number, seminarNama: string): Promise<void> {
+  const token = getToken();
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
+
+  if (downloadingKeys.has(berkas.key)) return; // cegah klik dobel
+  downloadingKeys.add(berkas.key);
+  renderBerkasModalBody(seminarId);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth${berkas.path(seminarId)}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (redirectIfUnauthorized(res.status)) return;
+
+    if (!res.ok) {
+      const errJson = (await res.json().catch(() => ({}))) as ApiErrorResponse;
+      showError(errJson.message ?? `Gagal mengunduh ${berkas.label}.`);
+      return;
+    }
+
+    const blob = await res.blob();
+    const namaFile = seminarNama.trim() ? seminarNama.replace(/\s+/g, "_") : String(seminarId);
+    const prefix = BERKAS_FALLBACK_PREFIX[berkas.key] ?? berkas.key;
+    const fileName = extractFilename(res, `${prefix}_${namaFile}.docx`);
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(`Gagal mengunduh ${berkas.label}:`, err);
+    showError("Terjadi kesalahan jaringan. Coba lagi.");
+  } finally {
+    downloadingKeys.delete(berkas.key);
+    renderBerkasModalBody(seminarId);
+  }
+}
+
+function initBerkasModal(): void {
+  const { overlay, closeBtn, body } = getBerkasModalEls();
+  if (!overlay || overlay.dataset.bound === "true") return;
+  overlay.dataset.bound = "true";
+
+  closeBtn?.addEventListener("click", closeBerkasModal);
+
+  // klik di luar konten modal (di area overlay gelap) juga menutup modal
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeBerkasModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeBerkasModal();
+  });
+
+  body?.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".berkas-download-btn");
+    if (!btn || btn.hasAttribute("disabled")) return;
+
+    const key = btn.dataset.berkasKey;
+    const seminarId = Number(btn.dataset.seminarId);
+    const berkas = BERKAS_LIST.find((b) => b.key === key);
+    if (!berkas || !seminarId) return;
+
+    const seminarNama = overlay.dataset.seminarNama ?? "";
+    downloadBerkas(berkas, seminarId, seminarNama);
+  });
+}
+
+function initBerkasButtons(): void {
+  const tbody = document.getElementById(TBODY_ID);
+  if (!tbody) return;
+  if (tbody.dataset.berkasBound === "true") return;
+  tbody.dataset.berkasBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".seminar-berkas-btn");
+    if (!btn) return;
+
+    const seminarId = Number(btn.dataset.seminarId);
+    const nama = btn.dataset.seminarNama ?? "-";
+    if (!seminarId) return;
+
+    openBerkasModal(seminarId, nama);
+  });
+}
+
 function initAbsensiButtons(): void {
   const tbody = document.getElementById(TBODY_ID);
   if (!tbody) return;
@@ -448,6 +687,8 @@ function initJadwalSeminarsPage(): void {
   loadJadwalSeminars(1);
   initActionButtons();
   initAbsensiButtons();
+  initBerkasButtons();
+  initBerkasModal();
   initPagination();
   initSearch();
   initPerPage();
