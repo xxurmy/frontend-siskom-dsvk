@@ -72,11 +72,49 @@ interface ApiErrorResponse {
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-kolokium-tbody";
-const COLSPAN = 14;
+const COLSPAN = 15;
 const EDIT_FORM_PATH = "/admin/form-update-kolokium";
 const ABSENSI_PATH = "/admin/absensi-kolokium";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
+
+// BERKAS: daftar dokumen yang bisa di-export per kolokium, mengikuti
+// routes/api.php (KolokiumController) — semua GET, butuh Bearer token,
+// response-nya file .docx (bukan JSON), makanya di-download lewat fetch+blob
+// bukan window.location, supaya header Authorization bisa disertakan.
+interface BerkasDefinition {
+  key: string;
+  label: string;
+  icon: string;
+  path: (id: number) => string;
+}
+
+const BERKAS_LIST: BerkasDefinition[] = [
+  {
+    key: "rekap-nilai",
+    label: "Rekapitulasi Nilai Kolokium",
+    icon: "assignment",
+    path: (id) => `/kolokium/${id}/export-rekapitulasi-nilai-kolokium`,
+  },
+  {
+    key: "lembar-penilaian",
+    label: "Lembar Penilaian Kolokium",
+    icon: "fact_check",
+    path: (id) => `/kolokium/${id}/export-lembar-penilaian`,
+  },
+  {
+    key: "daftar-hadir",
+    label: "Daftar Hadir Kolokium",
+    icon: "how_to_reg",
+    path: (id) => `/kolokium/${id}/export-daftar-hadir-kolokium`,
+  },
+  {
+    key: "berita-acara",
+    label: "Berita Acara Pelaksanaan Kolokium",
+    icon: "description",
+    path: (id) => `/kolokium/${id}/export-berita-acara-kolokium`,
+  },
+];
 
 const STATUS_LABEL: Record<KolokiumItem["status"], string> = {
   pending: "Belum diterima",
@@ -165,6 +203,21 @@ function renderActionButtons(item: KolokiumItem): string {
   `;
 }
 
+function renderBerkasButton(item: KolokiumItem): string {
+  return `
+    <button
+      type="button"
+      class="kolokium-berkas-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95"
+      data-kolokium-id="${item.id}"
+      data-kolokium-nama="${escapeHtml(item.nama ?? "-")}"
+      title="Lihat Berkas"
+    >
+      <span class="material-symbols-outlined text-[18px]">folder_open</span>
+      Berkas
+    </button>
+  `;
+}
+
 function renderAbsensiButton(item: KolokiumItem): string {
   const isApproved = item.status === "approved";
   const disabledClass = "opacity-40 cursor-not-allowed";
@@ -200,6 +253,9 @@ function renderRow(item: KolokiumItem, rowNumber: number): string {
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.ruangan ?? "-")}</td>
+      <td class="px-4 py-4 text-center">
+        ${renderBerkasButton(item)}
+      </td>
       <td class="px-4 py-4 text-center">
         ${renderAbsensiButton(item)}
       </td>
@@ -378,6 +434,175 @@ function initActionButtons(): void {
   });
 }
 
+// ============================================================
+// MODAL BERKAS
+// ============================================================
+
+// state file yang lagi didownload, biar tombolnya dikasih loading state
+// dan tidak bisa diklik dobel selagi proses download berjalan
+const downloadingKeys = new Set<string>();
+
+function getBerkasModalEls() {
+  return {
+    overlay: document.getElementById("berkas-modal-overlay"),
+    subtitle: document.getElementById("berkas-modal-subtitle"),
+    body: document.getElementById("berkas-modal-body"),
+    closeBtn: document.getElementById("berkas-modal-close-btn"),
+  };
+}
+
+function renderBerkasModalBody(kolokiumId: number): void {
+  const { body } = getBerkasModalEls();
+  if (!body) return;
+
+  body.innerHTML = BERKAS_LIST.map((berkas) => {
+    const isLoading = downloadingKeys.has(berkas.key);
+    return `
+      <button
+        type="button"
+        class="berkas-download-btn flex items-center justify-between gap-3 px-4 py-3 border border-outline-variant rounded-lg hover:bg-surface-container-low transition-colors text-left disabled:opacity-60 disabled:cursor-not-allowed"
+        data-berkas-key="${berkas.key}"
+        data-kolokium-id="${kolokiumId}"
+        ${isLoading ? "disabled" : ""}
+      >
+        <span class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary">${berkas.icon}</span>
+          <span class="text-body-sm font-medium">${berkas.label}</span>
+        </span>
+        <span class="material-symbols-outlined text-on-surface-variant text-[20px]">
+          ${isLoading ? "progress_activity" : "download"}
+        </span>
+      </button>
+    `;
+  }).join("");
+}
+
+function openBerkasModal(kolokiumId: number, nama: string): void {
+  const { overlay, subtitle } = getBerkasModalEls();
+  if (!overlay) return;
+
+  if (subtitle) subtitle.textContent = nama;
+  overlay.dataset.kolokiumId = String(kolokiumId);
+
+  renderBerkasModalBody(kolokiumId);
+
+  overlay.classList.remove("hidden");
+  overlay.classList.add("flex");
+}
+
+function closeBerkasModal(): void {
+  const { overlay } = getBerkasModalEls();
+  if (!overlay) return;
+
+  overlay.classList.add("hidden");
+  overlay.classList.remove("flex");
+}
+
+// Ambil nama file asli dari header Content-Disposition kalau ada,
+// fallback ke nama default kalau backend tidak mengirimnya.
+function extractFilename(res: Response, fallback: string): string {
+  const disposition = res.headers.get("Content-Disposition");
+  if (!disposition) return fallback;
+
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  return match?.[1] ?? fallback;
+}
+
+async function downloadBerkas(berkas: BerkasDefinition, kolokiumId: number): Promise<void> {
+  const token = getToken();
+  if (!token) {
+    window.location.href = "/";
+    return;
+  }
+
+  if (downloadingKeys.has(berkas.key)) return; // cegah klik dobel
+  downloadingKeys.add(berkas.key);
+  renderBerkasModalBody(kolokiumId);
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth${berkas.path(kolokiumId)}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (redirectIfUnauthorized(res.status)) return;
+
+    if (!res.ok) {
+      const errJson = (await res.json().catch(() => ({}))) as ApiErrorResponse;
+      showError(errJson.message ?? `Gagal mengunduh ${berkas.label}.`);
+      return;
+    }
+
+    const blob = await res.blob();
+    const fileName = extractFilename(res, `${berkas.key}-${kolokiumId}.docx`);
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(`Gagal mengunduh ${berkas.label}:`, err);
+    showError("Terjadi kesalahan jaringan. Coba lagi.");
+  } finally {
+    downloadingKeys.delete(berkas.key);
+    renderBerkasModalBody(kolokiumId);
+  }
+}
+
+function initBerkasModal(): void {
+  const { overlay, closeBtn, body } = getBerkasModalEls();
+  if (!overlay || overlay.dataset.bound === "true") return;
+  overlay.dataset.bound = "true";
+
+  closeBtn?.addEventListener("click", closeBerkasModal);
+
+  // klik di luar konten modal (di area overlay gelap) juga menutup modal
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeBerkasModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeBerkasModal();
+  });
+
+  body?.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".berkas-download-btn");
+    if (!btn || btn.hasAttribute("disabled")) return;
+
+    const key = btn.dataset.berkasKey;
+    const kolokiumId = Number(btn.dataset.kolokiumId);
+    const berkas = BERKAS_LIST.find((b) => b.key === key);
+    if (!berkas || !kolokiumId) return;
+
+    downloadBerkas(berkas, kolokiumId);
+  });
+}
+
+function initBerkasButtons(): void {
+  const tbody = document.getElementById(TBODY_ID);
+  if (!tbody) return;
+  if (tbody.dataset.berkasBound === "true") return;
+  tbody.dataset.berkasBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".kolokium-berkas-btn");
+    if (!btn) return;
+
+    const kolokiumId = Number(btn.dataset.kolokiumId);
+    const nama = btn.dataset.kolokiumNama ?? "-";
+    if (!kolokiumId) return;
+
+    openBerkasModal(kolokiumId, nama);
+  });
+}
+
 function initAbsensiButtons(): void {
   const tbody = document.getElementById(TBODY_ID);
   if (!tbody) return;
@@ -448,6 +673,8 @@ function initJadwalKolokiumPage(): void {
   loadJadwalKolokium(1);
   initActionButtons();
   initAbsensiButtons();
+  initBerkasButtons();
+  initBerkasModal();
   initPagination();
   initSearch();
   initPerPage();
