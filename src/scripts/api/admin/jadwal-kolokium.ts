@@ -114,6 +114,18 @@ const BERKAS_LIST: BerkasDefinition[] = [
     icon: "description",
     path: (id) => `/kolokium/${id}/export-berita-acara-kolokium`,
   },
+  {
+    key: "kesediaan-moderator",
+    label: "Surat Kesediaan Moderator Kolokium",
+    icon: "how_to_vote",
+    path: (id) => `/kolokium/${id}/export-kesediaan-moderator-kolokium`,
+  },
+  {
+    key: "pengumuman",
+    label: "Pengumuman Kolokium",
+    icon: "campaign",
+    path: (id) => `/kolokium/${id}/export-pengumuman-kolokium`,
+  },
 ];
 
 const STATUS_LABEL: Record<KolokiumItem["status"], string> = {
