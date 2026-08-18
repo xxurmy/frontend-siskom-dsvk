@@ -36,6 +36,19 @@ import Layout from "../../layouts/Layout.astro";
         </span>
       </div>
     </div>
+
+    <!-- Catatan Admin: hanya tampil kalau status rejected/approved DAN catatan terisi -->
+    <div id="catatan-wrapper" class="hidden mt-6 pt-6 border-t border-outline-variant">
+      <label class="block font-body-sm text-body-sm text-on-surface font-medium mb-2">
+        Catatan dari Admin
+      </label>
+      <textarea
+        id="catatan-textarea"
+        readonly
+        rows="3"
+        class="w-full bg-surface-container-low border-outline-variant text-on-surface-variant rounded-md shadow-sm cursor-not-allowed focus:ring-0 focus:border-outline-variant sm:text-sm resize-none"
+      ></textarea>
+    </div>
   </div>
 
   <!-- Form Card -->
