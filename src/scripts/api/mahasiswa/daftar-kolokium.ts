@@ -1,15 +1,24 @@
-// src/scripts/api/mahasiswa/Daftarkolokium.ts
+// src/scripts/api/mahasiswa/daftar-kolokium.ts
 // Logic untuk halaman "Daftar Kolokium" (role: mahasiswa):
 // 1) fetch profil login untuk isi field readonly (Nama/NIM/Prodi) -> GET /auth/profile
 // 2) fetch status kolokium terbaru milik mahasiswa login -> GET /auth/kolokium/my
 //    - kalau status masih 'pending' atau 'approved', form disembunyikan (tidak boleh
 //      daftar dobel), hanya status card yang tampil
 //    - kalau belum pernah daftar / status 'rejected', form ditampilkan untuk isi ulang
-// 3) submit form pendaftaran -> POST /auth/kolokium (KolokiumController@store)
+//    - kalau status 'rejected', form di-PREFILL dengan data pengajuan sebelumnya
+//      (judul, lokasi, tanggal, waktu, pembimbing) supaya mahasiswa tahu apa yang
+//      pernah diisi dan tinggal mengedit, bukan mengisi dari nol
+// 3) submit form:
+//    - belum pernah daftar -> POST /auth/kolokium (KolokiumController@store)
+//    - status sebelumnya 'rejected' -> PATCH /auth/kolokium/{id}/resubmit
+//      (KolokiumController@resubmit), status kembali ke pending & catatan di-null-kan
 //
 // Dropdown "Dosen Pembimbing" diisi dari endpoint khusus
 // (bukan UserController@index yang admin-only): GET /auth/dosen.
 // Endpoint ini hanya butuh login (role apa saja), lihat UserController@dosenList.
+//
+// CATATAN ADMIN: ditampilkan readonly di Status Card (bukan di form), hanya
+// muncul kalau status rejected/approved DAN admin memang mengisi catatan.
 //
 // PESAN ERROR: memakai modal InfoModal (src/components/InfoModal.astro) lewat
 // helper showError() di src/scripts/lib/info-dialog.ts.
@@ -63,6 +72,7 @@ interface Kolokium {
   nim: string;
   prodi: string;
   namadosenpembimbing: string | null;
+  pembimbing?: { id: number; nama?: string; pivot?: { urutan: number } }[];
   moderator_id: number | null;
   judul: string;
   lokasi: string | null;
@@ -71,6 +81,7 @@ interface Kolokium {
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
+  catatan: string | null;
   jumlahforum: number;
 }
 
@@ -98,6 +109,11 @@ interface UserListResponse {
 }
 
 interface StoreKolokiumResponse {
+  message: string;
+  kolokium: Kolokium;
+}
+
+interface ResubmitKolokiumResponse {
   message: string;
   kolokium: Kolokium;
 }
@@ -181,6 +197,32 @@ function todayLocalISO(): string {
 }
 
 // ------------------------------------------------------------------
+// Konversi tanggal -> format "YYYY-MM-DD" (untuk <input type="date">)
+// ------------------------------------------------------------------
+function toDateInputValue(value: string | null): string {
+  if (!value) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  if (!Number.isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return "";
+}
+
+// ------------------------------------------------------------------
+// Konversi waktu -> format "HH:mm" (untuk <input type="time">)
+// ------------------------------------------------------------------
+function toTimeInputValue(value: string | null): string {
+  if (!value) return "";
+  const isoMatch = value.match(/^(\d{2}):(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}:${isoMatch[2]}`;
+  return "";
+}
+
+// ------------------------------------------------------------------
 // Status badge
 // ------------------------------------------------------------------
 function renderStatusBadge(status: StatusPengajuan | null): void {
@@ -205,6 +247,30 @@ function renderStatusBadge(status: StatusPengajuan | null): void {
     default:
       badge.classList.add("bg-outline");
       badge.textContent = "Belum Mendaftar";
+  }
+}
+
+// ------------------------------------------------------------------
+// Catatan admin: tampil hanya kalau status rejected/approved DAN ada isinya
+// ------------------------------------------------------------------
+function renderCatatan(kolokium: Kolokium | null): void {
+  const wrapper = document.getElementById("catatan-wrapper");
+  const textarea = document.getElementById("catatan-textarea") as HTMLTextAreaElement | null;
+
+  if (!wrapper || !textarea) return;
+
+  const status = kolokium?.status ?? null;
+  const catatan = kolokium?.catatan ?? null;
+
+  const shouldShow =
+    (status === "rejected" || status === "approved") && !!catatan;
+
+  if (shouldShow) {
+    textarea.value = catatan as string;
+    wrapper.classList.remove("hidden");
+  } else {
+    textarea.value = "";
+    wrapper.classList.add("hidden");
   }
 }
 
@@ -243,6 +309,7 @@ async function loadMyKolokium(): Promise<void> {
   }
 
   renderStatusBadge(currentKolokium?.status ?? null);
+  renderCatatan(currentKolokium);
   toggleForm();
 }
 
@@ -258,6 +325,41 @@ function toggleForm(): void {
   } else {
     // Pending atau approved, sembunyikan form
     formWrapper.classList.add("hidden");
+  }
+}
+
+// ------------------------------------------------------------------
+// Isi form dengan data kolokium sebelumnya (dipakai saat status rejected,
+// supaya mahasiswa tahu apa yang sudah pernah diisi & bisa mengedit dari situ)
+// ------------------------------------------------------------------
+function prefillFormFromKolokium(kolokium: Kolokium): void {
+  const utamaSelect = document.getElementById("pembimbing-utama-select") as HTMLSelectElement | null;
+  const keduaSelect = document.getElementById("pembimbing-kedua-select") as HTMLSelectElement | null;
+  const judulInput = document.getElementById("judul-textarea") as HTMLTextAreaElement | null;
+  const lokasiInput = document.getElementById("lokasi-input") as HTMLInputElement | null;
+  const tanggalInput = document.getElementById("tanggal-input") as HTMLInputElement | null;
+  const waktuInput = document.getElementById("waktu-input") as HTMLInputElement | null;
+
+  if (judulInput) judulInput.value = kolokium.judul ?? "";
+  if (lokasiInput) lokasiInput.value = kolokium.lokasi ?? "";
+  if (tanggalInput) tanggalInput.value = toDateInputValue(kolokium.tanggal);
+  if (waktuInput) waktuInput.value = toTimeInputValue(kolokium.waktu);
+
+  // Pembimbing: butuh relasi "pembimbing" ikut dikirim dari backend
+  // (GET /auth/kolokium/my harus eager-load with('pembimbing')).
+  const pembimbingList = kolokium.pembimbing ?? [];
+  const sorted = [...pembimbingList].sort(
+    (a, b) => (a.pivot?.urutan ?? 1) - (b.pivot?.urutan ?? 2)
+  );
+
+  const pembimbingUtamaId = sorted[0]?.id ?? null;
+  const pembimbingKeduaId = sorted[1]?.id ?? null;
+
+  if (utamaSelect && pembimbingUtamaId) {
+    utamaSelect.value = String(pembimbingUtamaId);
+  }
+  if (keduaSelect && pembimbingKeduaId) {
+    keduaSelect.value = String(pembimbingKeduaId);
   }
 }
 
@@ -349,7 +451,7 @@ function validateForm(values: FormValues): string | null {
 }
 
 // ------------------------------------------------------------------
-// Submit form pendaftaran kolokium
+// Submit form pendaftaran / pengajuan ulang kolokium
 // ------------------------------------------------------------------
 async function handleSubmit(e: SubmitEvent): Promise<void> {
   e.preventDefault();
@@ -391,22 +493,48 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     waktu: waktuInput?.value || null,
   };
 
+  // Kalau pengajuan sebelumnya ditolak -> resubmit kolokium yang sama
+  // (PATCH ke endpoint resubmit, bukan bikin kolokium baru lewat POST)
+  const isResubmit = currentKolokium?.status === "rejected";
+
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = "Mengirim...";
+    submitBtn.textContent = isResubmit ? "Mengajukan ulang..." : "Mengirim...";
   }
 
   try {
-    await apiFetch<StoreKolokiumResponse>("/auth/kolokium", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    if (isResubmit && currentKolokium) {
+      await apiFetch<ResubmitKolokiumResponse>(
+        `/auth/kolokium/${currentKolokium.id}/resubmit`,
+        {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        }
+      );
 
-    showMessage("Kolokium berhasil diajukan. Menunggu persetujuan panitia.", "success");
+      showMessage("Kolokium berhasil diajukan ulang. Menunggu persetujuan panitia.", "success");
+    } else {
+      await apiFetch<StoreKolokiumResponse>("/auth/kolokium", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      showMessage("Kolokium berhasil diajukan. Menunggu persetujuan panitia.", "success");
+    }
+
     await loadMyKolokium();
   } catch (err) {
-    console.error("Gagal mengajukan kolokium:", err);
-    showError(err instanceof Error ? err.message : "Gagal mengajukan kolokium.");
+    console.error(
+      isResubmit ? "Gagal mengajukan ulang kolokium:" : "Gagal mengajukan kolokium:",
+      err
+    );
+    showError(
+      err instanceof Error
+        ? err.message
+        : isResubmit
+        ? "Gagal mengajukan ulang kolokium."
+        : "Gagal mengajukan kolokium."
+    );
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -437,4 +565,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   // baru ambil data untuk mengisi form.
   await loadProfil();
   await initDosenOptions();
+
+  // Kalau status ditolak, isi ulang form dengan data pengajuan sebelumnya
+  // supaya mahasiswa tahu apa yang pernah diisi (tinggal diedit, bukan isi dari nol).
+  if (currentKolokium && currentKolokium.status === "rejected") {
+    prefillFormFromKolokium(currentKolokium);
+  }
 });
