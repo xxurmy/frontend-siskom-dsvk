@@ -100,7 +100,7 @@ const BERKAS_LIST: BerkasDefinition[] = [
     key: "lembar-penilaian",
     label: "Lembar Penilaian Seminar",
     icon: "fact_check",
-    path: (id) => `/seminar/${id}/export-lembar-penilaian`,
+    path: (id) => `/seminar/${id}/export-lembar-penilaian-seminar`,
   },
   {
     key: "daftar-hadir",
@@ -113,6 +113,18 @@ const BERKAS_LIST: BerkasDefinition[] = [
     label: "Berita Acara Pelaksanaan Seminar",
     icon: "description",
     path: (id) => `/seminar/${id}/export-berita-acara-seminar`,
+  },
+  {
+    key: "kesediaan-moderator",
+    label: "Surat Kesediaan Moderator Seminar",
+    icon: "how_to_vote",
+    path: (id) => `/seminar/${id}/export-kesediaan-moderator-seminar`,
+  },
+  {
+    key: "pengumuman",
+    label: "Pengumuman Seminar",
+    icon: "campaign",
+    path: (id) => `/seminar/${id}/export-pengumuman-seminar`,
   },
 ];
 
@@ -517,6 +529,8 @@ const BERKAS_FALLBACK_PREFIX: Record<string, string> = {
   "lembar-penilaian": "Lembar_Penilaian_Seminar",
   "daftar-hadir": "Daftar_Hadir_Seminar",
   "berita-acara": "Berita_Acara_Seminar",
+  "kesediaan-moderator": "Kesediaan_Moderator_Seminar",
+  "pengumuman": "Pengumuman_Seminar",
 };
 
 async function downloadBerkas(berkas: BerkasDefinition, seminarId: number, seminarNama: string): Promise<void> {

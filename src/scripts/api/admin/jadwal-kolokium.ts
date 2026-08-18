@@ -100,7 +100,7 @@ const BERKAS_LIST: BerkasDefinition[] = [
     key: "lembar-penilaian",
     label: "Lembar Penilaian Kolokium",
     icon: "fact_check",
-    path: (id) => `/kolokium/${id}/export-lembar-penilaian`,
+    path: (id) => `/kolokium/${id}/export-lembar-penilaian-kolokium`,
   },
   {
     key: "daftar-hadir",
@@ -529,6 +529,8 @@ const BERKAS_FALLBACK_PREFIX: Record<string, string> = {
   "lembar-penilaian": "Lembar_Penilaian_Kolokium",
   "daftar-hadir": "Daftar_Hadir_Kolokium",
   "berita-acara": "Berita_Acara_Kolokium",
+  "kesediaan-moderator": "Kesediaan_Moderator_Kolokium",
+  "pengumuman": "Pengumuman_Kolokium",
 };
 
 async function downloadBerkas(berkas: BerkasDefinition, kolokiumId: number, kolokiumNama: string): Promise<void> {
