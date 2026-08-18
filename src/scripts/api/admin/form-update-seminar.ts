@@ -17,7 +17,8 @@
 // 2. Dosen pembimbing utama & kedua tidak boleh sama/ganda.
 // 3. Tanggal seminar wajib SESUDAH hari ini (tidak boleh hari ini atau lewat).
 // 4. Dosen moderator tidak boleh sama dengan dosen pembimbing (utama/kedua).
-// 5. Dosen moderator & ruangan wajib diisi.
+// 5. Dosen moderator & ruangan wajib diisi jika status "approved".
+// 6. Catatan wajib diisi jika status "rejected" (opsional untuk status lain).
 // Semua pesan validasi ini spesifik per kasus, ditampilkan lewat showError().
 
 import TomSelect from "tom-select";
@@ -63,6 +64,7 @@ interface Seminar {
   namadosenmoderator: string | null;
   ruangan: string | null;
   status: StatusPengajuan;
+  catatan: string | null;
   jumlahforum: number;
 }
 
@@ -179,11 +181,31 @@ function updateStatusColor(select: HTMLSelectElement): void {
   select.classList.add(color);
 }
 
+// ------------------------------------------------------------------
+// Tampilkan tanda wajib (*) pada label Catatan saat status = rejected
+// ------------------------------------------------------------------
+function updateCatatanRequiredMark(status: StatusPengajuan): void {
+  const mark = document.getElementById("catatan-required-mark");
+  if (!mark) return;
+
+  if (status === "rejected") {
+    mark.classList.remove("hidden");
+  } else {
+    mark.classList.add("hidden");
+  }
+}
+
 function initStatusSelect(): void {
   const statusSelect = document.getElementById("status_seminar") as HTMLSelectElement | null;
   if (!statusSelect) return;
+
   updateStatusColor(statusSelect);
-  statusSelect.addEventListener("change", () => updateStatusColor(statusSelect));
+  updateCatatanRequiredMark(statusSelect.value as StatusPengajuan);
+
+  statusSelect.addEventListener("change", () => {
+    updateStatusColor(statusSelect);
+    updateCatatanRequiredMark(statusSelect.value as StatusPengajuan);
+  });
 }
 
 // ------------------------------------------------------------------
@@ -234,6 +256,7 @@ async function loadSeminar(id: number): Promise<void> {
   const waktuInput = document.getElementById("input-waktu") as HTMLInputElement | null;
   const ruanganInput = document.getElementById("input-ruangan") as HTMLInputElement | null;
   const statusSelect = document.getElementById("status_seminar") as HTMLSelectElement | null;
+  const catatanInput = document.getElementById("input-catatan") as HTMLTextAreaElement | null;
 
   if (namaInput) namaInput.value = json.nama ?? "";
   if (nimInput) nimInput.value = json.nim ?? "";
@@ -241,6 +264,7 @@ async function loadSeminar(id: number): Promise<void> {
   if (judulInput) judulInput.value = json.judul ?? "";
   if (lokasiInput) lokasiInput.value = json.lokasi ?? "";
   if (ruanganInput) ruanganInput.value = json.ruangan ?? "";
+  if (catatanInput) catatanInput.value = json.catatan ?? "";
 
   if (tanggalInput) tanggalInput.value = toDateInputValue(json.tanggal);
   if (waktuInput) waktuInput.value = toTimeInputValue(json.waktu);
@@ -248,6 +272,7 @@ async function loadSeminar(id: number): Promise<void> {
   if (statusSelect) {
     statusSelect.value = json.status;
     updateStatusColor(statusSelect);
+    updateCatatanRequiredMark(json.status);
   }
 }
 
@@ -440,10 +465,11 @@ interface FormValues {
   moderatorId: number | null;
   ruangan: string;
   status: StatusPengajuan;
+  catatan: string;
 }
 
 function validateForm(values: FormValues): string | null {
-  const { pembimbingUtamaId, pembimbingKeduaId, tanggal, moderatorId, ruangan, status } = values;
+  const { pembimbingUtamaId, pembimbingKeduaId, tanggal, moderatorId, ruangan, status, catatan } = values;
 
   // 1. Dosen pembimbing (utama) wajib dipilih
   if (!pembimbingUtamaId) {
@@ -480,6 +506,12 @@ function validateForm(values: FormValues): string | null {
     return "Dosen moderator tidak boleh sama dengan dosen pembimbing.";
   }
 
+  // 6. Catatan wajib diisi jika status ditolak (rejected). Opsional untuk
+  //    status lain (pending/approved).
+  if (status === "rejected" && !catatan) {
+    return "Catatan wajib diisi jika seminar ditolak.";
+  }
+
   return null;
 }
 
@@ -503,6 +535,7 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   const moderatorSelect = document.getElementById("select-moderator") as HTMLSelectElement | null;
   const ruanganInput = document.getElementById("input-ruangan") as HTMLInputElement | null;
   const statusSelect = document.getElementById("status_seminar") as HTMLSelectElement | null;
+  const catatanInput = document.getElementById("input-catatan") as HTMLTextAreaElement | null;
   const submitBtn = document.getElementById("btn-submit-seminar") as HTMLButtonElement | null;
 
   const pembimbingUtamaId = utamaSelect?.value ? Number(utamaSelect.value) : null;
@@ -511,6 +544,7 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   const tanggal = tanggalInput?.value ?? "";
   const ruangan = ruanganInput?.value.trim() ?? "";
   const status = (statusSelect?.value as StatusPengajuan) ?? "pending";
+  const catatan = catatanInput?.value.trim() ?? "";
 
   const validationError = validateForm({
     pembimbingUtamaId,
@@ -519,6 +553,7 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     moderatorId,
     ruangan,
     status,
+    catatan,
   });
 
   if (validationError) {
@@ -534,6 +569,7 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
     ruangan: ruangan || null,
     moderator_id: moderatorId,
     status: statusSelect?.value ?? undefined,
+    catatan: catatan || null,
   };
 
   // Kirim pembimbing_id dengan array

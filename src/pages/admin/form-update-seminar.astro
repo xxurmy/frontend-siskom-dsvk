@@ -35,6 +35,26 @@ import Layout from "../../layouts/Layout.astro";
           </div>
         </div>
       </div>
+
+      <!-- Catatan Admin -->
+      <div class="mt-6 pt-6 border-t border-outline-variant">
+        <label
+          for="input-catatan"
+          class="block font-body-sm text-body-sm text-on-surface font-medium mb-2"
+        >
+          Catatan
+          <span id="catatan-required-mark" class="hidden text-error">*</span>
+        </label>
+        <textarea
+          id="input-catatan"
+          rows="3"
+          placeholder="Isi catatan (wajib jika status ditolak)"
+          class="w-full bg-surface-container-lowest border-outline-variant text-on-surface rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm resize-none"
+        ></textarea>
+        <p id="catatan-hint" class="mt-1 text-xs text-on-surface-variant">
+          Opsional untuk status diterima, wajib diisi jika seminar ditolak.
+        </p>
+      </div>
   </div>
 
   <!-- Pesan sukses/error -->
@@ -215,4 +235,4 @@ import Layout from "../../layouts/Layout.astro";
   </div>
 </Layout>
 
-  <script src="../../scripts/api/admin/form-update-seminar.ts"></script>
+<script src="../../scripts/api/admin/form-update-seminar.ts"></script>
