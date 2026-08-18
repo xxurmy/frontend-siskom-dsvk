@@ -79,6 +79,52 @@ interface ApiErrorResponse {
 }
 
 // ------------------------------------------------------------------
+// BERKAS / SYARAT ADMINISTRASI (Admin: lihat & verifikasi)
+// Mengikuti SyaratAdministrasiKolokiumController@SYARAT_MAP di backend.
+// ------------------------------------------------------------------
+interface SyaratDefinition {
+  key: string;
+  label: string;
+}
+
+const SYARAT_LIST: SyaratDefinition[] = [
+  { key: "proposal", label: "Proposal yang Disetujui Pembimbing" },
+  { key: "bukti_spp", label: "Bukti Lunas SPP Terbaru" },
+  { key: "transkrip", label: "Transkrip Nilai" },
+  { key: "kartu_kolokium", label: "Kartu Kolokium (min. 10x)" },
+  { key: "makalah", label: "Makalah Kolokium" },
+];
+
+interface SyaratItem {
+  key: string;
+  label: string;
+  terisi: boolean;
+  url: string | null;
+  uploaded_at: string | null;
+}
+
+type SyaratStatus = "belum_lengkap" | "menunggu_verifikasi" | "lengkap" | "ditolak";
+
+interface SyaratAdministrasiResponse {
+  message: string;
+  status: SyaratStatus;
+  catatan_admin: string | null;
+  syarat: SyaratItem[];
+}
+
+interface VerifySyaratResponse {
+  message: string;
+  syarat: {
+    id: number;
+    kolokium_id: number;
+    status: SyaratStatus;
+    catatan_admin: string | null;
+  };
+}
+
+let syaratData: SyaratAdministrasiResponse | null = null;
+
+// ------------------------------------------------------------------
 // State halaman
 // ------------------------------------------------------------------
 let kolokiumId: number | null = null;
@@ -605,6 +651,153 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
   }
 }
 
+// ------------------------------------------------------------------
+// MODAL BERKAS (admin: lihat berkas + ubah status verifikasi & catatan)
+// ------------------------------------------------------------------
+function getBerkasModalEls() {
+  return {
+    overlay: document.getElementById("berkas-modal-overlay"),
+    body: document.getElementById("berkas-modal-body"),
+    closeBtn: document.getElementById("berkas-modal-close-btn"),
+    berkasBtn: document.getElementById("berkas-btn"),
+    statusSelect: document.getElementById("berkas-verify-status") as HTMLSelectElement | null,
+    catatanInput: document.getElementById("berkas-verify-catatan") as HTMLTextAreaElement | null,
+    submitBtn: document.getElementById("berkas-verify-submit-btn") as HTMLButtonElement | null,
+  };
+}
+
+function renderBerkasModalBody(): void {
+  const { body } = getBerkasModalEls();
+  if (!body || !syaratData) return;
+
+  body.innerHTML = SYARAT_LIST.map((def) => {
+    const item = syaratData!.syarat.find((s) => s.key === def.key);
+    const terisi = item?.terisi ?? false;
+
+    return `
+      <div class="flex items-center justify-between gap-3 border border-outline-variant rounded-lg px-3 py-2.5">
+        <div>
+          <p class="text-body-sm font-medium text-on-surface">${def.label}</p>
+          <span class="text-xs font-bold ${terisi ? "text-secondary" : "text-on-surface-variant"}">
+            ${terisi ? "Sudah Diupload" : "Belum Diupload"}
+          </span>
+        </div>
+        ${
+          item?.url
+            ? `<a href="${item.url}" target="_blank" rel="noopener" class="shrink-0 text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                <span class="material-symbols-outlined text-[16px]">visibility</span> Lihat
+              </a>`
+            : `<span class="shrink-0 text-xs text-on-surface-variant">-</span>`
+        }
+      </div>
+    `;
+  }).join("");
+}
+
+async function fetchSyaratAdministrasi(id: number): Promise<void> {
+  try {
+    const json = await apiFetch<SyaratAdministrasiResponse>(
+      `/auth/kolokium/${id}/syarat-administrasi`
+    );
+    syaratData = json;
+  } catch (err) {
+    console.error("Gagal memuat syarat administrasi:", err);
+    syaratData = null;
+  }
+}
+
+async function openBerkasModal(): Promise<void> {
+  if (!kolokiumId) return;
+  const { overlay, statusSelect, catatanInput } = getBerkasModalEls();
+  if (!overlay) return;
+
+  await fetchSyaratAdministrasi(kolokiumId);
+  if (!syaratData) {
+    showError("Gagal memuat data berkas syarat administrasi.");
+    return;
+  }
+
+  renderBerkasModalBody();
+
+  if (statusSelect) statusSelect.value = syaratData.status;
+  if (catatanInput) catatanInput.value = syaratData.catatan_admin ?? "";
+
+  overlay.classList.remove("hidden");
+  overlay.classList.add("flex");
+}
+
+function closeBerkasModal(): void {
+  const { overlay } = getBerkasModalEls();
+  if (!overlay) return;
+  overlay.classList.add("hidden");
+  overlay.classList.remove("flex");
+}
+
+async function submitVerifikasi(): Promise<void> {
+  if (!kolokiumId) return;
+  const { statusSelect, catatanInput, submitBtn } = getBerkasModalEls();
+
+  const status = statusSelect?.value as SyaratStatus | undefined;
+  const catatan = catatanInput?.value.trim() ?? "";
+
+  if (!status) {
+    showError("Status verifikasi wajib dipilih.");
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Menyimpan...";
+  }
+
+  try {
+    const json = await apiFetch<VerifySyaratResponse>(
+      `/auth/kolokium/${kolokiumId}/syarat-administrasi/verify`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          status,
+          catatan_admin: catatan || null,
+        }),
+      }
+    );
+
+    if (json) {
+      showSuccess(json.message ?? "Status verifikasi berhasil diperbarui.");
+      if (syaratData) {
+        syaratData.status = json.syarat.status;
+        syaratData.catatan_admin = json.syarat.catatan_admin;
+      }
+    }
+  } catch (err) {
+    console.error("Gagal memperbarui status verifikasi:", err);
+    showError(err instanceof Error ? err.message : "Gagal memperbarui status verifikasi.");
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<span class="material-symbols-outlined text-sm">check_circle</span> Simpan Status Verifikasi`;
+    }
+  }
+}
+
+function initBerkasModal(): void {
+  const { overlay, closeBtn, berkasBtn, submitBtn } = getBerkasModalEls();
+  if (!overlay || overlay.dataset.bound === "true") return;
+  overlay.dataset.bound = "true";
+
+  berkasBtn?.addEventListener("click", openBerkasModal);
+  closeBtn?.addEventListener("click", closeBerkasModal);
+  submitBtn?.addEventListener("click", submitVerifikasi);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeBerkasModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeBerkasModal();
+  });
+}
+
 function initForm(): void {
   const form = document.getElementById("form-update-kolokium") as HTMLFormElement | null;
   form?.addEventListener("submit", handleSubmit);
@@ -616,6 +809,7 @@ function initForm(): void {
 document.addEventListener("DOMContentLoaded", async () => {
   initStatusSelect();
   initForm();
+  initBerkasModal();
 
   kolokiumId = getKolokiumIdFromUrl();
   if (!kolokiumId) {
