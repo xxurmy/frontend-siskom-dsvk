@@ -35,6 +35,17 @@ import Layout from "../../layouts/Layout.astro";
           Belum Mendaftar
         </span>
       </div>
+
+      <div class="flex justify-end">
+        <button
+          id="berkas-btn"
+          type="button"
+          class="hidden items-center gap-1.5 bg-primary-container hover:bg-primary text-on-primary px-4 py-1.5 rounded-lg text-body-sm font-bold transition-colors"
+        >
+          <span class="material-symbols-outlined text-[18px]">folder_open</span>
+          Berkas Persyaratan
+        </button>
+      </div>
     </div>
 
     <!-- Catatan Admin: hanya tampil kalau status rejected/approved DAN catatan terisi -->
@@ -258,4 +269,41 @@ import Layout from "../../layouts/Layout.astro";
   </div>
 </Layout>
 
-<script src="../../scripts/api/mahasiswa/daftar-seminar.ts"></script>
+<!-- Modal Berkas Syarat Administrasi -->
+  <div
+    id="berkas-modal-overlay"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4"
+  >
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between shrink-0">
+        <div>
+          <h3 class="font-headline-sm text-headline-sm text-primary font-bold">Berkas Syarat Administrasi</h3>
+          <p id="berkas-modal-status" class="text-body-sm text-on-surface-variant mt-0.5"></p>
+        </div>
+        <button
+          id="berkas-modal-close-btn"
+          type="button"
+          class="p-1.5 rounded-full hover:bg-surface-container transition-colors"
+          title="Tutup"
+        >
+          <span class="material-symbols-outlined text-on-surface-variant">close</span>
+        </button>
+      </div>
+
+      <!-- Catatan admin (kalau ada) -->
+      <div id="berkas-catatan-wrapper" class="hidden px-6 pt-4 shrink-0">
+        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-3">
+          <p class="text-xs font-medium text-on-surface-variant mb-1">Catatan dari Admin</p>
+          <p id="berkas-catatan-text" class="text-body-sm text-on-surface"></p>
+        </div>
+      </div>
+
+      <!-- Modal Body: daftar berkas -->
+      <div id="berkas-modal-body" class="p-4 flex flex-col gap-3 overflow-y-auto">
+        <!-- diisi lewat JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="../../scripts/api/mahasiswa/daftar-seminar.ts"></script>

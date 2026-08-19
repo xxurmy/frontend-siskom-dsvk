@@ -32,6 +32,11 @@
 // 3. Tanggal seminar (kalau diisi) wajib SESUDAH hari ini (tidak boleh hari
 //    ini atau lewat).
 // 4. Rencana tugas akhir (judul) wajib diisi.
+//
+// BERKAS / SYARAT ADMINISTRASI: mengikuti pola yang sama dengan
+// daftar-kolokium.ts (modal InfoModal untuk lihat status + upload/replace
+// file), disesuaikan ke endpoint seminar. Lihat SyaratAdministrasiSeminarController
+// di backend untuk daftar SYARAT_MAP.
 
 import { showError } from "../../lib/info-dialog";
 
@@ -122,6 +127,57 @@ interface ApiErrorResponse {
   message: string;
   errors?: Record<string, string[]>;
 }
+
+// ------------------------------------------------------------------
+// BERKAS / SYARAT ADMINISTRASI
+// Mengikuti SyaratAdministrasiSeminarController@SYARAT_MAP di backend.
+// key harus persis sama dengan {syaratKey} di route POST /seminar/{id}/syarat-administrasi/{syaratKey}
+// ------------------------------------------------------------------
+interface SyaratDefinition {
+  key: string;
+  label: string;
+  accept: string; // dipakai untuk atribut accept pada <input type="file">
+  hint: string;   // dipakai untuk keterangan format & ukuran maksimal
+}
+
+const SYARAT_LIST: SyaratDefinition[] = [
+  { key: "proposal", label: "Proposal yang Disetujui Pembimbing", accept: ".pdf", hint: "PDF, maks. 50MB" },
+  { key: "bukti_spp", label: "Bukti Lunas SPP Terbaru", accept: ".pdf", hint: "PDF, maks. 10MB" },
+  { key: "transkrip", label: "Transkrip Nilai", accept: ".pdf", hint: "PDF, maks. 10MB" },
+  { key: "kartu_seminar", label: "Kartu Seminar (min. 10x)", accept: ".pdf,.jpg,.jpeg,.png", hint: "PDF/Gambar, maks. 10MB" },
+  { key: "makalah", label: "Makalah Seminar", accept: ".pdf", hint: "PDF, maks. 50MB" },
+];
+
+interface SyaratItem {
+  key: string;
+  label: string;
+  terisi: boolean;
+  url: string | null;
+  uploaded_at: string | null;
+}
+
+interface SyaratAdministrasiResponse {
+  message: string;
+  status: "belum_lengkap" | "menunggu_verifikasi" | "lengkap" | "ditolak";
+  catatan_admin: string | null;
+  syarat: SyaratItem[];
+}
+
+interface UploadSyaratResponse {
+  message: string;
+  url: string;
+  syarat: SyaratItem[];
+}
+
+let syaratData: SyaratAdministrasiResponse | null = null;
+const uploadingKeys = new Set<string>();
+
+const SYARAT_STATUS_LABEL: Record<SyaratAdministrasiResponse["status"], string> = {
+  belum_lengkap: "Belum Lengkap",
+  menunggu_verifikasi: "Menunggu Verifikasi",
+  lengkap: "Lengkap",
+  ditolak: "Ditolak",
+};
 
 // ------------------------------------------------------------------
 // State halaman
@@ -311,6 +367,7 @@ async function loadMySeminar(): Promise<void> {
   renderStatusBadge(currentSeminar?.status ?? null);
   renderCatatan(currentSeminar);
   toggleForm();
+  toggleBerkasButton();
 }
 
 // Form hanya ditampilkan jika belum pernah daftar, atau pengajuan terakhir ditolak.
@@ -544,10 +601,237 @@ async function handleSubmit(e: SubmitEvent): Promise<void> {
 }
 
 // ------------------------------------------------------------------
+// MODAL BERKAS (mahasiswa: lihat status + upload/replace file)
+// ------------------------------------------------------------------
+function getBerkasModalEls() {
+  return {
+    overlay: document.getElementById("berkas-modal-overlay"),
+    statusEl: document.getElementById("berkas-modal-status"),
+    catatanWrapper: document.getElementById("berkas-catatan-wrapper"),
+    catatanText: document.getElementById("berkas-catatan-text"),
+    body: document.getElementById("berkas-modal-body"),
+    closeBtn: document.getElementById("berkas-modal-close-btn"),
+    berkasBtn: document.getElementById("berkas-btn"),
+  };
+}
+
+function renderBerkasModalBody(): void {
+  const { body } = getBerkasModalEls();
+  if (!body || !syaratData) return;
+
+  body.innerHTML = SYARAT_LIST.map((def) => {
+    const item = syaratData!.syarat.find((s) => s.key === def.key);
+    const terisi = item?.terisi ?? false;
+    const isUploading = uploadingKeys.has(def.key);
+
+    return `
+      <div class="border border-outline-variant rounded-lg p-3">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <p class="text-body-sm font-medium text-on-surface">${def.label}</p>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full ${
+            terisi ? "bg-secondary/20 text-secondary" : "bg-outline/20 text-on-surface-variant"
+          }">
+            ${terisi ? "Sudah Upload" : "Belum Upload"}
+          </span>
+        </div>
+        <p class="text-xs text-on-surface-variant mb-2">${def.hint}</p>
+
+        <div class="flex items-center gap-2">
+          ${
+            item?.url
+              ? `<a href="${item.url}" target="_blank" rel="noopener" class="text-xs font-medium text-primary hover:underline flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px]">visibility</span> Lihat Berkas
+                </a>`
+              : ""
+          }
+        </div>
+
+        <div class="mt-2 flex items-center gap-2">
+          <input
+            type="file"
+            accept="${def.accept}"
+            class="berkas-file-input flex-1 text-xs file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-surface-container file:text-on-surface file:text-xs file:font-medium hover:file:bg-surface-container-high"
+            data-syarat-key="${def.key}"
+            ${isUploading ? "disabled" : ""}
+          />
+          <button
+            type="button"
+            class="berkas-upload-btn shrink-0 bg-primary-container hover:bg-primary text-on-primary text-xs font-bold px-3 py-1.5 rounded-md disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+            data-syarat-key="${def.key}"
+            ${isUploading ? "disabled" : ""}
+          >
+            ${isUploading ? "Mengupload..." : terisi ? "Ganti" : "Upload"}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function fetchSyaratAdministrasi(seminarId: number): Promise<void> {
+  try {
+    const json = await apiFetch<SyaratAdministrasiResponse>(
+      `/auth/seminar/${seminarId}/syarat-administrasi`
+    );
+    syaratData = json;
+  } catch (err) {
+    console.error("Gagal memuat syarat administrasi:", err);
+    syaratData = null;
+  }
+}
+
+function renderBerkasHeader(): void {
+  const { statusEl, catatanWrapper, catatanText } = getBerkasModalEls();
+  if (!syaratData) return;
+
+  if (statusEl) {
+    statusEl.textContent = `Status: ${SYARAT_STATUS_LABEL[syaratData.status]}`;
+  }
+
+  if (catatanWrapper && catatanText) {
+    if (syaratData.catatan_admin) {
+      catatanText.textContent = syaratData.catatan_admin;
+      catatanWrapper.classList.remove("hidden");
+    } else {
+      catatanWrapper.classList.add("hidden");
+    }
+  }
+}
+
+async function openBerkasModal(): Promise<void> {
+  if (!currentSeminar) return;
+  const { overlay } = getBerkasModalEls();
+  if (!overlay) return;
+
+  await fetchSyaratAdministrasi(currentSeminar.id);
+  if (!syaratData) {
+    showError("Gagal memuat data berkas syarat administrasi.");
+    return;
+  }
+
+  renderBerkasHeader();
+  renderBerkasModalBody();
+
+  overlay.classList.remove("hidden");
+  overlay.classList.add("flex");
+}
+
+function closeBerkasModal(): void {
+  const { overlay } = getBerkasModalEls();
+  if (!overlay) return;
+  overlay.classList.add("hidden");
+  overlay.classList.remove("flex");
+}
+
+// Update tombol Berkas: cuma tampil kalau mahasiswa sudah punya seminar
+// (belum ada seminar -> belum ada tempat nyimpen berkas syarat administrasi)
+function toggleBerkasButton(): void {
+  const { berkasBtn } = getBerkasModalEls();
+  if (!berkasBtn) return;
+
+  if (currentSeminar) {
+    berkasBtn.classList.remove("hidden");
+    berkasBtn.classList.add("inline-flex");
+  } else {
+    berkasBtn.classList.add("hidden");
+    berkasBtn.classList.remove("inline-flex");
+  }
+}
+
+async function uploadSyaratFile(key: string, file: File): Promise<void> {
+  if (!currentSeminar) return;
+
+  uploadingKeys.add(key);
+  renderBerkasModalBody();
+
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(
+      `${API_BASE}/auth/seminar/${currentSeminar.id}/syarat-administrasi/${key}`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token ?? ""}` }, // JANGAN set Content-Type, biar browser isi boundary multipart otomatis
+        body: formData,
+      }
+    );
+
+    if (res.status === 401) {
+      window.location.href = "/";
+      return;
+    }
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      const err = json as ApiErrorResponse;
+      const firstFieldError = err.errors ? Object.values(err.errors)[0]?.[0] : undefined;
+      throw new Error(firstFieldError ?? err.message ?? "Upload berkas gagal.");
+    }
+
+    const uploadJson = json as UploadSyaratResponse;
+    if (syaratData) {
+      syaratData.syarat = uploadJson.syarat;
+      syaratData.status = "menunggu_verifikasi";
+    }
+
+    showMessage(uploadJson.message ?? "Berkas berhasil diupload.", "success");
+  } catch (err) {
+    console.error("Gagal upload berkas:", err);
+    showError(err instanceof Error ? err.message : "Gagal upload berkas.");
+  } finally {
+    uploadingKeys.delete(key);
+    renderBerkasHeader();
+    renderBerkasModalBody();
+  }
+}
+
+function initBerkasModal(): void {
+  const { overlay, closeBtn, body, berkasBtn } = getBerkasModalEls();
+  if (!overlay || overlay.dataset.bound === "true") return;
+  overlay.dataset.bound = "true";
+
+  berkasBtn?.addEventListener("click", openBerkasModal);
+  closeBtn?.addEventListener("click", closeBerkasModal);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeBerkasModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeBerkasModal();
+  });
+
+  // Klik tombol "Upload"/"Ganti" -> trigger file input pasangannya, lalu upload
+  body?.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const uploadBtn = target.closest<HTMLElement>(".berkas-upload-btn");
+    if (!uploadBtn || uploadBtn.hasAttribute("disabled")) return;
+
+    const key = uploadBtn.dataset.syaratKey;
+    if (!key) return;
+
+    const fileInput = body.querySelector<HTMLInputElement>(
+      `.berkas-file-input[data-syarat-key="${key}"]`
+    );
+
+    if (!fileInput?.files || fileInput.files.length === 0) {
+      showError("Pilih file terlebih dahulu sebelum upload.");
+      return;
+    }
+
+    uploadSyaratFile(key, fileInput.files[0]);
+  });
+}
+
+// ------------------------------------------------------------------
 // Jalankan saat halaman siap
 // ------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
   clearMessage();
+  initBerkasModal();
 
   const form = document.getElementById("seminar-form") as HTMLFormElement | null;
   form?.addEventListener("submit", handleSubmit);
