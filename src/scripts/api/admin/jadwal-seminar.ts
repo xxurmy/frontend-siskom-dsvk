@@ -225,7 +225,7 @@ function renderBerkasButton(item: SeminarItem): string {
       title="Lihat Berkas"
     >
       <span class="material-symbols-outlined text-[18px]">folder_open</span>
-      Berkas
+      Dokumen
     </button>
   `;
 }
