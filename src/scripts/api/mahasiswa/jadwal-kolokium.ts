@@ -27,6 +27,18 @@
 // src/scripts/lib/confirm-dialog.ts, bukan window.confirm() bawaan browser.
 // Bukan aksi destruktif (masih bisa dibatalkan lewat halaman Kartu Kolokium
 // selama belum hari-H), jadi pakai variant "primary" (biru), bukan "danger".
+//
+// TAMPILAN KOLOM (mengikuti pola yang sama dengan tabel admin & dosen):
+// - Kolom Nama/NIM/Prodi digabung jadi satu kolom "Pemrasaran": nama (bold)
+//   di baris atas, lalu "NIM · Prodi" di baris bawah dengan teks lebih kecil.
+// - Kolom Judul dipotong beberapa kata saja, dengan tombol untuk
+//   menampilkan/menyembunyikan teks lengkap LANGSUNG di dalam sel yang sama
+//   (tanpa modal) — klik tombol lagi untuk mempersingkat kembali.
+// - Kolom Dosen Pembimbing selalu ditampilkan penuh apa adanya, tanpa
+//   dipotong dan tanpa tombol.
+// - Sel-sel tidak dipaksa satu baris (whitespace-nowrap dihapus dari sel
+//   berisi teks panjang) supaya baris melebar ke bawah, bukan ke samping,
+//   saat teks tidak muat. Kolom Kehadiran tetap seperti semula.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
 
@@ -34,6 +46,8 @@ const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
+const COLSPAN = 10;
+const JUDUL_WORD_LIMIT = 4;
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan KolokiumController & PesertaKolokiumController)
@@ -184,6 +198,12 @@ function getEntriesPerPage(): number {
   return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
 }
 
+function escapeHtml(value: string): string {
+  const div = document.createElement("div");
+  div.textContent = value;
+  return div.innerHTML;
+}
+
 // ------------------------------------------------------------------
 // Pesan status
 // ------------------------------------------------------------------
@@ -258,6 +278,76 @@ function isTanggalLewat(tanggal: string | null): boolean {
 }
 
 // ------------------------------------------------------------------
+// SEL "PEMRASARAN" (gabungan Nama / NIM / Prodi)
+// ------------------------------------------------------------------
+function renderPemrasaranCell(kolokium: Kolokium): string {
+  const nama = escapeHtml(kolokium.nama ?? "-");
+  const nim = escapeHtml(kolokium.nim ?? "-");
+  const prodi = escapeHtml(kolokium.prodi ?? "-");
+  return `
+    <div class="leading-snug">
+      <div class="text-body-sm font-bold text-on-surface">${nama}</div>
+      <div class="text-xs text-on-surface-variant mt-0.5">${nim} · ${prodi}</div>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------------
+// SEL JUDUL: dipotong sebagian kata + tombol untuk membuka teks
+// lengkap LANGSUNG DI DALAM BARIS (tanpa modal).
+// ------------------------------------------------------------------
+function truncateWords(text: string, wordLimit: number): { truncated: string; isTruncated: boolean } {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= wordLimit) {
+    return { truncated: text, isTruncated: false };
+  }
+  return { truncated: `${words.slice(0, wordLimit).join(" ")}...`, isTruncated: true };
+}
+
+function renderJudulCell(kolokium: Kolokium): string {
+  const fullText = kolokium.judul;
+  if (!fullText) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+
+  const { truncated, isTruncated } = truncateWords(fullText, JUDUL_WORD_LIMIT);
+
+  if (!isTruncated) {
+    return `<span class="text-body-sm text-on-surface">${escapeHtml(fullText)}</span>`;
+  }
+
+  const safeFull = escapeHtml(fullText);
+  const safeTruncated = escapeHtml(truncated);
+
+  return `
+    <div class="flex items-start gap-1.5">
+      <span
+        class="text-body-sm text-on-surface expandable-judul-text"
+        data-full-text="${safeFull}"
+        data-truncated-text="${safeTruncated}"
+        data-expanded="false"
+      >${safeTruncated}</span>
+      <button
+        type="button"
+        class="judul-toggle-btn shrink-0 mt-0.5 text-primary hover:text-primary/70 transition-colors"
+        title="Lihat selengkapnya"
+      >
+        <span class="material-symbols-outlined text-[18px]">unfold_more</span>
+      </button>
+    </div>
+  `;
+}
+
+// Dosen pembimbing: selalu tampil penuh, tanpa dipotong dan tanpa tombol.
+function renderDosenPembimbingCell(kolokium: Kolokium): string {
+  const text = kolokium.namadosenpembimbing;
+  if (!text) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+  return `<span class="text-body-sm text-on-surface">${escapeHtml(text)}</span>`;
+}
+
+// ------------------------------------------------------------------
 // Muat data profil (sekali di awal, untuk tahu siapa yang login)
 // ------------------------------------------------------------------
 async function loadProfil(): Promise<void> {
@@ -292,7 +382,7 @@ async function loadMyPeserta(): Promise<void> {
 async function loadKolokium(page: number): Promise<void> {
   const tbody = document.getElementById("kolokium-tbody");
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
   }
 
   const params = new URLSearchParams({
@@ -319,7 +409,7 @@ async function loadKolokium(page: number): Promise<void> {
   } catch (err) {
     console.error("Gagal memuat jadwal kolokium:", err);
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-red-700">Gagal memuat data. Coba muat ulang halaman.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-red-700">Gagal memuat data. Coba muat ulang halaman.</td></tr>`;
     }
   }
 }
@@ -404,9 +494,9 @@ function renderTable(): void {
 
   if (currentKolokiums.length === 0) {
     const message = currentSearch
-      ? `Tidak ditemukan hasil untuk pencarian "${currentSearch}".`
+      ? `Tidak ditemukan hasil untuk pencarian "${escapeHtml(currentSearch)}".`
       : "Tidak ada jadwal kolokium ditemukan.";
-    tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>`;
     return;
   }
 
@@ -415,19 +505,17 @@ function renderTable(): void {
   tbody.innerHTML = currentKolokiums
     .map(
       (kolokium, index) => `
-        <tr class="table-row-hover transition-colors">
-          <td class="px-4 py-4 text-body-sm">${startNumber + index}</td>
-          <td class="px-4 py-4">${renderKehadiranCell(kolokium)}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(kolokium.tanggal)}</td>
-          <td class="px-4 py-4 text-body-sm">${kolokium.waktu ?? "-"}</td>
-          <td class="px-4 py-4 text-body-sm">${kolokium.ruangan ?? kolokium.lokasi ?? "-"}</td>
-          <td class="px-4 py-4 text-body-sm font-medium">${kolokium.nama}</td>
-          <td class="px-4 py-4 text-body-sm">${kolokium.nim}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.prodi}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.judul}</td>
-          <td class="px-4 py-4 text-body-sm text-center">${kolokium.jumlahforum}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.namadosenpembimbing ?? "-"}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${kolokium.namadosenmoderator ?? "-"}</td>
+        <tr class="table-row-hover transition-colors align-top">
+          <td class="px-4 py-4 text-body-sm align-top">${startNumber + index}</td>
+          <td class="px-4 py-4 align-top whitespace-nowrap">${renderKehadiranCell(kolokium)}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${formatTanggal(kolokium.tanggal)}</td>
+          <td class="px-4 py-4 text-body-sm align-top">${escapeHtml(kolokium.waktu ?? "-")}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(kolokium.ruangan ?? kolokium.lokasi ?? "-")}</td>
+          <td class="px-4 py-4 align-top">${renderPemrasaranCell(kolokium)}</td>
+          <td class="px-4 py-4 align-top break-words">${renderJudulCell(kolokium)}</td>
+          <td class="px-4 py-4 text-body-sm text-center align-top">${kolokium.jumlahforum}</td>
+          <td class="px-4 py-4 align-top break-words">${renderDosenPembimbingCell(kolokium)}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(kolokium.namadosenmoderator ?? "-")}</td>
         </tr>
       `
     )
@@ -576,6 +664,42 @@ async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
 }
 
 // ------------------------------------------------------------------
+// Toggle Judul (expand/collapse inline, tanpa modal)
+// ------------------------------------------------------------------
+function initJudulToggleButtons(): void {
+  const tbody = document.getElementById("kolokium-tbody");
+  if (!tbody) return;
+  if (tbody.dataset.judulToggleBound === "true") return;
+  tbody.dataset.judulToggleBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".judul-toggle-btn");
+    if (!btn) return;
+
+    const textSpan = btn.parentElement?.querySelector<HTMLElement>(".expandable-judul-text");
+    const icon = btn.querySelector<HTMLElement>(".material-symbols-outlined");
+    if (!textSpan) return;
+
+    const isExpanded = textSpan.dataset.expanded === "true";
+    const fullText = textSpan.dataset.fullText ?? "";
+    const truncatedText = textSpan.dataset.truncatedText ?? "";
+
+    if (isExpanded) {
+      textSpan.textContent = truncatedText;
+      textSpan.dataset.expanded = "false";
+      if (icon) icon.textContent = "unfold_more";
+      btn.title = "Lihat selengkapnya";
+    } else {
+      textSpan.textContent = fullText;
+      textSpan.dataset.expanded = "true";
+      if (icon) icon.textContent = "unfold_less";
+      btn.title = "Sembunyikan";
+    }
+  });
+}
+
+// ------------------------------------------------------------------
 // Search & per_page — keduanya dikirim ke backend (sama seperti pola
 // admin & dosen), reset ke halaman 1 setiap kali berubah.
 // ------------------------------------------------------------------
@@ -613,6 +737,7 @@ function initSearchAndEntries(): void {
 async function initJadwalKolokiumPage(): Promise<void> {
   clearMessage();
   initSearchAndEntries();
+  initJudulToggleButtons();
   await loadProfil();
   await loadKolokium(1);
 }

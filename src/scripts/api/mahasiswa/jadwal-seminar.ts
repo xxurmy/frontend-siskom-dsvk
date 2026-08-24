@@ -1,5 +1,5 @@
 // src/scripts/api/mahasiswa/jadwal-seminar.ts
-// Logic untuk halaman "Jadwal Seminar" (role: mahasiswa)
+// Logic untuk halaman "Jadwal Seminar" (role: mahasiswa):
 // 1) fetch daftar seminar yang approved (GET /auth/seminar?status=approved&search=...&per_page=...)
 // 2) fetch status kehadiran mahasiswa login, SISI PESERTA:
 //    seminar yang saya ikuti + status kehadiran saya
@@ -13,7 +13,8 @@
 //    - Record ada dan status "hadir" -> TIDAK ADA tombol apapun, cuma badge "Hadir"
 //    - Tanggal seminar SUDAH LEWAT (dan belum/sedang batal, bukan status
 //      "hadir") -> tombol "Hadir"/"Hadir Ulang" tetap tampil tapi disabled,
-//      abu-abu, cursor jadi ikon "block" saat hover.
+//      abu-abu, cursor jadi ikon "block" saat hover (bawaan browser dari
+//      kombinasi disabled + cursor-not-allowed).
 // 5) SEARCH: disamakan polanya dengan admin & dosen — dikirim ke backend lewat
 //    query param `search` (di-debounce), BUKAN cuma filter di data yang sedang
 //    tampil di halaman itu.
@@ -26,6 +27,18 @@
 // src/scripts/lib/confirm-dialog.ts, bukan window.confirm() bawaan browser.
 // Bukan aksi destruktif (masih bisa dibatalkan lewat halaman Kartu Seminar
 // selama belum hari-H), jadi pakai variant "primary" (biru), bukan "danger".
+//
+// TAMPILAN KOLOM (disamakan dengan pola tabel jadwal-kolokium):
+// - Kolom Nama/NIM/Prodi digabung jadi satu kolom "Pemrasaran": nama (bold)
+//   di baris atas, lalu "NIM · Prodi" di baris bawah dengan teks lebih kecil.
+// - Kolom Judul dipotong beberapa kata saja, dengan tombol untuk
+//   menampilkan/menyembunyikan teks lengkap LANGSUNG di dalam sel yang sama
+//   (tanpa modal) — klik tombol lagi untuk mempersingkat kembali.
+// - Kolom Dosen Pembimbing selalu ditampilkan penuh apa adanya, tanpa
+//   dipotong dan tanpa tombol.
+// - Sel-sel tidak dipaksa satu baris (whitespace-nowrap dihapus dari sel
+//   berisi teks panjang) supaya baris melebar ke bawah, bukan ke samping,
+//   saat teks tidak muat. Kolom Kehadiran tetap seperti semula.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
 
@@ -33,6 +46,8 @@ const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
+const COLSPAN = 10;
+const JUDUL_WORD_LIMIT = 4;
 
 // ------------------------------------------------------------------
 // Tipe data (disesuaikan dengan SeminarController & PesertaSeminarController)
@@ -79,16 +94,30 @@ interface LaravelPaginator<T> {
 }
 
 // Record ringkas status kehadiran milik saya untuk satu seminar
+// (di-derive dari response /auth/peserta-seminar/my-seminar)
 interface MyPesertaStatus {
   id: number; // peserta_seminar_id
-  seminar_id: number; 
+  seminar_id: number;
   status: StatusPeserta;
 }
 
 // SISI PESERTA: seminar yang saya ikuti + peserta_seminar_id & status_kehadiran saya
+// GET /auth/peserta-seminar/my-seminar
+// Response backend:
+// {
+//   "message": "...",
+//   "seminars": [
+//     {
+//       "id": 5,                       <- seminar_id
+//       "peserta_seminar_id": 5,       <- dipakai sebagai key untuk PATCH status
+//       "status_kehadiran": "hadir",   <- status kehadiran saya
+//       ...
+//     }
+//   ]
+// }
 interface MySeminarPesertaItem {
-  id: number; // seminar_id
-  peserta_seminar_id: number; //dipakai sebagai target PATCH /peserta-seminar/{id}/status
+  id: number;                  // seminar_id
+  peserta_seminar_id: number;  // dipakai sebagai target PATCH /peserta-seminar/{id}/status
   status_kehadiran: StatusPeserta;
 }
 
@@ -122,6 +151,7 @@ let currentSearch = "";
 let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 let lastPaginator: LaravelPaginator<Seminar> | null = null;
 let currentSeminars: Seminar[] = [];
+// map seminar_id -> status kehadiran saya (kalau pernah ada record)
 let myPesertaMap: Map<number, MyPesertaStatus> = new Map();
 
 // ------------------------------------------------------------------
@@ -166,6 +196,12 @@ function getEntriesPerPage(): number {
   const select = document.getElementById("entries-per-page") as HTMLSelectElement | null;
   const value = select ? parseInt(select.value, 10) : DEFAULT_PER_PAGE;
   return Number.isNaN(value) || value < 1 ? DEFAULT_PER_PAGE : value;
+}
+
+function escapeHtml(value: string): string {
+  const div = document.createElement("div");
+  div.textContent = value;
+  return div.innerHTML;
 }
 
 // ------------------------------------------------------------------
@@ -215,6 +251,15 @@ function todayLocalISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// Konversi tanggal dari backend (bisa berupa string UTC seperti
+// "2026-07-30T17:00:00.000000Z") ke tanggal lokal browser (WIB),
+// lalu format ke "YYYY-MM-DD". Ini penting karena backend menyimpan
+// tanggal sebagai UTC, tapi secara semantik tanggalnya adalah tanggal
+// lokal (30 Juli UTC+7 = "2026-07-30T17:00:00.000000Z" dalam UTC).
+// Slice langsung dari string UTC akan menghasilkan tanggal yang salah
+// (kelihatan "2026-07-30" padahal di WIB sudah masuk 31 Juli, atau
+// sebaliknya seperti kasus ini: backend kirim "2026-07-30T17:00:00Z"
+// tapi user WIB membacanya sebagai 31 Juli jam 00:00).
 function toLocalDateISO(tanggal: string): string {
   const d = new Date(tanggal); // parse UTC string ke objek Date lokal
   const yyyy = d.getFullYear();
@@ -223,11 +268,83 @@ function toLocalDateISO(tanggal: string): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Mengecek apakah sudah hari H atau lewat
+// Sudah hari H atau lewat (>=)? Dipakai buat nge-disable tombol Hadir/Hadir
+// Ulang — konsisten dengan validasi backend (PesertaSeminarController)
+// yang juga menolak pendaftaran mulai hari H itu sendiri.
 function isTanggalLewat(tanggal: string | null): boolean {
   if (!tanggal) return false;
-  const tanggalLocal = toLocalDateISO(tanggal);
-  return tanggalLocal <= todayLocalISO();
+  const tanggalLokal = toLocalDateISO(tanggal);
+  return tanggalLokal <= todayLocalISO();
+}
+
+// ------------------------------------------------------------------
+// SEL "PEMRASARAN" (gabungan Nama / NIM / Prodi)
+// ------------------------------------------------------------------
+function renderPemrasaranCell(seminar: Seminar): string {
+  const nama = escapeHtml(seminar.nama ?? "-");
+  const nim = escapeHtml(seminar.nim ?? "-");
+  const prodi = escapeHtml(seminar.prodi ?? "-");
+  return `
+    <div class="leading-snug">
+      <div class="text-body-sm font-bold text-on-surface">${nama}</div>
+      <div class="text-xs text-on-surface-variant mt-0.5">${nim} · ${prodi}</div>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------------
+// SEL JUDUL: dipotong sebagian kata + tombol untuk membuka teks
+// lengkap LANGSUNG DI DALAM BARIS (tanpa modal).
+// ------------------------------------------------------------------
+function truncateWords(text: string, wordLimit: number): { truncated: string; isTruncated: boolean } {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= wordLimit) {
+    return { truncated: text, isTruncated: false };
+  }
+  return { truncated: `${words.slice(0, wordLimit).join(" ")}...`, isTruncated: true };
+}
+
+function renderJudulCell(seminar: Seminar): string {
+  const fullText = seminar.judul;
+  if (!fullText) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+
+  const { truncated, isTruncated } = truncateWords(fullText, JUDUL_WORD_LIMIT);
+
+  if (!isTruncated) {
+    return `<span class="text-body-sm text-on-surface">${escapeHtml(fullText)}</span>`;
+  }
+
+  const safeFull = escapeHtml(fullText);
+  const safeTruncated = escapeHtml(truncated);
+
+  return `
+    <div class="flex items-start gap-1.5">
+      <span
+        class="text-body-sm text-on-surface expandable-judul-text"
+        data-full-text="${safeFull}"
+        data-truncated-text="${safeTruncated}"
+        data-expanded="false"
+      >${safeTruncated}</span>
+      <button
+        type="button"
+        class="judul-toggle-btn shrink-0 mt-0.5 text-primary hover:text-primary/70 transition-colors"
+        title="Lihat selengkapnya"
+      >
+        <span class="material-symbols-outlined text-[18px]">unfold_more</span>
+      </button>
+    </div>
+  `;
+}
+
+// Dosen pembimbing: selalu tampil penuh, tanpa dipotong dan tanpa tombol.
+function renderDosenPembimbingCell(seminar: Seminar): string {
+  const text = seminar.namadosenpembimbing;
+  if (!text) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+  return `<span class="text-body-sm text-on-surface">${escapeHtml(text)}</span>`;
 }
 
 // ------------------------------------------------------------------
@@ -242,6 +359,8 @@ async function loadProfil(): Promise<void> {
 
 // ------------------------------------------------------------------
 // Muat status kehadiran mahasiswa login untuk semua seminar
+// (SISI PESERTA: seminar yang saya ikuti + status kehadiran saya,
+// termasuk yang "batal" — supaya tombol "Hadir Ulang" bisa dibangun)
 // ------------------------------------------------------------------
 async function loadMyPeserta(): Promise<void> {
   const json = await apiFetch<MySeminarPesertaResponse>("/auth/peserta-seminar/my-seminar");
@@ -249,7 +368,7 @@ async function loadMyPeserta(): Promise<void> {
   if (json?.seminars) {
     for (const item of json.seminars) {
       myPesertaMap.set(item.id, {
-        id: item.peserta_seminar_id,
+        id: item.peserta_seminar_id,   // id PesertaSeminar, dipakai buat PATCH
         seminar_id: item.id,
         status: item.status_kehadiran,
       });
@@ -263,7 +382,7 @@ async function loadMyPeserta(): Promise<void> {
 async function loadSeminar(page: number): Promise<void> {
   const tbody = document.getElementById("seminar-tbody");
   if (tbody) {
-    tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>`;
   }
 
   const params = new URLSearchParams({
@@ -290,13 +409,18 @@ async function loadSeminar(page: number): Promise<void> {
   } catch (err) {
     console.error("Gagal memuat jadwal seminar:", err);
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-red-700">Gagal memuat data. Coba muat ulang halaman.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-red-700">Gagal memuat data. Coba muat ulang halaman.</td></tr>`;
     }
   }
 }
 
 // ------------------------------------------------------------------
 // Render badge / tombol kolom Kehadiran — 4 state:
+// 1. Belum ada record sama sekali      -> tombol "Hadir" (POST, buat baru)
+// 2. Record ada, status "batal"        -> tombol "Hadir Ulang" (PATCH -> hadir)
+// 3. Record ada, status "hadir"        -> tidak ada tombol, cuma badge
+// 4. Tanggal seminar sudah lewat (dan bukan status "hadir") -> tombol
+//    Hadir/Hadir Ulang tetap tampil tapi disabled & abu-abu
 // ------------------------------------------------------------------
 function renderKehadiranCell(seminar: Seminar): string {
   // mahasiswa pemilik seminar tidak bisa mendaftar jadi peserta di seminarnya sendiri
@@ -360,7 +484,9 @@ function renderKehadiranCell(seminar: Seminar): string {
 }
 
 // ------------------------------------------------------------------
-// Render isi tabel
+// Render isi tabel — search & jumlah baris sekarang sepenuhnya
+// ditentukan backend (query param search & per_page), jadi di sini
+// tinggal render currentSeminars apa adanya.
 // ------------------------------------------------------------------
 function renderTable(): void {
   const tbody = document.getElementById("seminar-tbody");
@@ -368,9 +494,9 @@ function renderTable(): void {
 
   if (currentSeminars.length === 0) {
     const message = currentSearch
-      ? `Tidak ditemukan hasil untuk pencarian "${currentSearch}".`
+      ? `Tidak ditemukan hasil untuk pencarian "${escapeHtml(currentSearch)}".`
       : "Tidak ada jadwal seminar ditemukan.";
-    tbody.innerHTML = `<tr><td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>`;
     return;
   }
 
@@ -379,19 +505,17 @@ function renderTable(): void {
   tbody.innerHTML = currentSeminars
     .map(
       (seminar, index) => `
-        <tr class="table-row-hover transition-colors">
-          <td class="px-4 py-4 text-body-sm">${startNumber + index}</td>
-          <td class="px-4 py-4">${renderKehadiranCell(seminar)}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(seminar.tanggal)}</td>
-          <td class="px-4 py-4 text-body-sm">${seminar.waktu ?? "-"}</td>
-          <td class="px-4 py-4 text-body-sm">${seminar.ruangan ?? seminar.lokasi ?? "-"}</td>
-          <td class="px-4 py-4 text-body-sm font-medium">${seminar.nama}</td>
-          <td class="px-4 py-4 text-body-sm">${seminar.nim}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.prodi}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.judul}</td>
-          <td class="px-4 py-4 text-body-sm text-center">${seminar.jumlahforum}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.namadosenpembimbing ?? "-"}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${seminar.namadosenmoderator ?? "-"}</td>
+        <tr class="table-row-hover transition-colors align-top">
+          <td class="px-4 py-4 text-body-sm align-top">${startNumber + index}</td>
+          <td class="px-4 py-4 align-top whitespace-nowrap">${renderKehadiranCell(seminar)}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${formatTanggal(seminar.tanggal)}</td>
+          <td class="px-4 py-4 text-body-sm align-top">${escapeHtml(seminar.waktu ?? "-")}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(seminar.ruangan ?? seminar.lokasi ?? "-")}</td>
+          <td class="px-4 py-4 align-top">${renderPemrasaranCell(seminar)}</td>
+          <td class="px-4 py-4 align-top break-words">${renderJudulCell(seminar)}</td>
+          <td class="px-4 py-4 text-body-sm text-center align-top">${seminar.jumlahforum}</td>
+          <td class="px-4 py-4 align-top break-words">${renderDosenPembimbingCell(seminar)}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(seminar.namadosenmoderator ?? "-")}</td>
         </tr>
       `
     )
@@ -475,7 +599,7 @@ function attachRowActionListeners(): void {
 async function handleHadirBaru(btn: HTMLButtonElement): Promise<void> {
   const seminarId = parseInt(btn.dataset.seminarId ?? "", 10);
   if (Number.isNaN(seminarId)) return;
-  
+
   const ok = await confirmDialog({
     title: "Daftar Hadir Seminar?",
     message: "Anda akan didaftarkan sebagai peserta hadir pada seminar ini.",
@@ -540,7 +664,44 @@ async function handleHadirUlang(btn: HTMLButtonElement): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Search & per_page — keduanya dikirim ke backend
+// Toggle Judul (expand/collapse inline, tanpa modal)
+// ------------------------------------------------------------------
+function initJudulToggleButtons(): void {
+  const tbody = document.getElementById("seminar-tbody");
+  if (!tbody) return;
+  if (tbody.dataset.judulToggleBound === "true") return;
+  tbody.dataset.judulToggleBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".judul-toggle-btn");
+    if (!btn) return;
+
+    const textSpan = btn.parentElement?.querySelector<HTMLElement>(".expandable-judul-text");
+    const icon = btn.querySelector<HTMLElement>(".material-symbols-outlined");
+    if (!textSpan) return;
+
+    const isExpanded = textSpan.dataset.expanded === "true";
+    const fullText = textSpan.dataset.fullText ?? "";
+    const truncatedText = textSpan.dataset.truncatedText ?? "";
+
+    if (isExpanded) {
+      textSpan.textContent = truncatedText;
+      textSpan.dataset.expanded = "false";
+      if (icon) icon.textContent = "unfold_more";
+      btn.title = "Lihat selengkapnya";
+    } else {
+      textSpan.textContent = fullText;
+      textSpan.dataset.expanded = "true";
+      if (icon) icon.textContent = "unfold_less";
+      btn.title = "Sembunyikan";
+    }
+  });
+}
+
+// ------------------------------------------------------------------
+// Search & per_page — keduanya dikirim ke backend (sama seperti pola
+// admin & dosen), reset ke halaman 1 setiap kali berubah.
 // ------------------------------------------------------------------
 function initSearchAndEntries(): void {
   const searchInput = document.getElementById("search-input") as HTMLInputElement | null;
@@ -576,6 +737,7 @@ function initSearchAndEntries(): void {
 async function initJadwalSeminarPage(): Promise<void> {
   clearMessage();
   initSearchAndEntries();
+  initJudulToggleButtons();
   await loadProfil();
   await loadSeminar(1);
 }
