@@ -35,6 +35,15 @@
 // #kartu-message (strukturnya disamakan dengan halaman mahasiswa
 // src/scripts/api/mahasiswa/KartuKolokium.ts & jadwal-kolokium.ts),
 // dipakai untuk pesan berhasil/gagal setelah Tandatangani / Tidak Hadir.
+//
+// TAMPILAN KOLOM (disamakan dengan pola tabel jadwal-kolokium dosen):
+// - Kolom Nama Pemrasaran/NIM/Prodi digabung jadi satu kolom "Pemrasaran":
+//   nama (bold) di baris atas, lalu "NIM · Prodi" di baris bawah dengan
+//   teks lebih kecil.
+// - Kolom Nama Forum/NIM Forum digabung jadi satu kolom "Forum": pola yang
+//   sama seperti Pemrasaran (nama di atas, NIM di bawah), tapi TANPA prodi
+//   karena forum tidak punya data prodi.
+// - Kolom lain (Moderator, Paraf, Aksi) tidak berubah.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
 
@@ -85,7 +94,7 @@ interface ApiErrorResponse {
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const TBODY_ID = "kartu-kolokium-tbody";
-const COLSPAN = 10;
+const COLSPAN = 7;
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
 
@@ -193,6 +202,44 @@ function formatWaktu(waktu: string | null): string {
   return waktu.slice(0, 5); // "14:00:00" -> "14:00"
 }
 
+// ------------------------------------------------------------------
+// SEL "PEMRASARAN" (gabungan Nama / NIM / Prodi) — sama seperti
+// tabel jadwal-kolokium.
+// ------------------------------------------------------------------
+function renderPemrasaranCell(item: KartuKolokium): string {
+  const nama = escapeHtml(item.namapemrasaran ?? "-");
+  const nim = escapeHtml(item.nimpemrasaran ?? "-");
+  const prodi = escapeHtml(item.prodi ?? "-");
+  return `
+    <div class="leading-snug">
+      <div class="text-body-sm font-bold text-on-surface">${nama}</div>
+      <div class="text-xs text-on-surface-variant mt-0.5">${nim} · ${prodi}</div>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------------
+// SEL "FORUM" (gabungan Nama Forum / NIM Forum) — pola sama seperti
+// Pemrasaran, tapi TANPA baris prodi karena forum tidak punya data prodi.
+// ------------------------------------------------------------------
+function renderForumCell(item: KartuKolokium): string {
+  const namaForum = item.namaforum;
+  const nimForum = item.nimforum;
+
+  if (!namaForum && !nimForum) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+
+  const nama = escapeHtml(namaForum ?? "-");
+  const nim = escapeHtml(nimForum ?? "-");
+  return `
+    <div class="leading-snug">
+      <div class="text-body-sm font-bold text-on-surface">${nama}</div>
+      <div class="text-xs text-on-surface-variant mt-0.5">${nim}</div>
+    </div>
+  `;
+}
+
 function renderActionButtons(item: KartuKolokium): string {
   if (item.statusparaf === "signed") {
     return `<span class="text-body-sm text-on-surface-variant">-</span>`;
@@ -240,21 +287,18 @@ function renderActionButtons(item: KartuKolokium): string {
 
 function renderRow(item: KartuKolokium): string {
   return `
-    <tr class="table-row-hover transition-colors" data-row-id="${item.id}">
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal)}</td>
-      <td class="px-4 py-4 text-body-sm">${formatWaktu(item.waktu)}</td>
-      <td class="px-4 py-4 text-body-sm font-medium">${escapeHtml(item.namapemrasaran ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm">${escapeHtml(item.nimpemrasaran ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.prodi ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm">${escapeHtml(item.moderator ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm">${escapeHtml(item.namaforum ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm">${escapeHtml(item.nimforum ?? "-")}</td>
-      <td class="px-4 py-4">
+    <tr class="table-row-hover transition-colors align-top" data-row-id="${item.id}">
+      <td class="px-4 py-4 text-body-sm align-top break-words">${formatTanggal(item.tanggal)}</td>
+      <td class="px-4 py-4 text-body-sm align-top">${formatWaktu(item.waktu)}</td>
+      <td class="px-4 py-4 align-top">${renderPemrasaranCell(item)}</td>
+      <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.moderator ?? "-")}</td>
+      <td class="px-4 py-4 align-top">${renderForumCell(item)}</td>
+      <td class="px-4 py-4 align-top">
         <span class="${STATUS_BADGE_CLASS[item.statusparaf]} px-3 py-1 rounded-full text-[12px] font-bold whitespace-nowrap">
           ${STATUS_LABEL[item.statusparaf]}
         </span>
       </td>
-      <td class="px-4 py-4">
+      <td class="px-4 py-4 align-top">
         <div class="flex justify-center gap-2">
           ${renderActionButtons(item)}
         </div>

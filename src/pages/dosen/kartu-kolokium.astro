@@ -65,45 +65,36 @@ import Layout from "../../layouts/Layout.astro";
     <!-- Table -->
     <div class="flex-1 overflow-x-auto custom-scrollbar">
 
-      <table class="w-full text-left border-collapse">
+      <table class="w-full text-left border-collapse table-fixed">
 
         <thead class="bg-surface-container-high sticky top-0 z-10">
           <tr>
 
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-32">
               Hari / Tanggal
             </th>
 
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-20">
               Waktu
             </th>
 
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Nama Pemrasaran
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-48">
+              Pemrasaran
             </th>
 
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              NIM
-            </th>
-
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Prodi
-            </th>
-
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-40">
               Moderator
             </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Nama Forum
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-48">
+              Forum
             </th>
-              <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
-              Nim Forum
-            </th>
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap">
+
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-40">
               Paraf
             </th>
 
-            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant text-center whitespace-nowrap">
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant text-center whitespace-nowrap w-32">
               Aksi
             </th>
 
@@ -112,7 +103,7 @@ import Layout from "../../layouts/Layout.astro";
 
         <tbody id="kartu-kolokium-tbody" class="divide-y divide-outline-variant/30">
           <tr>
-            <td colspan="10" class="px-4 py-8 text-center text-body-sm text-on-surface-variant">
+            <td colspan="7" class="px-4 py-8 text-center text-body-sm text-on-surface-variant">
               Memuat data...
             </td>
           </tr>
