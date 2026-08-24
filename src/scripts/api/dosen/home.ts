@@ -268,8 +268,8 @@ function renderJadwal(items: JadwalItem[]): void {
 // 2. Jadwal Hari Ini (filter tanggal hari ini dari `data`)
 async function loadKolokiumDanSeminar(): Promise<void> {
   const [kolokiumRes, seminarRes] = await Promise.all([
-    apiGet<PaginatedResponse<ForumItem>>("/auth/kolokium/my"),
-    apiGet<PaginatedResponse<ForumItem>>("/auth/seminar/my"),
+    apiGet<PaginatedResponse<ForumItem>>("/auth/kolokium/my?status=approved"),
+    apiGet<PaginatedResponse<ForumItem>>("/auth/seminar/my?status=approved"),
   ]);
 
   // Stat "Dihadiri" = total kolokium/seminar dimana dosen jadi pembimbing ATAU moderator
