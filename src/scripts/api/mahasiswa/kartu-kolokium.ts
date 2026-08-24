@@ -17,11 +17,21 @@
 //    mengambil SEMUA data (bukan hanya 1 halaman) + biodata mahasiswa untuk header
 //    NOTE: PDF ini SENGAJA TANPA kop surat institusi (logo/kepala surat) dan
 //    TANPA footer form-control (No. Revisi / Hal / Tanggal Berlaku) — hanya
-//    judul "KARTU KOLOKIUM", biodata mahasiswa, dan tabel kolokium.
+//    judul "KARTU KOLOKIUM", biodata mahasiswa, dan tabel kolokium. Tabel PDF
+//    TIDAK berubah (masih kolom terpisah Nama Pemrasaran/NIM), hanya tabel
+//    di halaman web yang kolomnya digabung jadi "Pemrasaran".
 //
 // KONFIRMASI BATALKAN: menggunakan ConfirmModal (src/components/ConfirmModal.astro)
 // lewat helper confirmDialog() di src/scripts/lib/confirm-dialog.ts, bukan
 // window.confirm() bawaan browser.
+//
+// TAMPILAN KOLOM (disamakan dengan pola tabel jadwal-kolokium & kartu-kolokium dosen):
+// - Kolom Nama Pemrasaran/NIM/Prodi digabung jadi satu kolom "Pemrasaran":
+//   nama (bold) di baris atas, lalu "NIM · Prodi" di baris bawah dengan
+//   teks lebih kecil.
+// - Kolom Hari/Tanggal tetap whitespace-nowrap (satu baris) seperti semula.
+// - Kolom Moderator diberi lebar lebih besar (w-56) supaya nama moderator
+//   tetap muat dalam satu baris (whitespace-nowrap).
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -33,7 +43,7 @@ import { confirmDialog } from "../../lib/confirm-dialog";
 const API_BASE: string = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token"; // sesuaikan kalau key token localStorage Anda beda
 const SEARCH_DEBOUNCE_MS = 400;
-const COLSPAN = 8;
+const COLSPAN = 6;
 const DEFAULT_PER_PAGE = 10;
 
 // ------------------------------------------------------------------
@@ -206,6 +216,22 @@ function escapeHtml(value: string | null): string {
 }
 
 // ------------------------------------------------------------------
+// SEL "PEMRASARAN" (gabungan Nama / NIM / Prodi) — sama seperti
+// tabel jadwal-kolokium & kartu-kolokium (dosen).
+// ------------------------------------------------------------------
+function renderPemrasaranCell(kartu: KartuKolokium): string {
+  const nama = escapeHtml(kartu.namapemrasaran);
+  const nim = escapeHtml(kartu.nimpemrasaran);
+  const prodi = escapeHtml(kartu.prodi);
+  return `
+    <div class="leading-snug">
+      <div class="text-body-sm font-bold text-on-surface">${nama}</div>
+      <div class="text-xs text-on-surface-variant mt-0.5">${nim} · ${prodi}</div>
+    </div>
+  `;
+}
+
+// ------------------------------------------------------------------
 // Aturan aktif/nonaktif tombol Batalkan
 // - Aktif  : hari ini < tanggal kolokium (masih H-1 atau lebih awal)
 // - Nonaktif: hari ini >= tanggal kolokium (sudah hari-H atau lewat),
@@ -360,15 +386,13 @@ function renderTable(data: PaginatedResponse<KartuKolokium>): void {
   tbody.innerHTML = data.data
     .map(
       (kartu) => `
-        <tr class="table-row-hover transition-colors">
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(kartu.tanggal)}</td>
-          <td class="px-4 py-4 text-body-sm">${formatWaktu(kartu.waktu)}</td>
-          <td class="px-4 py-4 text-body-sm font-medium">${escapeHtml(kartu.namapemrasaran)}</td>
-          <td class="px-4 py-4 text-body-sm">${escapeHtml(kartu.nimpemrasaran)}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(kartu.prodi)}</td>
-          <td class="px-4 py-4 text-body-sm">${escapeHtml(kartu.moderator)}</td>
-          <td class="px-4 py-4">${statusBadge(kartu.statusparaf)}</td>
-          <td class="px-4 py-4 text-center">${renderBatalkanCell(kartu)}</td>
+        <tr class="table-row-hover transition-colors align-top">
+          <td class="px-4 py-4 text-body-sm align-top whitespace-nowrap">${formatTanggal(kartu.tanggal)}</td>
+          <td class="px-4 py-4 text-body-sm align-top">${formatWaktu(kartu.waktu)}</td>
+          <td class="px-4 py-4 align-top">${renderPemrasaranCell(kartu)}</td>
+          <td class="px-4 py-4 text-body-sm align-top whitespace-nowrap">${escapeHtml(kartu.moderator)}</td>
+          <td class="px-4 py-4 align-top">${statusBadge(kartu.statusparaf)}</td>
+          <td class="px-4 py-4 text-center align-top">${renderBatalkanCell(kartu)}</td>
         </tr>
       `
     )
@@ -486,6 +510,8 @@ async function handleBatalkan(btn: HTMLButtonElement): Promise<void> {
 // ------------------------------------------------------------------
 // Export PDF "Kartu Kolokium"
 // (TANPA kop surat institusi & TANPA footer form-control)
+// Catatan: kolom PDF TIDAK diubah (tetap Nama Pemrasaran & NIM terpisah),
+// karena permintaan penggabungan kolom hanya untuk tampilan tabel web.
 // ------------------------------------------------------------------
 
 // Ambil gambar sebagai dataURL, dipakai supaya jsPDF (addImage) bisa
