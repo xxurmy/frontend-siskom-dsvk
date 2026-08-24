@@ -33,6 +33,19 @@
 // KONFIRMASI HAPUS: menggunakan ConfirmModal (src/components/ConfirmModal.astro)
 // lewat helper confirmDialog() di src/scripts/lib/confirm-dialog.ts, bukan
 // window.confirm() bawaan browser.
+//
+// TAMPILAN KOLOM (mengikuti referensi desain):
+// - Kolom Nama/NIM/Prodi digabung jadi satu kolom "Pemrasaran": nama (bold)
+//   di baris atas, lalu "NIM · Prodi" di baris bawah dengan teks lebih kecil.
+// - Kolom Judul dipotong beberapa kata saja, dengan tombol untuk
+//   menampilkan/menyembunyikan teks lengkap LANGSUNG di dalam sel yang sama
+//   (tanpa modal) — klik tombol lagi untuk mempersingkat kembali.
+// - Kolom Dosen Pembimbing selalu ditampilkan penuh apa adanya, tanpa
+//   dipotong dan tanpa tombol.
+// - Sel Pemrasaran/Dosen Pembimbing/Judul/Lokasi/Tanggal/Moderator/Ruangan
+//   tidak dipaksa satu baris (whitespace-nowrap dihapus) supaya baris
+//   melebar ke bawah, bukan ke samping, saat teks tidak muat. Kolom
+//   Dokumen, Absensi, Status, dan Aksi tetap seperti semula.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
 import { showSuccess, showError } from "../../lib/info-dialog";
@@ -72,11 +85,12 @@ interface ApiErrorResponse {
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-seminar-tbody";
-const COLSPAN = 15;
+const COLSPAN = 13;
 const EDIT_FORM_PATH = "/admin/form-update-seminar";
 const ABSENSI_PATH = "/admin/absensi-seminar";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
+const JUDUL_WORD_LIMIT = 4;
 
 // BERKAS: daftar dokumen yang bisa di-export per seminar, mengikuti
 // routes/api.php (SeminarController) — semua GET, butuh Bearer token,
@@ -182,6 +196,78 @@ function formatTanggal(tanggal: string | null): string {
   });
 }
 
+// ============================================================
+// SEL "PEMRASARAN" (gabungan Nama / NIM / Prodi)
+// ============================================================
+
+function renderPemrasaranCell(item: SeminarItem): string {
+  const nama = escapeHtml(item.nama ?? "-");
+  const nim = escapeHtml(item.nim ?? "-");
+  const prodi = escapeHtml(item.prodi ?? "-");
+  return `
+    <div class="leading-snug">
+      <div class="text-body-sm font-bold text-on-surface">${nama}</div>
+      <div class="text-xs text-on-surface-variant mt-0.5">${nim} · ${prodi}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// SEL JUDUL: dipotong sebagian kata + tombol untuk membuka teks
+// lengkap LANGSUNG DI DALAM BARIS (tanpa modal).
+// ============================================================
+
+function truncateWords(text: string, wordLimit: number): { truncated: string; isTruncated: boolean } {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= wordLimit) {
+    return { truncated: text, isTruncated: false };
+  }
+  return { truncated: `${words.slice(0, wordLimit).join(" ")}...`, isTruncated: true };
+}
+
+function renderJudulCell(item: SeminarItem): string {
+  const fullText = item.judul;
+  if (!fullText) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+
+  const { truncated, isTruncated } = truncateWords(fullText, JUDUL_WORD_LIMIT);
+
+  if (!isTruncated) {
+    return `<span class="text-body-sm text-on-surface">${escapeHtml(fullText)}</span>`;
+  }
+
+  const safeFull = escapeHtml(fullText);
+  const safeTruncated = escapeHtml(truncated);
+
+  return `
+    <div class="flex items-start gap-1.5">
+      <span
+        class="text-body-sm text-on-surface expandable-judul-text"
+        data-full-text="${safeFull}"
+        data-truncated-text="${safeTruncated}"
+        data-expanded="false"
+      >${safeTruncated}</span>
+      <button
+        type="button"
+        class="judul-toggle-btn shrink-0 mt-0.5 text-primary hover:text-primary/70 transition-colors"
+        title="Lihat selengkapnya"
+      >
+        <span class="material-symbols-outlined text-[18px]">unfold_more</span>
+      </button>
+    </div>
+  `;
+}
+
+// Dosen pembimbing: selalu tampil penuh, tanpa dipotong dan tanpa tombol.
+function renderDosenPembimbingCell(item: SeminarItem): string {
+  const text = item.namadosenpembimbing;
+  if (!text) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+  return `<span class="text-body-sm text-on-surface">${escapeHtml(text)}</span>`;
+}
+
 function renderActionButtons(item: SeminarItem): string {
   if (item.status === "approved") {
     return `
@@ -253,30 +339,28 @@ function renderAbsensiButton(item: SeminarItem): string {
 
 function renderRow(item: SeminarItem, rowNumber: number): string {
   return `
-    <tr class="table-row-hover transition-colors" data-row-id="${item.id}">
-      <td class="px-4 py-4 text-body-sm">${rowNumber}</td>
-      <td class="px-4 py-4 text-body-sm font-medium whitespace-nowrap">${escapeHtml(item.nama ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.nim ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.prodi ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenpembimbing ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.judul ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.lokasi ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.waktu ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
-      <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.ruangan ?? "-")}</td>
-      <td class="px-4 py-4 text-center">
+    <tr class="table-row-hover transition-colors align-top" data-row-id="${item.id}">
+      <td class="px-4 py-4 text-body-sm align-top">${rowNumber}</td>
+      <td class="px-4 py-4 align-top">${renderPemrasaranCell(item)}</td>
+      <td class="px-4 py-4 align-top break-words">${renderDosenPembimbingCell(item)}</td>
+      <td class="px-4 py-4 align-top break-words">${renderJudulCell(item)}</td>
+      <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.lokasi ?? "-")}</td>
+      <td class="px-4 py-4 text-body-sm align-top break-words">${formatTanggal(item.tanggal ?? "-")}</td>
+      <td class="px-4 py-4 text-body-sm align-top">${escapeHtml(item.waktu ?? "-")}</td>
+      <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
+      <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.ruangan ?? "-")}</td>
+      <td class="px-4 py-4 text-center whitespace-nowrap">
         ${renderBerkasButton(item)}
       </td>
-      <td class="px-4 py-4 text-center">
+      <td class="px-4 py-4 text-center whitespace-nowrap">
         ${renderAbsensiButton(item)}
       </td>
-      <td class="px-4 py-4 text-body-sm">
+      <td class="px-4 py-4 text-body-sm whitespace-nowrap">
         <span class="px-2 py-1 rounded text-white text-xs font-medium ${STATUS_BADGE_CLASS[item.status]} whitespace-nowrap">
           ${STATUS_LABEL[item.status]}
         </span>
       </td>
-      <td class="px-4 py-4 text-body-sm">
+      <td class="px-4 py-4 text-body-sm whitespace-nowrap">
         <div class="flex items-center gap-2">
           ${renderActionButtons(item)}
         </div>
@@ -443,6 +527,44 @@ function initActionButtons(): void {
     if (!ok) return;
 
     deleteSeminar(id);
+  });
+}
+
+// ============================================================
+// TOGGLE JUDUL: klik tombol -> tampilkan/sembunyikan teks lengkap
+// langsung di dalam sel yang sama (tanpa modal).
+// ============================================================
+
+function initJudulToggleButtons(): void {
+  const tbody = document.getElementById(TBODY_ID);
+  if (!tbody) return;
+  if (tbody.dataset.judulToggleBound === "true") return;
+  tbody.dataset.judulToggleBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".judul-toggle-btn");
+    if (!btn) return;
+
+    const textSpan = btn.parentElement?.querySelector<HTMLElement>(".expandable-judul-text");
+    const icon = btn.querySelector<HTMLElement>(".material-symbols-outlined");
+    if (!textSpan) return;
+
+    const isExpanded = textSpan.dataset.expanded === "true";
+    const fullText = textSpan.dataset.fullText ?? "";
+    const truncatedText = textSpan.dataset.truncatedText ?? "";
+
+    if (isExpanded) {
+      textSpan.textContent = truncatedText;
+      textSpan.dataset.expanded = "false";
+      if (icon) icon.textContent = "unfold_more";
+      btn.title = "Lihat selengkapnya";
+    } else {
+      textSpan.textContent = fullText;
+      textSpan.dataset.expanded = "true";
+      if (icon) icon.textContent = "unfold_less";
+      btn.title = "Sembunyikan";
+    }
   });
 }
 
@@ -703,6 +825,7 @@ function initJadwalSeminarsPage(): void {
   initAbsensiButtons();
   initBerkasButtons();
   initBerkasModal();
+  initJudulToggleButtons();
   initPagination();
   initSearch();
   initPerPage();
