@@ -10,6 +10,18 @@
 // PER PAGE: select #entries-select dikirim ke backend lewat query param
 // `per_page` (backend KolokiumController::myKolokium sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
+//
+// TAMPILAN KOLOM (mengikuti pola yang sama dengan tabel admin):
+// - Kolom Nama/NIM/Prodi digabung jadi satu kolom "Pemrasaran": nama (bold)
+//   di baris atas, lalu "NIM · Prodi" di baris bawah dengan teks lebih kecil.
+// - Kolom Judul dipotong beberapa kata saja, dengan tombol untuk
+//   menampilkan/menyembunyikan teks lengkap LANGSUNG di dalam sel yang sama
+//   (tanpa modal) — klik tombol lagi untuk mempersingkat kembali.
+// - Kolom Dosen Pembimbing selalu ditampilkan penuh apa adanya, tanpa
+//   dipotong dan tanpa tombol.
+// - Sel-sel tidak dipaksa satu baris (whitespace-nowrap dihapus dari sel
+//   berisi teks panjang) supaya baris melebar ke bawah, bukan ke samping,
+//   saat teks tidak muat. Kolom Absensi tetap seperti semula.
 
 interface KolokiumItem {
   id: number;
@@ -51,6 +63,8 @@ const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
+const COLSPAN = 10;
+const JUDUL_WORD_LIMIT = 4;
 
 let currentPage = 1;
 let currentSearch = "";
@@ -96,6 +110,78 @@ function getCurrentUserId(): number | null {
   }
 }
 
+// ============================================================
+// SEL "PEMRASARAN" (gabungan Nama / NIM / Prodi)
+// ============================================================
+
+function renderPemrasaranCell(item: KolokiumItem): string {
+  const nama = escapeHtml(item.nama ?? "-");
+  const nim = escapeHtml(item.nim ?? "-");
+  const prodi = escapeHtml(item.prodi ?? "-");
+  return `
+    <div class="leading-snug">
+      <div class="text-body-sm font-bold text-on-surface">${nama}</div>
+      <div class="text-xs text-on-surface-variant mt-0.5">${nim} · ${prodi}</div>
+    </div>
+  `;
+}
+
+// ============================================================
+// SEL JUDUL: dipotong sebagian kata + tombol untuk membuka teks
+// lengkap LANGSUNG DI DALAM BARIS (tanpa modal).
+// ============================================================
+
+function truncateWords(text: string, wordLimit: number): { truncated: string; isTruncated: boolean } {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= wordLimit) {
+    return { truncated: text, isTruncated: false };
+  }
+  return { truncated: `${words.slice(0, wordLimit).join(" ")}...`, isTruncated: true };
+}
+
+function renderJudulCell(item: KolokiumItem): string {
+  const fullText = item.judul;
+  if (!fullText) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+
+  const { truncated, isTruncated } = truncateWords(fullText, JUDUL_WORD_LIMIT);
+
+  if (!isTruncated) {
+    return `<span class="text-body-sm text-on-surface">${escapeHtml(fullText)}</span>`;
+  }
+
+  const safeFull = escapeHtml(fullText);
+  const safeTruncated = escapeHtml(truncated);
+
+  return `
+    <div class="flex items-start gap-1.5">
+      <span
+        class="text-body-sm text-on-surface expandable-judul-text"
+        data-full-text="${safeFull}"
+        data-truncated-text="${safeTruncated}"
+        data-expanded="false"
+      >${safeTruncated}</span>
+      <button
+        type="button"
+        class="judul-toggle-btn shrink-0 mt-0.5 text-primary hover:text-primary/70 transition-colors"
+        title="Lihat selengkapnya"
+      >
+        <span class="material-symbols-outlined text-[18px]">unfold_more</span>
+      </button>
+    </div>
+  `;
+}
+
+// Dosen pembimbing: selalu tampil penuh, tanpa dipotong dan tanpa tombol.
+function renderDosenPembimbingCell(item: KolokiumItem): string {
+  const text = item.namadosenpembimbing;
+  if (!text) {
+    return `<span class="text-body-sm text-on-surface">-</span>`;
+  }
+  return `<span class="text-body-sm text-on-surface">${escapeHtml(text)}</span>`;
+}
+
 // ---------- Fetch ----------
 async function fetchKolokium(page: number): Promise<void> {
   const token = getToken();
@@ -107,11 +193,12 @@ async function fetchKolokium(page: number): Promise<void> {
   const tbody = document.getElementById("kolokium-table-body");
   if (tbody) {
     tbody.innerHTML = `
-      <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>
+      <tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td></tr>
     `;
   }
 
   const params = new URLSearchParams({
+    status: "approved",
     page: String(page),
     per_page: String(getEntriesPerPage()),
   });
@@ -137,7 +224,7 @@ async function fetchKolokium(page: number): Promise<void> {
     if (!res.ok) {
       if (tbody) {
         tbody.innerHTML = `
-          <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-error">Gagal memuat data (status ${res.status}).</td></tr>
+          <tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-error">Gagal memuat data (status ${res.status}).</td></tr>
         `;
       }
       return;
@@ -154,7 +241,7 @@ async function fetchKolokium(page: number): Promise<void> {
     console.error("Gagal fetch jadwal kolokium:", err);
     if (tbody) {
       tbody.innerHTML = `
-        <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-error">Terjadi kesalahan jaringan.</td></tr>
+        <tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-error">Terjadi kesalahan jaringan.</td></tr>
       `;
     }
   }
@@ -170,7 +257,7 @@ function renderTable(items: KolokiumItem[]): void {
       ? `Tidak ditemukan hasil untuk pencarian "${escapeHtml(currentSearch)}".`
       : "Tidak ada data kolokium.";
     tbody.innerHTML = `
-      <tr><td colspan="12" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>
+      <tr><td colspan="${COLSPAN}" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">${message}</td></tr>
     `;
     return;
   }
@@ -187,19 +274,17 @@ function renderTable(items: KolokiumItem[]): void {
         : "Hanya dosen moderator yang dapat membuka absensi kolokium ini";
 
       return `
-        <tr class="table-row-hover transition-colors">
-          <td class="px-4 py-4 text-body-sm">${startNumber + index}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${formatTanggal(item.tanggal ?? "-")}</td>
-          <td class="px-4 py-4 text-body-sm">${item.waktu ?? "-"}</td>
-          <td class="px-4 py-4 text-body-sm">${escapeHtml(item.ruangan ?? "-")}</td>
-          <td class="px-4 py-4 text-body-sm font-medium">${escapeHtml(item.nama)}</td>
-          <td class="px-4 py-4 text-body-sm">${escapeHtml(item.nim)}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.prodi)}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.judul)}</td>
-          <td class="px-4 py-4 text-body-sm text-center">${item.jumlahforum}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenpembimbing ?? "-")}</td>
-          <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
-          <td class="px-4 py-4 text-center">
+        <tr class="table-row-hover transition-colors align-top">
+          <td class="px-4 py-4 text-body-sm align-top">${startNumber + index}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${formatTanggal(item.tanggal ?? "-")}</td>
+          <td class="px-4 py-4 text-body-sm align-top">${escapeHtml(item.waktu ?? "-")}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.ruangan ?? "-")}</td>
+          <td class="px-4 py-4 align-top">${renderPemrasaranCell(item)}</td>
+          <td class="px-4 py-4 align-top break-words">${renderJudulCell(item)}</td>
+          <td class="px-4 py-4 text-body-sm text-center align-top">${item.jumlahforum}</td>
+          <td class="px-4 py-4 align-top break-words">${renderDosenPembimbingCell(item)}</td>
+          <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
+          <td class="px-4 py-4 text-center whitespace-nowrap">
             <button
               type="button"
               class="kolokium-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isModerator ? disabledClass : ""}"
@@ -328,10 +413,45 @@ function initAbsensiButtons(): void {
   });
 }
 
+// ---------- Toggle Judul (expand/collapse inline, tanpa modal) ----------
+function initJudulToggleButtons(): void {
+  const tbody = document.getElementById("kolokium-table-body");
+  if (!tbody) return;
+  if (tbody.dataset.judulToggleBound === "true") return;
+  tbody.dataset.judulToggleBound = "true";
+
+  tbody.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest<HTMLElement>(".judul-toggle-btn");
+    if (!btn) return;
+
+    const textSpan = btn.parentElement?.querySelector<HTMLElement>(".expandable-judul-text");
+    const icon = btn.querySelector<HTMLElement>(".material-symbols-outlined");
+    if (!textSpan) return;
+
+    const isExpanded = textSpan.dataset.expanded === "true";
+    const fullText = textSpan.dataset.fullText ?? "";
+    const truncatedText = textSpan.dataset.truncatedText ?? "";
+
+    if (isExpanded) {
+      textSpan.textContent = truncatedText;
+      textSpan.dataset.expanded = "false";
+      if (icon) icon.textContent = "unfold_more";
+      btn.title = "Lihat selengkapnya";
+    } else {
+      textSpan.textContent = fullText;
+      textSpan.dataset.expanded = "true";
+      if (icon) icon.textContent = "unfold_less";
+      btn.title = "Sembunyikan";
+    }
+  });
+}
+
 function initJadwalKolokiumPage(): void {
   initSearch();
   initPerPage();
   initAbsensiButtons();
+  initJudulToggleButtons();
   fetchKolokium(currentPage);
 }
 
