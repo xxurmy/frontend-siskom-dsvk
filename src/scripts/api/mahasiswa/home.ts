@@ -208,7 +208,7 @@ async function loadStatusPengajuan(): Promise<void> {
 // ------------------------------------------------------------------
 function hitungKehadiran<T extends { statusparaf: StatusParaf }>(data: T[] | undefined): number {
   if (!data) return 0;
-  return data.filter((item) => item.statusparaf !== "absent").length;
+  return data.filter((item) => item.statusparaf !== "absent" && item.statusparaf !== "pending").length;
 }
 
 async function loadKehadiran(): Promise<void> {
