@@ -112,12 +112,14 @@ import Layout from "../../layouts/Layout.astro";
               <span id="urgent-kolokium-count" class="font-display-lg text-display-lg text-[#D32F2F] block">-</span>
               <span class="font-body-sm text-body-sm text-on-surface-variant">Belum ditanda tangani</span>
             </div>
-            <button
-              type="button"
-              class="w-full py-2 px-4 border border-[#004D40] text-[#004D40] rounded-lg font-label-md text-label-md hover:bg-[#004D40]/5 transition-colors font-medium"
-            >
-              Lihat Detail
-            </button>
+            <a href="/dosen/kartu-kolokium" class="block w-full">
+              <button
+                type="button"
+                class="w-full py-2 px-4 border border-[#004D40] text-[#004D40] rounded-lg font-label-md text-label-md hover:bg-[#004D40]/5 transition-colors font-medium"
+              >
+                Lihat Detail
+              </button>
+            </a>
           </div>
         </div>
 
@@ -140,12 +142,14 @@ import Layout from "../../layouts/Layout.astro";
               <span id="urgent-seminar-count" class="font-display-lg text-display-lg text-[#D32F2F] block">-</span>
               <span class="font-body-sm text-body-sm text-on-surface-variant">Belum ditanda tangani</span>
             </div>
-            <button
-              type="button"
-              class="w-full py-2 px-4 border border-[#004D40] text-[#004D40] rounded-lg font-label-md text-label-md hover:bg-[#004D40]/5 transition-colors font-medium"
-            >
-              Lihat Detail
-            </button>
+            <a href="/dosen/kartu-seminar" class="block w-full">
+              <button
+                type="button"
+                class="w-full py-2 px-4 border border-[#004D40] text-[#004D40] rounded-lg font-label-md text-label-md hover:bg-[#004D40]/5 transition-colors font-medium"
+              >
+                Lihat Detail
+              </button>
+            </a>
           </div>
         </div>
       </div>
@@ -154,9 +158,6 @@ import Layout from "../../layouts/Layout.astro";
       <div class="lg:col-span-5 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden flex flex-col">
         <div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low/50">
           <h3 class="font-title-lg text-title-lg text-on-surface">Jadwal Hari Ini</h3>
-          <a href="#" class="font-label-md text-label-md text-[#004D40] hover:underline flex items-center gap-1">
-            Lihat Semua <span class="material-symbols-outlined text-sm">arrow_forward</span>
-          </a>
         </div>
         <ul id="jadwal-list" class="flex-1 overflow-y-auto">
           <li class="p-4 text-center text-sm text-on-surface-variant">Memuat jadwal...</li>
