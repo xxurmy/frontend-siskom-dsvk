@@ -11,6 +11,19 @@
 // `per_page` (backend KolokiumController::myKolokium sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
 //
+// STATUS: kolom "Status" menampilkan progres pendaftaran kolokium
+// (pending/approved/rejected) dengan badge warna yang sama seperti tabel
+// admin, supaya dosen bisa memantau perkembangan status pendaftaran
+// kolokium mahasiswa yang dibimbing/dimoderatori. Karena kolom ini butuh
+// menampilkan SEMUA status (bukan cuma approved), filter `status: "approved"`
+// yang dulu dikirim ke backend DIHAPUS — dosen sekarang melihat kolokium
+// dengan status apapun (pending, approved, rejected).
+//
+// ABSENSI: tombol Absensi hanya aktif kalau dosen yang login adalah
+// MODERATOR kolokium tsb DAN status kolokium sudah "approved" (mengikuti
+// aturan yang sama dengan tabel admin — peserta baru bisa absen setelah
+// kolokium disetujui, lihat PesertaKolokiumController::store).
+//
 // TAMPILAN KOLOM (mengikuti pola yang sama dengan tabel admin):
 // - Kolom Nama/NIM/Prodi digabung jadi satu kolom "Pemrasaran": nama (bold)
 //   di baris atas, lalu "NIM · Prodi" di baris bawah dengan teks lebih kecil.
@@ -19,6 +32,8 @@
 //   (tanpa modal) — klik tombol lagi untuk mempersingkat kembali.
 // - Kolom Dosen Pembimbing selalu ditampilkan penuh apa adanya, tanpa
 //   dipotong dan tanpa tombol.
+// - Kolom Status menampilkan badge warna (pending = kuning, approved =
+//   hijau, rejected = merah), sama seperti tabel admin.
 // - Sel-sel tidak dipaksa satu baris (whitespace-nowrap dihapus dari sel
 //   berisi teks panjang) supaya baris melebar ke bawah, bukan ke samping,
 //   saat teks tidak muat. Kolom Absensi tetap seperti semula.
@@ -37,7 +52,7 @@ interface KolokiumItem {
   tanggal: string | null;
   waktu: string | null;
   ruangan: string | null;
-  status: string;
+  status: "pending" | "approved" | "rejected";
   jumlahforum: number;
   [key: string]: unknown;
 }
@@ -63,8 +78,22 @@ const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
-const COLSPAN = 10;
+const COLSPAN = 11;
 const JUDUL_WORD_LIMIT = 4;
+
+// Label & warna badge status — sama persis dengan tabel admin, supaya
+// dosen dan admin melihat representasi status yang konsisten.
+const STATUS_LABEL: Record<KolokiumItem["status"], string> = {
+  pending: "Belum diterima",
+  approved: "Sudah diterima",
+  rejected: "Ditolak",
+};
+
+const STATUS_BADGE_CLASS: Record<KolokiumItem["status"], string> = {
+  pending: "bg-amber-500",
+  approved: "bg-green-600",
+  rejected: "bg-red-600",
+};
 
 let currentPage = 1;
 let currentSearch = "";
@@ -182,6 +211,20 @@ function renderDosenPembimbingCell(item: KolokiumItem): string {
   return `<span class="text-body-sm text-on-surface">${escapeHtml(text)}</span>`;
 }
 
+// ============================================================
+// SEL STATUS: badge warna, sama seperti tabel admin.
+// ============================================================
+
+function renderStatusCell(item: KolokiumItem): string {
+  const label = STATUS_LABEL[item.status] ?? item.status;
+  const badgeClass = STATUS_BADGE_CLASS[item.status] ?? "bg-slate-500";
+  return `
+    <span class="px-2 py-1 rounded text-white text-xs font-medium ${badgeClass} whitespace-nowrap">
+      ${escapeHtml(label)}
+    </span>
+  `;
+}
+
 // ---------- Fetch ----------
 async function fetchKolokium(page: number): Promise<void> {
   const token = getToken();
@@ -197,8 +240,11 @@ async function fetchKolokium(page: number): Promise<void> {
     `;
   }
 
+  // Catatan: parameter `status: "approved"` yang dulu ada di sini SUDAH
+  // DIHAPUS. Dosen sekarang perlu melihat kolokium dengan status apapun
+  // (pending/approved/rejected) supaya kolom Status berguna untuk memantau
+  // perkembangan pendaftaran, bukan cuma yang sudah disetujui.
   const params = new URLSearchParams({
-    status: "approved",
     page: String(page),
     per_page: String(getEntriesPerPage()),
   });
@@ -268,10 +314,20 @@ function renderTable(items: KolokiumItem[]): void {
   tbody.innerHTML = items
     .map((item, index) => {
       const isModerator = currentUserId !== null && item.moderator_id === currentUserId;
+      const isApproved = item.status === "approved";
+      // Absensi hanya boleh dibuka kalau dosen ini moderator DAN kolokium
+      // sudah approved — sama seperti aturan di tabel admin.
+      const canAbsen = isModerator && isApproved;
       const disabledClass = "opacity-40 cursor-not-allowed";
-      const absensiTitle = isModerator
-        ? "Buka Absensi"
-        : "Hanya dosen moderator yang dapat membuka absensi kolokium ini";
+
+      let absensiTitle: string;
+      if (!isApproved) {
+        absensiTitle = "Kolokium harus berstatus disetujui sebelum bisa diabsen";
+      } else if (!isModerator) {
+        absensiTitle = "Hanya dosen moderator yang dapat membuka absensi kolokium ini";
+      } else {
+        absensiTitle = "Buka Absensi";
+      }
 
       return `
         <tr class="table-row-hover transition-colors align-top">
@@ -284,13 +340,14 @@ function renderTable(items: KolokiumItem[]): void {
           <td class="px-4 py-4 text-body-sm text-center align-top">${item.jumlahforum}</td>
           <td class="px-4 py-4 align-top break-words">${renderDosenPembimbingCell(item)}</td>
           <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
+          <td class="px-4 py-4 align-top whitespace-nowrap">${renderStatusCell(item)}</td>
           <td class="px-4 py-4 text-center whitespace-nowrap">
             <button
               type="button"
-              class="kolokium-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isModerator ? disabledClass : ""}"
+              class="kolokium-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!canAbsen ? disabledClass : ""}"
               data-kolokium-id="${item.id}"
               title="${absensiTitle}"
-              ${!isModerator ? "disabled" : ""}
+              ${!canAbsen ? "disabled" : ""}
             >
               <span class="material-symbols-outlined text-[18px]">fact_check</span>
               Absensi

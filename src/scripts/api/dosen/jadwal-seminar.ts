@@ -11,6 +11,19 @@
 // `per_page` (backend SeminarController::mySeminar sudah validasi
 // min:1|max:100, default 10 kalau tidak dikirim/invalid).
 //
+// STATUS: kolom "Status" menampilkan progres pendaftaran seminar
+// (pending/approved/rejected) dengan badge warna yang sama seperti tabel
+// admin, supaya dosen bisa memantau perkembangan status pendaftaran
+// seminar mahasiswa yang dibimbing/dimoderatori. Karena kolom ini butuh
+// menampilkan SEMUA status (bukan cuma approved), filter `status: "approved"`
+// yang dulu dikirim ke backend DIHAPUS — dosen sekarang melihat seminar
+// dengan status apapun (pending, approved, rejected).
+//
+// ABSENSI: tombol Absensi hanya aktif kalau dosen yang login adalah
+// MODERATOR seminar tsb DAN status seminar sudah "approved" (mengikuti
+// aturan yang sama dengan tabel admin — peserta baru bisa absen setelah
+// seminar disetujui).
+//
 // TAMPILAN KOLOM (mengikuti pola yang sama dengan tabel admin):
 // - Kolom Nama/NIM/Prodi digabung jadi satu kolom "Pemrasaran": nama (bold)
 //   di baris atas, lalu "NIM · Prodi" di baris bawah dengan teks lebih kecil.
@@ -19,6 +32,8 @@
 //   (tanpa modal) — klik tombol lagi untuk mempersingkat kembali.
 // - Kolom Dosen Pembimbing selalu ditampilkan penuh apa adanya, tanpa
 //   dipotong dan tanpa tombol.
+// - Kolom Status menampilkan badge warna (pending = kuning, approved =
+//   hijau, rejected = merah), sama seperti tabel admin.
 // - Sel-sel tidak dipaksa satu baris (whitespace-nowrap dihapus dari sel
 //   berisi teks panjang) supaya baris melebar ke bawah, bukan ke samping,
 //   saat teks tidak muat. Kolom Absensi tetap seperti semula.
@@ -37,7 +52,7 @@ interface SeminarItem {
   tanggal: string | null;
   waktu: string | null;
   ruangan: string | null;
-  status: string;
+  status: "pending" | "approved" | "rejected";
   jumlahforum: number;
   [key: string]: unknown;
 }
@@ -63,8 +78,22 @@ const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
-const COLSPAN = 10;
+const COLSPAN = 11;
 const JUDUL_WORD_LIMIT = 4;
+
+// Label & warna badge status — sama persis dengan tabel admin, supaya
+// dosen dan admin melihat representasi status yang konsisten.
+const STATUS_LABEL: Record<SeminarItem["status"], string> = {
+  pending: "Belum diterima",
+  approved: "Sudah diterima",
+  rejected: "Ditolak",
+};
+
+const STATUS_BADGE_CLASS: Record<SeminarItem["status"], string> = {
+  pending: "bg-amber-500",
+  approved: "bg-green-600",
+  rejected: "bg-red-600",
+};
 
 let currentPage = 1;
 let currentSearch = "";
@@ -182,6 +211,20 @@ function renderDosenPembimbingCell(item: SeminarItem): string {
   return `<span class="text-body-sm text-on-surface">${escapeHtml(text)}</span>`;
 }
 
+// ============================================================
+// SEL STATUS: badge warna, sama seperti tabel admin.
+// ============================================================
+
+function renderStatusCell(item: SeminarItem): string {
+  const label = STATUS_LABEL[item.status] ?? item.status;
+  const badgeClass = STATUS_BADGE_CLASS[item.status] ?? "bg-slate-500";
+  return `
+    <span class="px-2 py-1 rounded text-white text-xs font-medium ${badgeClass} whitespace-nowrap">
+      ${escapeHtml(label)}
+    </span>
+  `;
+}
+
 // ---------- Fetch ----------
 async function fetchSeminar(page: number): Promise<void> {
   const token = getToken();
@@ -197,8 +240,11 @@ async function fetchSeminar(page: number): Promise<void> {
     `;
   }
 
+  // Catatan: parameter `status: "approved"` yang dulu ada di sini SUDAH
+  // DIHAPUS. Dosen sekarang perlu melihat seminar dengan status apapun
+  // (pending/approved/rejected) supaya kolom Status berguna untuk memantau
+  // perkembangan pendaftaran, bukan cuma yang sudah disetujui.
   const params = new URLSearchParams({
-    status: "approved",
     page: String(page),
     per_page: String(getEntriesPerPage()),
   });
@@ -268,10 +314,20 @@ function renderTable(items: SeminarItem[]): void {
   tbody.innerHTML = items
     .map((item, index) => {
       const isModerator = currentUserId !== null && item.moderator_id === currentUserId;
+      const isApproved = item.status === "approved";
+      // Absensi hanya boleh dibuka kalau dosen ini moderator DAN seminar
+      // sudah approved — sama seperti aturan di tabel admin.
+      const canAbsen = isModerator && isApproved;
       const disabledClass = "opacity-40 cursor-not-allowed";
-      const absensiTitle = isModerator
-        ? "Buka Absensi"
-        : "Hanya dosen moderator yang dapat membuka absensi seminar ini";
+
+      let absensiTitle: string;
+      if (!isApproved) {
+        absensiTitle = "Seminar harus berstatus disetujui sebelum bisa diabsen";
+      } else if (!isModerator) {
+        absensiTitle = "Hanya dosen moderator yang dapat membuka absensi seminar ini";
+      } else {
+        absensiTitle = "Buka Absensi";
+      }
 
       return `
         <tr class="table-row-hover transition-colors align-top">
@@ -284,13 +340,14 @@ function renderTable(items: SeminarItem[]): void {
           <td class="px-4 py-4 text-body-sm text-center align-top">${item.jumlahforum}</td>
           <td class="px-4 py-4 align-top break-words">${renderDosenPembimbingCell(item)}</td>
           <td class="px-4 py-4 text-body-sm align-top break-words">${escapeHtml(item.namadosenmoderator ?? "-")}</td>
+          <td class="px-4 py-4 align-top whitespace-nowrap">${renderStatusCell(item)}</td>
           <td class="px-4 py-4 text-center whitespace-nowrap">
             <button
               type="button"
-              class="seminar-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isModerator ? disabledClass : ""}"
+              class="seminar-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!canAbsen ? disabledClass : ""}"
               data-seminar-id="${item.id}"
               title="${absensiTitle}"
-              ${!isModerator ? "disabled" : ""}
+              ${!canAbsen ? "disabled" : ""}
             >
               <span class="material-symbols-outlined text-[18px]">fact_check</span>
               Absensi

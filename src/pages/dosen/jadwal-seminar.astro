@@ -1,5 +1,5 @@
 ---
-// src/pages/jadwal-seminar.astro
+// src/pages/dosen/jadwal-seminar.astro
 // Halaman Jadwal Seminar — pakai Layout.astro yang sudah ada
 // (Navbar + Sidebar tidak dibuat ulang di sini; footer juga sudah ada di Layout).
 
@@ -84,6 +84,9 @@ import Layout from "../../layouts/Layout.astro";
             <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-40">
               Moderator
             </th>
+            <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant whitespace-nowrap w-32">
+              Status
+            </th>
             <th class="px-4 py-4 font-label-md text-label-md text-on-surface-variant border-b border-outline-variant text-center whitespace-nowrap w-32">
               Absensi
             </th>
@@ -91,7 +94,7 @@ import Layout from "../../layouts/Layout.astro";
         </thead>
         <tbody id="seminar-table-body" class="divide-y divide-outline-variant/30">
           <tr>
-            <td colspan="10" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td>
+            <td colspan="11" class="px-4 py-6 text-center text-body-sm text-on-surface-variant">Memuat data...</td>
           </tr>
         </tbody>
       </table>
