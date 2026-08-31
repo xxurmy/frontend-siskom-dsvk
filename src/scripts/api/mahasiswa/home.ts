@@ -6,7 +6,6 @@
 // ------------------------------------------------------------------
 type Role = "mahasiswa" | "dosen" | "admin";
 type StatusPengajuan = "pending" | "approved" | "rejected";
-type StatusParaf = "pending" | "signed" | "absent";
 
 interface UserProfil {
   id: number;
@@ -14,7 +13,6 @@ interface UserProfil {
   nim?: string | null;
   prodi?: string | null;
   role: Role;
-  tandatangan?: string | null;
 }
 
 // Beberapa endpoint bisa membungkus user di { user }, { data }, atau langsung object
@@ -64,8 +62,6 @@ interface KartuKolokium {
   nimpemrasaran: string;
   prodi: string;
   moderator: string;
-  tandatangandosen: string | null;
-  statusparaf: StatusParaf;
   namaforum?: string;
   nimforum?: string;
 }
@@ -82,8 +78,6 @@ interface KartuSeminar {
   nimpemrasaran: string;
   prodi: string;
   moderator: string;
-  tandatangandosen: string | null;
-  statusparaf: StatusParaf;
   namaforum?: string;
   nimforum?: string;
 }
@@ -206,18 +200,12 @@ async function loadStatusPengajuan(): Promise<void> {
 // ------------------------------------------------------------------
 // Load Jumlah Kehadiran (dari kartu kolokium / kartu seminar milik user)
 // ------------------------------------------------------------------
-function hitungKehadiran<T extends { statusparaf: StatusParaf }>(data: T[] | undefined): number {
-  if (!data) return 0;
-  return data.filter((item) => item.statusparaf !== "absent" && item.statusparaf !== "pending").length;
-}
-
 async function loadKehadiran(): Promise<void> {
   try {
     const json = await apiFetch<KartuKolokiumListResponse>("/auth/kartu-kolokium/my");
     if (!json) return;
 
-    const jumlah = hitungKehadiran(json.kartu_kolokiums?.data);
-    setText("count-kolokium-dihadiri", jumlah);
+    setText("count-kolokium-dihadiri", json.kartu_kolokiums?.total ?? 0);
   } catch (err) {
     console.error("Gagal memuat kehadiran kolokium:", err);
     setText("count-kolokium-dihadiri", "-");
@@ -227,8 +215,7 @@ async function loadKehadiran(): Promise<void> {
     const json = await apiFetch<KartuSeminarListResponse>("/auth/kartu-seminar/my");
     if (!json) return;
 
-    const jumlah = hitungKehadiran(json.kartu_seminars?.data);
-    setText("count-seminar-dihadiri", jumlah);
+    setText("count-seminar-dihadiri", json.kartu_seminars?.total ?? 0);
   } catch (err) {
     console.error("Gagal memuat kehadiran seminar:", err);
     setText("count-seminar-dihadiri", "-");
