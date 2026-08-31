@@ -1,7 +1,8 @@
-// src/scripts/profil-admin.ts
-// Logika interaktif untuk halaman Profil Admin.
-// Toggle show/hide & validasi kecocokan password memakai modul bersama
-// di src/scripts/utils/password.ts supaya tidak duplikat dengan register.ts.
+// src/scripts/profil-dosen.ts
+// Logika interaktif untuk halaman Biodata Dosen (toggle show/hide password
+// & validasi kecocokan password baru/konfirmasi).
+// Memakai modul bersama di src/scripts/password/password.ts, konsisten dengan
+// profil-admin.ts & profil-mahasiswa.ts, supaya tidak duplikat logic.
 
 import { initTogglePassword, initPasswordMatch } from "./password/password";
 
@@ -21,3 +22,4 @@ function initProfilDosenPage(): void {
 }
 
 document.addEventListener("DOMContentLoaded", initProfilDosenPage);
+document.addEventListener("astro:page-load", initProfilDosenPage);

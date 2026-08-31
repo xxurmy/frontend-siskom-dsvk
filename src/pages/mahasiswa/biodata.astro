@@ -1,170 +1,224 @@
 ---
-// src/pages/biodata.astro
+// src/pages/mahasiswa/biodata.astro
 // Halaman Biodata Mahasiswa — pakai Layout.astro yang sudah ada
-// (Navbar + Sidebar tidak dibuat ulang di sini).
+// (Navbar + Sidebar tidak dibuat ulang di sini; footer juga sudah ada di Layout).
+// Ubah Password digabung dalam 1 halaman ini, mengikuti pola profil-admin.astro.
 
 import Layout from "../../layouts/Layout.astro";
 ---
 
 <Layout userRole="mahasiswa" pageTitle="Biodata Mahasiswa - SISKOM DSVK" navTitle="Biodata">
-  <div class="max-w-container-max mx-auto w-full">
-    <!-- Biodata Form Card -->
-    <div class="bg-surface-container-lowest rounded-lg border border-outline-variant p-stack-lg shadow-sm">
-      <!-- Card Header -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-stack-lg border-b border-outline-variant pb-stack-md">
-        <h2 class="font-headline-md text-headline-md text-on-surface text-center md:text-left">BIODATA MAHASISWA
-        </h2>
-        <a
-          href="/mahasiswa/change-password"
-          class="inline-flex items-center justify-center gap-2 border border-outline-variant hover:bg-surface-container text-on-surface-variant font-body-sm text-body-sm py-1.5 px-4 rounded transition-colors"
-        >
-          <span class="material-symbols-outlined text-[16px]">lock</span>
-          Ubah Password
-        </a>
+  <div class="flex-1 flex flex-col gap-6">
+
+    <!-- ==================== CARD: DATA BIODATA ==================== -->
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+      <div class="p-6 border-b border-outline-variant space-y-1">
+        <h2 class="font-headline-md text-headline-md text-primary font-bold">BIODATA MAHASISWA</h2>
+        <p class="text-body-sm text-on-surface-variant">
+          Kelola informasi akun Anda.
+        </p>
       </div>
 
-      <!-- Pesan status (diisi oleh biodata-mahasiswa-api.ts) -->
-      <p id="biodata-form-message" class="hidden text-body-sm font-medium text-center mb-stack-md"></p>
+      <form id="biodata-form" class="p-6 space-y-5 max-w-xl">
+        <!-- Pesan status (diisi oleh biodata.ts) -->
+        <p id="biodata-form-message" class="hidden text-body-sm font-medium"></p>
 
-      <!-- Profile Photo Section -->
-      <div class="flex flex-col items-center mb-stack-lg">
-        <div class="relative w-32 h-40 bg-surface-container-highest rounded border border-outline-variant mb-stack-sm overflow-hidden">
-          <!-- Placeholder icon: tampil selama foto asli belum di-load oleh JS
-               (img di bawah belum punya src, jadi icon ini kelihatan di belakangnya) -->
-          <div class="absolute inset-0 flex items-center justify-center text-on-surface-variant">
-            <span class="material-symbols-outlined text-[64px]">person</span>
+        <!-- Nama (read only) -->
+        <div class="space-y-1.5">
+          <label for="biodata-nama" class="text-label-md font-medium text-on-surface">
+            Nama
+          </label>
+          <div class="relative">
+            <input
+              id="biodata-nama"
+              name="nama"
+              type="text"
+              value="Memuat..."
+              readonly
+              class="w-full pl-4 pr-10 py-2.5 border border-outline-variant rounded-lg bg-surface-container-low text-on-surface-variant cursor-not-allowed outline-none"
+            />
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg">
+              lock
+            </span>
           </div>
-          <img
-            id="biodata-foto-img"
-            class="relative w-full h-full object-cover"
-          />
-        </div>
-        <button
-          type="button"
-          id="biodata-edit-foto-btn"
-          class="bg-ipb-blue hover:bg-blue-600 text-white font-body-sm text-body-sm py-1.5 px-6 rounded flex items-center gap-2 transition-colors"
-        >
-          <span class="material-symbols-outlined text-[16px]">edit</span>
-          Edit Foto
-        </button>
-        <input type="file" id="biodata-foto-input" accept="image/*" class="hidden" />
-      </div>
-
-      <!-- Form Fields -->
-      <div class="space-y-stack-md max-w-3xl mx-auto">
-        <!-- Nama -->
-        <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-          <label class="font-body-md text-body-md text-on-surface w-full md:w-1/4">Nama</label>
-          <input
-            id="biodata-nama"
-            type="text"
-            readonly
-            value="Memuat..."
-            class="w-full md:w-3/4 bg-surface-container-low border border-outline-variant rounded p-2 text-on-surface-variant focus:ring-primary focus:border-primary"
-          />
+          <p class="text-body-sm text-outline">Nama tidak dapat diubah.</p>
         </div>
 
-        <!-- NIM -->
-        <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-          <label class="font-body-md text-body-md text-on-surface w-full md:w-1/4">NIM</label>
-          <input
-            id="biodata-nim"
-            type="text"
-            readonly
-            value="Memuat..."
-            class="w-full md:w-3/4 bg-surface-container-low border border-outline-variant rounded p-2 text-on-surface-variant focus:ring-primary focus:border-primary"
-          />
+        <!-- NIM (read only) -->
+        <div class="space-y-1.5">
+          <label for="biodata-nim" class="text-label-md font-medium text-on-surface">
+            NIM
+          </label>
+          <div class="relative">
+            <input
+              id="biodata-nim"
+              name="nim"
+              type="text"
+              value="Memuat..."
+              readonly
+              class="w-full pl-4 pr-10 py-2.5 border border-outline-variant rounded-lg bg-surface-container-low text-on-surface-variant cursor-not-allowed outline-none"
+            />
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-outline text-lg">
+              lock
+            </span>
+          </div>
+          <p class="text-body-sm text-outline">NIM tidak dapat diubah.</p>
         </div>
 
         <!-- Email -->
-        <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-          <label class="font-body-md text-body-md text-on-surface w-full md:w-1/4">
-            Email <span class="text-error">*</span>
+        <div class="space-y-1.5">
+          <label for="biodata-email" class="text-label-md font-medium text-on-surface">
+            Email
           </label>
           <input
             id="biodata-email"
+            name="email"
             type="email"
-            placeholder="Tuliskan alamat email"
+            placeholder="nama@domain.com"
             value="Memuat..."
-            class="w-full md:w-3/4 bg-surface-container-lowest border border-outline-variant rounded p-2 text-on-surface focus:ring-primary focus:border-primary"
+            class="w-full px-4 py-2.5 border border-outline-variant rounded-lg bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
           />
         </div>
 
-        <!-- Signature Section -->
-        <div class="flex flex-col md:flex-row gap-4 pt-stack-md">
-          <div class="w-full md:w-1/4">
-            <label class="font-body-md text-body-md text-on-surface">Tanda Tangan</label>
-          </div>
-
-          <!-- Preview Area -->
-          <div class="w-full md:w-1/4 flex flex-col gap-2">
-            <span class="font-body-md text-body-md text-on-surface font-medium">Preview</span>
-            <div class="w-full h-24 bg-surface-container-lowest border border-outline-variant rounded flex items-center justify-center">
-              <img
-                id="biodata-tandatangan-preview"
-                class="h-16 object-contain"
-              />
-            </div>
-          </div>
-
-          <!-- Input Area -->
-          <div class="w-full md:w-2/4 flex flex-col gap-2">
-            <div class="border border-error rounded p-2 text-error text-sm mb-2 bg-error-container/20">
-              Gambar Tanda tangan dibawah atau Upload Tanda tangan pada tombol
-              <span class="font-medium">"Unggah Gambar"</span>
-            </div>
-
-            <!-- Kanvas untuk gambar tanda tangan -->
-            <div
-              id="signature-pad-container"
-              class="w-full h-32 border-2 border-dashed border-error rounded bg-surface-container-lowest"
-            >
-              <canvas id="signature-pad" class="w-full h-full touch-none"></canvas>
-            </div>
-
-            <div class="flex gap-2 mt-2">
-              <button
-                type="button"
-                id="signature-clear-btn"
-                class="bg-error hover:bg-error/90 text-on-error font-body-sm text-body-sm py-1.5 px-4 rounded transition-colors"
-              >
-                Hapus
-              </button>
-              <button
-                type="button"
-                id="signature-preview-btn"
-                class="bg-ipb-blue hover:bg-blue-600 text-white font-body-sm text-body-sm py-1.5 px-4 rounded transition-colors"
-              >
-                Lihat Tampilan
-              </button>
-              <button
-                type="button"
-                id="signature-upload-btn"
-                class="bg-outline hover:bg-outline/90 text-white font-body-sm text-body-sm py-1.5 px-4 rounded transition-colors"
-              >
-                Unggah Gambar
-              </button>
-              <input type="file" id="signature-upload-input" accept="image/*" class="hidden" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Submit Button -->
-        <div class="pt-stack-lg mt-stack-lg border-t border-outline-variant">
+        <!-- Actions -->
+        <div class="pt-2 flex items-center gap-3">
           <button
-            type="button"
+            type="submit"
             id="biodata-submit-btn"
-            class="w-full bg-primary-container hover:bg-primary text-on-primary font-title-lg text-title-lg py-3 rounded flex items-center justify-center gap-2 transition-colors"
+            class="px-5 py-2.5 bg-ipb-blue text-white text-label-md font-bold rounded-lg hover:opacity-90 transition-opacity"
           >
-            <span class="material-symbols-outlined">save</span>
-            Simpan
+            Simpan Perubahan
+          </button>
+          <button
+            type="reset"
+            class="px-5 py-2.5 border border-outline-variant text-on-surface-variant text-label-md font-medium rounded-lg hover:bg-surface-container transition-colors"
+          >
+            Batal
           </button>
         </div>
+      </form>
+    </div>
+
+    <!-- ==================== CARD: UBAH PASSWORD ==================== -->
+    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
+      <div class="p-6 border-b border-outline-variant space-y-1">
+        <h2 class="font-headline-md text-headline-md text-primary font-bold">UBAH PASSWORD</h2>
+        <p class="text-body-sm text-on-surface-variant">
+          Perbarui password akun Anda secara berkala untuk menjaga keamanan.
+        </p>
       </div>
+
+      <form id="ubah-password-form" class="p-6 space-y-5 max-w-xl">
+        <!-- Pesan status (diisi oleh change-password.ts) -->
+        <p id="password-form-message" class="hidden text-body-sm font-medium"></p>
+
+        <!-- Current Password -->
+        <div class="space-y-1.5">
+          <label for="current-password" class="text-label-md font-medium text-on-surface">
+            Password Saat Ini
+          </label>
+          <div class="relative">
+            <input
+              id="current-password"
+              name="current-password"
+              type="password"
+              placeholder="Masukkan password saat ini"
+              class="w-full pl-4 pr-10 py-2.5 border border-outline-variant rounded-lg bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+            />
+            <button
+              type="button"
+              class="toggle-password absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant"
+              data-target="current-password"
+              aria-label="Tampilkan password"
+            >
+              <span class="material-symbols-outlined text-lg">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- New Password -->
+        <div class="space-y-1.5">
+          <label for="new-password" class="text-label-md font-medium text-on-surface">
+            Password Baru
+          </label>
+          <div class="relative">
+            <input
+              id="new-password"
+              name="new-password"
+              type="password"
+              placeholder="Minimal 8 karakter"
+              class="w-full pl-4 pr-10 py-2.5 border border-outline-variant rounded-lg bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+            />
+            <button
+              type="button"
+              class="toggle-password absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant"
+              data-target="new-password"
+              aria-label="Tampilkan password"
+            >
+              <span class="material-symbols-outlined text-lg">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="space-y-1.5">
+          <label for="confirm-password" class="text-label-md font-medium text-on-surface">
+            Konfirmasi Password Baru
+          </label>
+          <div class="relative">
+            <input
+              id="confirm-password"
+              name="confirm-password"
+              type="password"
+              placeholder="Ulangi password baru"
+              class="w-full pl-4 pr-10 py-2.5 border border-outline-variant rounded-lg bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+            />
+            <button
+              type="button"
+              class="toggle-password absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant"
+              data-target="confirm-password"
+              aria-label="Tampilkan password"
+            >
+              <span class="material-symbols-outlined text-lg">visibility</span>
+            </button>
+          </div>
+          <p id="password-hint" class="text-body-sm text-outline">
+            Password baru dan konfirmasi harus sama.
+          </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="pt-2 flex items-center gap-3">
+          <button
+            type="submit"
+            id="ubah-password-submit"
+            class="px-5 py-2.5 bg-ipb-blue text-white text-label-md font-bold rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Ubah Password
+          </button>
+          <button
+            type="reset"
+            class="px-5 py-2.5 border border-outline-variant text-on-surface-variant text-label-md font-medium rounded-lg hover:bg-surface-container transition-colors"
+          >
+            Batal
+          </button>
+        </div>
+      </form>
     </div>
 
   </div>
 
-  <script src="../../scripts/biodata-signature.ts"></script>
-  <script src="../../scripts/api/mahasiswa/biodata.ts"></script>
+  <script>
+    import "../../scripts/profil-mahasiswa.ts";
+  </script>
+
+  <script>
+    // Ubah Password — script generik (juga dipakai di halaman profil admin/dosen)
+    import "../../scripts/api/change-password.ts";
+  </script>
+
+  <script>
+    // GET & PATCH data biodata mahasiswa (nama readonly, NIM readonly, email)
+    import "../../scripts/api/mahasiswa/biodata.ts";
+  </script>
 </Layout>
