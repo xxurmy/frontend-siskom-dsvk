@@ -22,12 +22,12 @@ import Layout from "../../layouts/Layout.astro";
     id="status-card"
     class="hidden bg-surface-container-lowest border border-outline-variant rounded-xl p-8 mb-6 shadow-sm"
   >
-    <div class="grid grid-cols-3 items-center">
+    <div class="flex flex-col gap-3 sm:grid sm:grid-cols-3 sm:items-center">
       <h2 class="font-title-lg text-title-lg text-on-surface">
         Status Seminar
       </h2>
 
-      <div class="flex justify-center">
+      <div class="flex justify-start sm:justify-center">
         <span
           id="status-badge"
           class="bg-outline text-white px-4 py-1.5 rounded-full font-body-sm text-body-sm"
@@ -36,7 +36,7 @@ import Layout from "../../layouts/Layout.astro";
         </span>
       </div>
 
-      <div class="flex justify-end">
+      <div class="flex justify-start sm:justify-end">
         <button
           id="berkas-btn"
           type="button"
