@@ -1,29 +1,21 @@
 // src/scripts/api/dosen/home.ts
 // Fetch data untuk halaman dosen-home.astro:
 //
-// - Profil dosen (nama, NIP, foto)
+// - Profil dosen (nama, NIP)
 // - "Jumlah Kolokium/Seminar Dihadiri" = total kolokium/seminar di mana dosen
 //   ini terlibat sebagai PEMBIMBING atau MODERATOR (dari /kolokium/my &
 //   /seminar/my, yang backend-nya sudah dicek pembimbing via relasi many-to-many
 //   + moderator_id). Tidak difilter status, karena pembimbing tidak punya
 //   konsep "hadir" seperti kartu (cuma moderator yang tanda tangan kartu).
-// - "Belum ditandatangani" (kartu urgent) = statusparaf masih "pending" DAN
-//   tanggal kolokium/seminarnya SUDAH hari H atau lewat — karena backend
-//   (KartuKolokiumController::updateStatusParaf) menolak tanda tangan
-//   sebelum hari H (Carbon::today()->lt($tanggal)). Kartu pending yang
-//   tanggalnya masih di masa depan belum bisa ditindaklanjuti dosen sama
-//   sekali, jadi belum dihitung "urgent".
-//
-//   Filter ini SEKARANG ditangani backend lewat query param
-//   `?statusparaf=pending&hari_h=1`, jadi kita cukup 1x request per jenis
-//   kartu dan baca `total` dari meta paginator langsung — nggak perlu lagi
-//   loop semua halaman di client seperti sebelumnya.
-//
 // - Jadwal hari ini = kolokium/seminar (pembimbing/moderator) yang tanggalnya hari ini
+//
+// CATATAN: Card "urgent" (Kartu Kolokium/Seminar belum ditandatangani) SUDAH
+// DIHAPUS dari halaman ini beserta seluruh logic terkait (fitur tanda tangan/
+// paraf sudah tidak dipakai lagi). Foto profil juga sudah dihapus dari
+// backend, jadi tidak ada lagi fetch/pemasangan src foto di sini — avatar
+// memakai placeholder statis (lihat home.astro).
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
-
-type StatusParaf = "pending" | "signed" | "absent";
 
 interface ApiUser {
   id: number;
@@ -31,45 +23,12 @@ interface ApiUser {
   nama: string;
   nip?: string;
   nim?: string;
-  foto?: string;
   [key: string]: unknown;
 }
 
 interface ProfileResponse {
   message?: string;
   user?: ApiUser;
-}
-
-interface KartuItem {
-  id: number;
-  moderator_id: number;
-  tanggal: string | null;
-  waktu: string | null;
-  namapemrasaran: string;
-  nimpemrasaran: string;
-  prodi: string;
-  statusparaf: StatusParaf;
-  [key: string]: unknown;
-}
-
-// Bentuk paginator Laravel (paginate(10)) — dipakai buat kartu kolokium/seminar
-// sejak backend ditambah fitur search & pagination.
-interface KartuPaginator {
-  data: KartuItem[];
-  total?: number;
-  current_page?: number;
-  last_page?: number;
-  [key: string]: unknown;
-}
-
-interface KartuKolokiumResponse {
-  message?: string;
-  kartu_kolokiums?: KartuPaginator;
-}
-
-interface KartuSeminarResponse {
-  message?: string;
-  kartu_seminars?: KartuPaginator;
 }
 
 interface ForumItem {
@@ -153,13 +112,6 @@ function todayISO(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-// Sudah hari H atau lewat? (dosen baru bisa tanda tangan kalau ini true,
-// sesuai aturan backend: Carbon::today()->lt($tanggal) -> ditolak)
-function isHariHOrLater(tanggal: string | null): boolean {
-  if (!tanggal) return false;
-  return tanggal.slice(0, 10) <= todayISO();
-}
-
 // ---------- Profil ----------
 async function loadProfile(): Promise<void> {
   const data = await apiGet<ProfileResponse>("/auth/profile");
@@ -168,52 +120,6 @@ async function loadProfile(): Promise<void> {
 
   setText("profile-nama", user.nama || "-");
   setText("profile-nip", user.nip || "-");
-
-  const fotoEl = document.getElementById("profile-foto") as HTMLImageElement | null;
-  if (fotoEl && user.foto) {
-    fotoEl.src = user.foto;
-  }
-}
-
-// ---------- Fetch semua halaman kartu (status pending), gabung jadi 1 array ----------
-// Dibutuhkan karena kita butuh filter tanggal tambahan di client, jadi nggak
-// bisa cuma andalkan `total` dari 1 halaman paginator seperti sebelumnya.
-async function fetchAllPendingKartu(
-  basePath: "/auth/kartu-kolokium/my" | "/auth/kartu-seminar/my",
-  dataKey: "kartu_kolokiums" | "kartu_seminars"
-): Promise<KartuItem[]> {
-  const allItems: KartuItem[] = [];
-  let page = 1;
-  let lastPage = 1;
-
-  do {
-    const data = await apiGet<Record<string, KartuPaginator | string | undefined>>(
-      `${basePath}?statusparaf=pending&page=${page}`
-    );
-    const paginator = data?.[dataKey] as KartuPaginator | undefined;
-    if (!paginator) break;
-
-    allItems.push(...(paginator.data ?? []));
-    lastPage = paginator.last_page ?? 1;
-    page += 1;
-  } while (page <= lastPage);
-
-  return allItems;
-}
-
-// ---------- Kartu Kolokium/Seminar: khusus untuk "belum ditandatangani" ----------
-// (hanya moderator yang bisa tanda tangan kartu, jadi tetap moderator-only)
-// "Urgent" = statusparaf pending DAN tanggal sudah hari H atau lewat.
-async function loadUrgentKolokium(): Promise<void> {
-  const items = await fetchAllPendingKartu("/auth/kartu-kolokium/my", "kartu_kolokiums");
-  const urgentCount = items.filter((k) => isHariHOrLater(k.tanggal)).length;
-  setText("urgent-kolokium-count", String(urgentCount));
-}
-
-async function loadUrgentSeminar(): Promise<void> {
-  const items = await fetchAllPendingKartu("/auth/kartu-seminar/my", "kartu_seminars");
-  const urgentCount = items.filter((k) => isHariHOrLater(k.tanggal)).length;
-  setText("urgent-seminar-count", String(urgentCount));
 }
 
 // ---------- Jadwal Hari Ini ----------
@@ -300,8 +206,6 @@ async function loadKolokiumDanSeminar(): Promise<void> {
 function initDosenDashboard(): void {
   loadProfile();
   loadKolokiumDanSeminar();
-  loadUrgentKolokium();
-  loadUrgentSeminar();
 }
 
 initDosenDashboard();
