@@ -1,4 +1,4 @@
-// src/scripts/api/dosen/absensi-seminar.ts
+// src/scripts/api/dosen/peserta-seminar.ts
 // Halaman Daftar Peserta Seminar — dibuka dari tombol "Peserta" di Jadwal
 // Seminar dosen (?seminar_id=...). Menampilkan info seminar + daftar
 // peserta forum (kartu seminar), READ-ONLY (tanpa status paraf/tanda

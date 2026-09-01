@@ -465,7 +465,7 @@ function initAbsensiButtons(): void {
     const seminarId = btn.dataset.seminarId;
     if (!seminarId) return;
 
-    window.location.href = `/dosen/absensi-seminar?seminar_id=${seminarId}`;
+    window.location.href = `/dosen/peserta-seminar?seminar_id=${seminarId}`;
   });
 }
 

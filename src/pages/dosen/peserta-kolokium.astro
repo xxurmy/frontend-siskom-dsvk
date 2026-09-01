@@ -2,11 +2,11 @@
 import Layout from "../../layouts/Layout.astro";
 ---
 
-<Layout userRole="dosen" pageTitle="Daftar Peserta Seminar - SISKOM DSVK" navTitle="Jadwal Seminar">
+<Layout userRole="dosen" pageTitle="Daftar Peserta Kolokium - SISKOM DSVK" navTitle="Jadwal Kolokium">
   <!-- Action -->
   <div class="flex justify-end mb-6">
     <a
-      href="/dosen/jadwal-seminar"
+      href="/dosen/jadwal-kolokium"
       class="bg-[#ffc107] hover:brightness-95 text-on-surface px-5 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all active:scale-95"
     >
       <span class="material-symbols-outlined">arrow_back</span>
@@ -17,13 +17,13 @@ import Layout from "../../layouts/Layout.astro";
   <!-- Pesan status (error) -->
   <div id="absensi-message" class="hidden mb-4 px-4 py-3 rounded-lg text-body-sm font-medium"></div>
 
-  <!-- Info Seminar -->
+  <!-- Info Kolokium -->
   <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 mb-6 shadow-[0px_4px_12px_rgba(0,0,0,0.03)]">
     <h2 class="font-headline-md text-headline-md text-primary font-bold mb-4">
-      INFORMASI SEMINAR
+      INFORMASI KOLOKIUM
     </h2>
-    <div id="seminar-info" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-      <p class="text-body-sm text-on-surface-variant col-span-full">Memuat informasi seminar...</p>
+    <div id="kolokium-info" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
+      <p class="text-body-sm text-on-surface-variant col-span-full">Memuat informasi kolokium...</p>
     </div>
   </div>
 
@@ -37,7 +37,7 @@ import Layout from "../../layouts/Layout.astro";
           DAFTAR PESERTA
         </h2>
         <p class="text-body-sm text-on-surface-variant">
-          Daftar peserta forum seminar ini.
+          Daftar peserta forum kolokium ini.
         </p>
       </div>
     </div>
@@ -78,5 +78,5 @@ import Layout from "../../layouts/Layout.astro";
 
   </div>
 
-  <script src="../../scripts/api/dosen/absensi-seminar.ts"></script>
+  <script src="../../scripts/api/dosen/peserta-kolokium.ts"></script>
 </Layout>

@@ -465,7 +465,7 @@ function initAbsensiButtons(): void {
     const kolokiumId = btn.dataset.kolokiumId;
     if (!kolokiumId) return;
 
-    window.location.href = `/dosen/absensi-kolokium?kolokium_id=${kolokiumId}`;
+    window.location.href = `/dosen/peserta-kolokium?kolokium_id=${kolokiumId}`;
   });
 }
 

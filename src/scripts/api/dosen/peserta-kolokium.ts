@@ -1,4 +1,4 @@
-// src/scripts/api/dosen/absensi-kolokium.ts
+// src/scripts/api/dosen/peserta-kolokium.ts
 // Halaman Daftar Peserta Kolokium — dibuka dari tombol "Peserta" di Jadwal
 // Kolokium dosen (?kolokium_id=...). Menampilkan info kolokium + daftar
 // peserta forum (kartu kolokium), READ-ONLY (tanpa status paraf/tanda
