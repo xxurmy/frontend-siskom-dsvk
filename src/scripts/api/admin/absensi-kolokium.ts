@@ -1,30 +1,14 @@
 // src/scripts/api/admin/absensi-kolokium.ts
-// Halaman Absensi Kolokium (admin) — dibuka dari tombol "Absensi" di Jadwal
-// Kolokium admin (?kolokium_id=...). Menampilkan info kolokium + daftar
-// peserta forum (kartu kolokium) yang statusparaf-nya bisa ditandai
-// Hadir/Tidak Hadir, lalu disimpan sekaligus lewat tombol "Simpan" (bulk
-// update). Sama seperti versi dosen, tapi admin bisa mengakses kartu
-// kolokium dari kolokium manapun (tidak dibatasi moderator_id).
+// Halaman Daftar Peserta Kolokium (admin) — dibuka dari tombol "Peserta" di
+// Jadwal Kolokium admin (?kolokium_id=...). Menampilkan info kolokium +
+// daftar peserta forum (kartu kolokium), READ-ONLY (tanpa status paraf/
+// tanda tangan, tanpa aksi tandai hadir/tidak hadir, tanpa tombol Simpan —
+// fitur tanda tangan/paraf sudah dihapus dari aplikasi). Sama seperti versi
+// dosen, tapi admin bisa mengakses kartu kolokium dari kolokium manapun
+// (tidak dibatasi moderator_id).
 //
-// GET  /auth/kolokium/{id}                       -> info kolokium (header halaman)
-// GET  /auth/kartu-kolokium/kolokium/{kolokiumId} -> daftar peserta (tidak dipaginate)
-// PATCH /auth/kartu-kolokium/bulk-status-paraf    -> simpan perubahan status paraf
-//
-// Aturan tombol aksi sama dengan halaman dosen:
-// - Belum hari-H -> kedua tombol (Hadir/Tidak Hadir) disabled.
-// - Sudah hari-H:
-//   - pending -> keduanya aktif
-//   - absent  -> "Hadir" (signed) tetap aktif, mahasiswa masih bisa
-//                diubah dari absent -> signed
-//   - signed  -> status final, keduanya hilang
-//
-// Catatan: saat admin menandai "Hadir" (signed), backend
-// (KartuKolokiumController::bulkUpdateStatusParaf) tetap memakai tanda
-// tangan dosen MODERATOR kartu tsb, bukan tanda tangan admin. Kalau dosen
-// moderatornya belum punya foto tanda tangan tersimpan, item tsb akan
-// gagal dan errornya ditampilkan di pesan status.
-
-import { confirmDialog } from "../../lib/confirm-dialog";
+// GET /auth/kolokium/{id}                       -> info kolokium (header halaman)
+// GET /auth/kartu-kolokium/kolokium/{kolokiumId} -> daftar peserta (tidak dipaginate)
 
 interface KartuKolokium {
   id: number;
@@ -41,8 +25,6 @@ interface KartuKolokium {
   moderator: string | null;
   namaforum?: string | null;
   nimforum?: string | null;
-  tandatangandosen: string | null;
-  statusparaf: "pending" | "signed" | "absent";
 }
 
 interface KartuKolokiumListResponse {
@@ -65,40 +47,12 @@ interface KolokiumInfo {
   [key: string]: unknown;
 }
 
-interface BulkUpdateResponse {
-  message: string;
-  updated: KartuKolokium[];
-  errors: { id: number; message: string }[];
-}
-
-interface ApiErrorResponse {
-  message: string;
-  errors?: Record<string, string[]>;
-}
-
-type PendingStatus = "signed" | "absent";
-
 const API_BASE_URL = import.meta.env.VITE_BASE_URL;
 const TOKEN_KEY = "auth_token";
 const TBODY_ID = "absensi-tbody";
-const COLSPAN = 6;
-
-const STATUS_LABEL: Record<KartuKolokium["statusparaf"], string> = {
-  pending: "Belum ditanda tangani",
-  signed: "Sudah ditanda tangan",
-  absent: "Tidak Hadir",
-};
-
-const STATUS_BADGE_CLASS: Record<KartuKolokium["statusparaf"], string> = {
-  pending: "bg-outline/10 text-on-surface-variant border border-outline/20",
-  signed: "bg-secondary/10 text-secondary border border-secondary/20",
-  absent: "bg-error/10 text-error border border-error/20",
-};
+const COLSPAN = 4;
 
 let kolokiumId: string | null = null;
-let items: KartuKolokium[] = [];
-// Perubahan lokal yang belum disimpan: id kartu kolokium -> status pilihan admin
-const pendingChanges = new Map<number, PendingStatus>();
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -142,23 +96,8 @@ function formatWaktu(waktu: string | null): string {
   return waktu.slice(0, 5); // "14:00:00" -> "14:00"
 }
 
-// Aktif kalau hari ini >= tanggal kolokium (konsisten dengan validasi
-// backend KartuKolokiumController::updateStatusParaf / bulkUpdateStatusParaf).
-function isBeforeHariH(tanggal: string | null): boolean {
-  if (!tanggal) return true;
-
-  const tanggalKolokium = new Date(tanggal);
-  if (Number.isNaN(tanggalKolokium.getTime())) return true;
-  tanggalKolokium.setHours(0, 0, 0, 0);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return today.getTime() < tanggalKolokium.getTime();
-}
-
 // ------------------------------------------------------------------
-// Pesan status
+// Pesan status (error)
 // ------------------------------------------------------------------
 function showMessage(text: string, variant: "success" | "error"): void {
   const el = document.getElementById("absensi-message");
@@ -253,86 +192,20 @@ async function loadKolokiumInfo(): Promise<void> {
 }
 
 // ------------------------------------------------------------------
-// Tabel peserta
+// Tabel peserta (read-only)
 // ------------------------------------------------------------------
-function currentDisplayStatus(item: KartuKolokium): KartuKolokium["statusparaf"] {
-  const pending = pendingChanges.get(item.id);
-  if (!pending) return item.statusparaf;
-  return pending;
-}
-
-function renderActionButtons(item: KartuKolokium): string {
-  if (item.statusparaf === "signed") {
-    return `<span class="text-body-sm text-on-surface-variant">-</span>`;
-  }
-
-  const belumHariH = isBeforeHariH(item.tanggal);
-  const disabledClass = "opacity-40 cursor-not-allowed";
-  const selected = pendingChanges.get(item.id);
-
-  const hadirActiveClass = selected === "signed" ? "bg-secondary text-white" : "text-secondary hover:bg-secondary/10";
-  const absentActiveClass = selected === "absent" ? "bg-error text-white" : "text-error hover:bg-error/10";
-
-  const hadirTitle = belumHariH ? "Belum bisa ditandai — tunggu sampai hari-H kolokium" : "Hadir";
-
-  let html = `
-    <button
-      type="button"
-      class="absensi-hadir-btn rounded-lg px-3 py-1.5 text-body-sm font-bold transition-colors flex items-center gap-1 ${hadirActiveClass} ${belumHariH ? disabledClass : ""}"
-      title="${hadirTitle}"
-      data-id="${item.id}"
-      ${belumHariH ? "disabled" : ""}
-    >
-      <span class="material-symbols-outlined text-[16px]">check_circle</span>
-      Hadir
-    </button>
-  `;
-
-  if (item.statusparaf !== "absent" || selected === undefined || selected !== "absent") {
-    const absentTitle = belumHariH ? "Belum bisa ditandai — tunggu sampai hari-H kolokium" : "Tidak Hadir";
-
-    html += `
-      <button
-        type="button"
-        class="absensi-tidakhadir-btn rounded-lg px-3 py-1.5 text-body-sm font-bold transition-colors flex items-center gap-1 ${absentActiveClass} ${belumHariH ? disabledClass : ""}"
-        title="${absentTitle}"
-        data-id="${item.id}"
-        ${belumHariH ? "disabled" : ""}
-      >
-        <span class="material-symbols-outlined text-[16px]">cancel</span>
-        Tidak Hadir
-      </button>
-    `;
-  }
-
-  return html;
-}
-
 function renderRow(item: KartuKolokium, index: number): string {
-  const displayStatus = currentDisplayStatus(item);
-  const hasPendingChange = pendingChanges.has(item.id);
-
   return `
-    <tr class="table-row-hover transition-colors ${hasPendingChange ? "bg-primary-container/10" : ""}" data-row-id="${item.id}">
+    <tr class="table-row-hover transition-colors">
       <td class="px-4 py-4 text-body-sm">${index + 1}</td>
       <td class="px-4 py-4 text-body-sm font-medium">${escapeHtml(item.namaforum ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm">${escapeHtml(item.nimforum ?? "-")}</td>
       <td class="px-4 py-4 text-body-sm whitespace-nowrap">${escapeHtml(item.prodi ?? "-")}</td>
-      <td class="px-4 py-4">
-        <span class="${STATUS_BADGE_CLASS[displayStatus]} px-3 py-1 rounded-full text-[12px] font-bold whitespace-nowrap">
-          ${STATUS_LABEL[displayStatus]}${hasPendingChange ? " (belum disimpan)" : ""}
-        </span>
-      </td>
-      <td class="px-4 py-4">
-        <div class="flex justify-center gap-2">
-          ${renderActionButtons(item)}
-        </div>
-      </td>
     </tr>
   `;
 }
 
-function renderTable(): void {
+function renderTable(items: KartuKolokium[]): void {
   const tbody = document.getElementById(TBODY_ID);
   if (!tbody) return;
 
@@ -342,18 +215,6 @@ function renderTable(): void {
   }
 
   tbody.innerHTML = items.map((item, index) => renderRow(item, index)).join("");
-}
-
-function updateSaveButtonState(): void {
-  const btn = document.getElementById("absensi-save-btn") as HTMLButtonElement | null;
-  const info = document.getElementById("absensi-info");
-  if (btn) btn.disabled = pendingChanges.size === 0;
-  if (info) {
-    info.textContent =
-      pendingChanges.size > 0
-        ? `${pendingChanges.size} perubahan belum disimpan.`
-        : "\u00A0";
-  }
 }
 
 // ------------------------------------------------------------------
@@ -388,166 +249,18 @@ async function loadPeserta(): Promise<void> {
     }
 
     const json: KartuKolokiumListResponse = await res.json();
-    items = json.kartu_kolokiums;
-
-    renderTable();
-    updateSaveButtonState();
+    renderTable(json.kartu_kolokiums);
   } catch (err) {
     console.error("Gagal ambil peserta kolokium:", err);
     renderMessageRow("Terjadi kesalahan jaringan.", "error");
   }
 }
 
-// ------------------------------------------------------------------
-// Pilih status lokal (belum disimpan)
-// ------------------------------------------------------------------
-function initTableInteraction(): void {
-  const tbody = document.getElementById(TBODY_ID);
-  if (!tbody) return;
-  if (tbody.dataset.bound === "true") return;
-  tbody.dataset.bound = "true";
-
-  tbody.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement;
-
-    const hadirBtn = target.closest<HTMLElement>(".absensi-hadir-btn");
-    if (hadirBtn) {
-      if (hadirBtn.hasAttribute("disabled")) return;
-      const id = Number(hadirBtn.dataset.id);
-      if (!id) return;
-      const item = items.find((i) => i.id === id);
-      if (!item) return;
-
-      if (item.statusparaf === "signed") return;
-
-      // Toggle: kalau sudah dipilih "signed", batalkan pilihan (kembali ke status server)
-      if (pendingChanges.get(id) === "signed") {
-        pendingChanges.delete(id);
-      } else {
-        pendingChanges.set(id, "signed");
-      }
-      renderTable();
-      updateSaveButtonState();
-      return;
-    }
-
-    const absentBtn = target.closest<HTMLElement>(".absensi-tidakhadir-btn");
-    if (absentBtn) {
-      if (absentBtn.hasAttribute("disabled")) return;
-      const id = Number(absentBtn.dataset.id);
-      if (!id) return;
-      const item = items.find((i) => i.id === id);
-      if (!item) return;
-
-      if (item.statusparaf === "signed") return;
-
-      if (pendingChanges.get(id) === "absent") {
-        pendingChanges.delete(id);
-      } else {
-        pendingChanges.set(id, "absent");
-      }
-      renderTable();
-      updateSaveButtonState();
-    }
-  });
-}
-
-// ------------------------------------------------------------------
-// Simpan (bulk update)
-// ------------------------------------------------------------------
-async function saveChanges(): Promise<void> {
-  const token = getToken();
-  if (!token) {
-    window.location.href = "/";
-    return;
-  }
-
-  if (pendingChanges.size === 0) return;
-
-  const itemsPayload = Array.from(pendingChanges.entries()).map(([id, statusparaf]) => ({
-    id,
-    statusparaf,
-  }));
-
-  const saveBtn = document.getElementById("absensi-save-btn") as HTMLButtonElement | null;
-  if (saveBtn) saveBtn.disabled = true;
-
-  clearMessage();
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/kartu-kolokium/bulk-status-paraf`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ items: itemsPayload }),
-    });
-
-    if (redirectIfUnauthorized(res.status)) return;
-
-    const json = (await res.json()) as BulkUpdateResponse | ApiErrorResponse;
-
-    if (res.status >= 500 || (!("updated" in json) && !res.ok)) {
-      const errJson = json as ApiErrorResponse;
-      showMessage(errJson.message ?? "Gagal menyimpan perubahan.", "error");
-      if (saveBtn) saveBtn.disabled = false;
-      return;
-    }
-
-    const bulkJson = json as BulkUpdateResponse;
-
-    // Hapus pendingChanges untuk item yang berhasil diupdate
-    for (const updated of bulkJson.updated ?? []) {
-      pendingChanges.delete(updated.id);
-    }
-
-    if (bulkJson.errors && bulkJson.errors.length > 0) {
-      const errMessages = bulkJson.errors.map((e) => `#${e.id}: ${e.message}`).join("; ");
-      showMessage(`Sebagian gagal disimpan (${errMessages}).`, "error");
-    } else {
-      showMessage("Perubahan absensi berhasil disimpan.", "success");
-    }
-
-    // Refresh data dari server biar status paraf & tombol aksi konsisten
-    await loadPeserta();
-  } catch (err) {
-    console.error("Gagal simpan absensi:", err);
-    showMessage("Terjadi kesalahan jaringan. Coba lagi.", "error");
-  } finally {
-    updateSaveButtonState();
-  }
-}
-
-function initSaveButton(): void {
-  const btn = document.getElementById("absensi-save-btn");
-  if (!btn) return;
-  if (btn.dataset.bound === "true") return;
-  btn.dataset.bound = "true";
-
-  btn.addEventListener("click", async () => {
-    const ok = await confirmDialog({
-      title: "Simpan Absensi?",
-      message: `${pendingChanges.size} perubahan status kehadiran akan disimpan. Status "Hadir" (ditandatangani) tidak dapat diubah lagi setelah disimpan.`,
-      variant: "primary",
-      confirmText: "Ya, Simpan",
-      icon: "save",
-    });
-    if (!ok) return;
-
-    saveChanges();
-  });
-}
-
 function initAbsensiKolokiumPage(): void {
   clearMessage();
-  pendingChanges.clear();
   kolokiumId = getKolokiumIdFromUrl();
   loadKolokiumInfo();
   loadPeserta();
-  initTableInteraction();
-  initSaveButton();
 }
 
 initAbsensiKolokiumPage();

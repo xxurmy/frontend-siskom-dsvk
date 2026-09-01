@@ -11,11 +11,12 @@
 // Tombol Hapus akan memanggil DELETE /auth/kolokium/{id} untuk menghapus kolokium tersebut, hanya bisa dilakukan oleh admin.
 // Tombol Edit & Hapus hanya muncul untuk kolokium yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk kolokium yang sudah disetujui (approved).
 //
-// KOLOM ABSENSI: tombol "Absensi" membuka halaman /admin/absensi-kolokium
-// dengan query param kolokium_id, tempat admin bisa menandai kehadiran
-// (statusparaf) peserta forum kolokium tsb. Tombol hanya aktif kalau
-// status kolokium sudah "approved" — karena mahasiswa baru bisa daftar
-// hadir (jadi peserta_kolokium) setelah kolokium disetujui admin
+// KOLOM PESERTA: tombol "Peserta" (dulu "Absensi") membuka halaman
+// /admin/absensi-kolokium dengan query param kolokium_id, tempat admin bisa
+// melihat daftar peserta forum kolokium tsb (read-only, tanpa aksi tandai
+// hadir/tidak hadir — fitur tanda tangan/paraf sudah dihapus). Tombol hanya
+// aktif kalau status kolokium sudah "approved" — karena mahasiswa baru bisa
+// daftar hadir (jadi peserta_kolokium) setelah kolokium disetujui admin
 // (lihat PesertaKolokiumController::store, validasi status === 'approved').
 // Kalau belum approved, tombol disabled (tidak ada peserta yang mungkin
 // terdaftar).
@@ -45,7 +46,7 @@
 // - Sel Pemrasaran/Dosen Pembimbing/Judul/Lokasi/Tanggal/Moderator/Ruangan
 //   tidak dipaksa satu baris (whitespace-nowrap dihapus) supaya baris
 //   melebar ke bawah, bukan ke samping, saat teks tidak muat. Kolom
-//   Dokumen, Absensi, Status, dan Aksi tetap seperti semula.
+//   Dokumen, Peserta, Status, dan Aksi tetap seperti semula.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
 import { showSuccess, showError } from "../../lib/info-dialog";
@@ -319,20 +320,24 @@ function renderBerkasButton(item: KolokiumItem): string {
 function renderAbsensiButton(item: KolokiumItem): string {
   const isApproved = item.status === "approved";
   const disabledClass = "opacity-40 cursor-not-allowed";
-  const title = isApproved
-    ? "Buka Absensi"
-    : "Kolokium harus berstatus disetujui sebelum bisa diabsen";
+
+  let pesertaTitle: string;
+  if (!isApproved) {
+    pesertaTitle = "Kolokium harus berstatus disetujui sebelum peserta bisa dilihat";
+  } else {
+    pesertaTitle = "Lihat Daftar Peserta";
+  }
 
   return `
     <button
       type="button"
       class="kolokium-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isApproved ? disabledClass : ""}"
       data-kolokium-id="${item.id}"
-      title="${title}"
+      title="${pesertaTitle}"
       ${!isApproved ? "disabled" : ""}
     >
-      <span class="material-symbols-outlined text-[18px]">fact_check</span>
-      Absensi
+      <span class="material-symbols-outlined text-[18px]">groups</span>
+      Peserta
     </button>
   `;
 }

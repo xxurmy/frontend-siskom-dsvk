@@ -1,6 +1,6 @@
 // src/scripts/api/admin/jadwal-seminar.ts
-// GET    /auth/seminar?page=N&search=...&per_page=N -> daftar semua seminar (paginated, admin)
-// DELETE /auth/seminar/{id}                         -> hapus seminar (hanya admin)
+// GET    /auth/seminar?page=N&search=...&per_page=N  -> daftar semua seminar (paginated, admin)
+// DELETE /auth/seminar/{id}                          -> hapus seminar (hanya admin)
 //
 // Aturan tombol aksi berdasarkan status:
 // - pending  -> tombol Edit & Hapus muncul
@@ -11,11 +11,12 @@
 // Tombol Hapus akan memanggil DELETE /auth/seminar/{id} untuk menghapus seminar tersebut, hanya bisa dilakukan oleh admin.
 // Tombol Edit & Hapus hanya muncul untuk seminar yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk seminar yang sudah disetujui (approved).
 //
-// KOLOM ABSENSI: tombol "Absensi" membuka halaman /admin/absensi-seminar
-// dengan query param seminar_id, tempat admin bisa menandai kehadiran
-// (statusparaf) peserta forum seminar tsb. Tombol hanya aktif kalau
-// status seminar sudah "approved" — karena mahasiswa baru bisa daftar
-// hadir (jadi peserta_seminar) setelah seminar disetujui admin
+// KOLOM PESERTA: tombol "Peserta" (dulu "Absensi") membuka halaman
+// /admin/absensi-seminar dengan query param seminar_id, tempat admin bisa
+// melihat daftar peserta forum seminar tsb (read-only, tanpa aksi tandai
+// hadir/tidak hadir — fitur tanda tangan/paraf sudah dihapus). Tombol hanya
+// aktif kalau status seminar sudah "approved" — karena mahasiswa baru bisa
+// daftar hadir (jadi peserta_seminar) setelah seminar disetujui admin
 // (lihat PesertaSeminarController::store, validasi status === 'approved').
 // Kalau belum approved, tombol disabled (tidak ada peserta yang mungkin
 // terdaftar).
@@ -45,7 +46,7 @@
 // - Sel Pemrasaran/Dosen Pembimbing/Judul/Lokasi/Tanggal/Moderator/Ruangan
 //   tidak dipaksa satu baris (whitespace-nowrap dihapus) supaya baris
 //   melebar ke bawah, bukan ke samping, saat teks tidak muat. Kolom
-//   Dokumen, Absensi, Status, dan Aksi tetap seperti semula.
+//   Dokumen, Peserta, Status, dan Aksi tetap seperti semula.
 
 import { confirmDialog } from "../../lib/confirm-dialog";
 import { showSuccess, showError } from "../../lib/info-dialog";
@@ -319,20 +320,24 @@ function renderBerkasButton(item: SeminarItem): string {
 function renderAbsensiButton(item: SeminarItem): string {
   const isApproved = item.status === "approved";
   const disabledClass = "opacity-40 cursor-not-allowed";
-  const title = isApproved
-    ? "Buka Absensi"
-    : "Seminar harus berstatus disetujui sebelum bisa diabsen";
+
+  let pesertaTitle: string;
+  if (!isApproved) {
+    pesertaTitle = "Seminar harus berstatus disetujui sebelum peserta bisa dilihat";
+  } else {
+    pesertaTitle = "Lihat Daftar Peserta";
+  }
 
   return `
     <button
       type="button"
       class="seminar-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!isApproved ? disabledClass : ""}"
       data-seminar-id="${item.id}"
-      title="${title}"
+      title="${pesertaTitle}"
       ${!isApproved ? "disabled" : ""}
     >
-      <span class="material-symbols-outlined text-[18px]">fact_check</span>
-      Absensi
+      <span class="material-symbols-outlined text-[18px]">groups</span>
+      Peserta
     </button>
   `;
 }
@@ -430,7 +435,7 @@ function renderTable(data: PaginatedResponse<SeminarItem>): void {
   tbody.innerHTML = data.data.map((item, idx) => renderRow(item, startNumber + idx)).join("");
 }
 
-async function loadJadwalSeminars(page = 1): Promise<void> {
+async function loadJadwalSeminar(page = 1): Promise<void> {
   const token = getToken();
   if (!token) {
     window.location.href = "/";
@@ -497,7 +502,7 @@ async function deleteSeminar(id: number): Promise<void> {
     }
 
     showSuccess("Seminar berhasil dihapus.");
-    await loadJadwalSeminars(currentPage);
+    await loadJadwalSeminar(currentPage);
   } catch (err) {
     console.error("Gagal menghapus seminar:", err);
     showError("Terjadi kesalahan jaringan. Coba lagi.");
@@ -778,13 +783,13 @@ function initPagination(): void {
   const nextBtn = document.getElementById("jadwal-seminar-next-btn");
   const lastBtn = document.getElementById("jadwal-seminar-last-btn");
 
-  firstBtn?.addEventListener("click", () => loadJadwalSeminars(1));
-  prevBtn?.addEventListener("click", () => loadJadwalSeminars(Math.max(1, currentPage - 1)));
-  nextBtn?.addEventListener("click", () => loadJadwalSeminars(currentPage + 1));
+  firstBtn?.addEventListener("click", () => loadJadwalSeminar(1));
+  prevBtn?.addEventListener("click", () => loadJadwalSeminar(Math.max(1, currentPage - 1)));
+  nextBtn?.addEventListener("click", () => loadJadwalSeminar(currentPage + 1));
   lastBtn?.addEventListener("click", () => {
     const pageLabel = document.getElementById("jadwal-seminar-page-label");
     const lastPage = pageLabel?.textContent?.split("/")[1]?.trim();
-    if (lastPage) loadJadwalSeminars(Number(lastPage));
+    if (lastPage) loadJadwalSeminar(Number(lastPage));
   });
 }
 
@@ -803,7 +808,7 @@ function initSearch(): void {
 
     searchDebounceTimer = setTimeout(() => {
       currentSearch = value;
-      loadJadwalSeminars(1); // reset ke halaman 1 tiap kali kata kunci berubah
+      loadJadwalSeminar(1); // reset ke halaman 1 tiap kali kata kunci berubah
     }, SEARCH_DEBOUNCE_MS);
   });
 }
@@ -815,12 +820,12 @@ function initPerPage(): void {
   select.dataset.bound = "true";
 
   select.addEventListener("change", () => {
-    loadJadwalSeminars(1); // reset ke halaman 1 tiap kali per_page berubah
+    loadJadwalSeminar(1); // reset ke halaman 1 tiap kali per_page berubah
   });
 }
 
-function initJadwalSeminarsPage(): void {
-  loadJadwalSeminars(1);
+function initJadwalSeminarPage(): void {
+  loadJadwalSeminar(1);
   initActionButtons();
   initAbsensiButtons();
   initBerkasButtons();
@@ -831,5 +836,5 @@ function initJadwalSeminarsPage(): void {
   initPerPage();
 }
 
-initJadwalSeminarsPage();
-document.addEventListener("astro:page-load", initJadwalSeminarsPage);
+initJadwalSeminarPage();
+document.addEventListener("astro:page-load", initJadwalSeminarPage);
