@@ -123,6 +123,7 @@ interface VerifySyaratResponse {
 }
 
 let syaratData: SyaratAdministrasiResponse | null = null;
+const viewingKeys = new Set<string>(); // dipakai buat loading state tombol "Lihat"
 
 // ------------------------------------------------------------------
 // State halaman
@@ -137,6 +138,10 @@ let dosenOptions: UserOption[] = [];
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
   const token = localStorage.getItem(TOKEN_KEY);
   const res = await fetch(`${API_BASE}${path}`, {
+    // cache: "no-store" -> jangan pernah sajikan response GET (mis. status
+    // syarat administrasi) dari cache browser, selalu ambil data terbaru
+    // dari server. Bisa dioverride oleh init.cache kalau caller butuh beda.
+    cache: "no-store",
     ...init,
     headers: {
       Accept: "application/json",
@@ -684,9 +689,15 @@ function renderBerkasModalBody(): void {
         </div>
         ${
           item?.url
-            ? `<a href="${item.url}" target="_blank" rel="noopener" class="shrink-0 text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                <span class="material-symbols-outlined text-[16px]">visibility</span> Lihat
-              </a>`
+            ? `<button
+                type="button"
+                class="berkas-view-btn shrink-0 text-xs font-bold text-primary hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                data-syarat-key="${def.key}"
+                ${viewingKeys.has(def.key) ? "disabled" : ""}
+              >
+                <span class="material-symbols-outlined text-[16px]">visibility</span>
+                ${viewingKeys.has(def.key) ? "Membuka..." : "Lihat"}
+              </button>`
             : `<span class="shrink-0 text-xs text-on-surface-variant">-</span>`
         }
       </div>
@@ -780,14 +791,73 @@ async function submitVerifikasi(): Promise<void> {
   }
 }
 
+// Buka file syarat administrasi lewat endpoint ber-auth (bukan link publik lagi,
+// karena backend sekarang simpan file di storage lokal disk 'private').
+async function viewBerkasFile(key: string): Promise<void> {
+  if (!seminarId) return;
+
+  viewingKeys.add(key);
+  renderBerkasModalBody();
+
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+
+    const res = await fetch(
+      `${API_BASE}/auth/seminar/${seminarId}/syarat-administrasi/${key}/file`,
+      {
+        // cache: "no-store" -> paksa browser selalu ambil dari server, jangan
+        // sajikan blob lama dari cache lokal saat file baru saja di-replace
+        // lewat upload ulang (lapis pengaman tambahan selain header
+        // Cache-Control di backend).
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token ?? ""}` },
+      }
+    );
+
+    if (res.status === 401) {
+      window.location.href = "/";
+      return;
+    }
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as ApiErrorResponse;
+      throw new Error(err.message ?? "Gagal membuka berkas.");
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank", "noopener");
+
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (err) {
+    console.error("Gagal membuka berkas:", err);
+    showError(err instanceof Error ? err.message : "Gagal membuka berkas.");
+  } finally {
+    viewingKeys.delete(key);
+    renderBerkasModalBody();
+  }
+}
+
 function initBerkasModal(): void {
-  const { overlay, closeBtn, berkasBtn, submitBtn } = getBerkasModalEls();
+  const { overlay, closeBtn, berkasBtn, submitBtn, body } = getBerkasModalEls();
   if (!overlay || overlay.dataset.bound === "true") return;
   overlay.dataset.bound = "true";
 
   berkasBtn?.addEventListener("click", openBerkasModal);
   closeBtn?.addEventListener("click", closeBerkasModal);
   submitBtn?.addEventListener("click", submitVerifikasi);
+
+  // Klik tombol "Lihat" -> buka file lewat endpoint ber-auth
+  body?.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const viewBtn = target.closest<HTMLElement>(".berkas-view-btn");
+    if (!viewBtn || viewBtn.hasAttribute("disabled")) return;
+
+    const key = viewBtn.dataset.syaratKey;
+    if (!key) return;
+
+    viewBerkasFile(key);
+  });
 
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) closeBerkasModal();

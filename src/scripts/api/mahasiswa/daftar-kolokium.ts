@@ -166,6 +166,7 @@ interface UploadSyaratResponse {
 
 let syaratData: SyaratAdministrasiResponse | null = null;
 const uploadingKeys = new Set<string>();
+const viewingKeys = new Set<string>(); // dipakai buat loading state tombol "Lihat Berkas"
 
 const SYARAT_STATUS_LABEL: Record<SyaratAdministrasiResponse["status"], string> = {
   belum_lengkap: "Belum Lengkap",
@@ -186,6 +187,10 @@ let currentKolokium: Kolokium | null = null;
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
   const token = localStorage.getItem(TOKEN_KEY);
   const res = await fetch(`${API_BASE}${path}`, {
+    // cache: "no-store" -> jangan pernah sajikan response GET (mis. status
+    // syarat administrasi) dari cache browser, selalu ambil data terbaru
+    // dari server. Bisa dioverride oleh init.cache kalau caller butuh beda.
+    cache: "no-store",
     ...init,
     headers: {
       Accept: "application/json",
@@ -634,9 +639,15 @@ function renderBerkasModalBody(): void {
         <div class="flex items-center gap-2">
           ${
             item?.url
-              ? `<a href="${item.url}" target="_blank" rel="noopener" class="text-xs font-medium text-primary hover:underline flex items-center gap-1">
-                  <span class="material-symbols-outlined text-[16px]">visibility</span> Lihat Berkas
-                </a>`
+              ? `<button
+                  type="button"
+                  class="berkas-view-btn text-xs font-medium text-primary hover:underline flex items-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                  data-syarat-key="${def.key}"
+                  ${viewingKeys.has(def.key) ? "disabled" : ""}
+                >
+                  <span class="material-symbols-outlined text-[16px]">visibility</span>
+                  ${viewingKeys.has(def.key) ? "Membuka..." : "Lihat Berkas"}
+                </button>`
               : ""
           }
         </div>
@@ -783,6 +794,55 @@ async function uploadSyaratFile(key: string, file: File): Promise<void> {
   }
 }
 
+// Buka file syarat administrasi lewat endpoint ber-auth (bukan link publik lagi,
+// karena backend sekarang simpan file di storage lokal disk 'private').
+// Fetch dengan Bearer token -> ambil sebagai blob -> buka di tab baru.
+async function viewBerkasFile(key: string): Promise<void> {
+  if (!currentKolokium) return;
+
+  viewingKeys.add(key);
+  renderBerkasModalBody();
+
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+
+    const res = await fetch(
+      `${API_BASE}/auth/kolokium/${currentKolokium.id}/syarat-administrasi/${key}/file`,
+      {
+        // cache: "no-store" -> paksa browser selalu ambil dari server, jangan
+        // sajikan blob lama dari cache lokal saat file baru saja di-replace
+        // lewat upload ulang (lapis pengaman tambahan selain header
+        // Cache-Control di backend).
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token ?? ""}` },
+      }
+    );
+
+    if (res.status === 401) {
+      window.location.href = "/";
+      return;
+    }
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as ApiErrorResponse;
+      throw new Error(err.message ?? "Gagal membuka berkas.");
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    window.open(blobUrl, "_blank", "noopener");
+
+    // Blob URL dilepas setelah beberapa saat, cukup waktu untuk tab baru selesai memuatnya
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (err) {
+    console.error("Gagal membuka berkas:", err);
+    showError(err instanceof Error ? err.message : "Gagal membuka berkas.");
+  } finally {
+    viewingKeys.delete(key);
+    renderBerkasModalBody();
+  }
+}
+
 function initBerkasModal(): void {
   const { overlay, closeBtn, body, berkasBtn } = getBerkasModalEls();
   if (!overlay || overlay.dataset.bound === "true") return;
@@ -797,6 +857,18 @@ function initBerkasModal(): void {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeBerkasModal();
+  });
+
+  // Klik tombol "Lihat Berkas" -> buka file lewat endpoint ber-auth
+  body?.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const viewBtn = target.closest<HTMLElement>(".berkas-view-btn");
+    if (!viewBtn || viewBtn.hasAttribute("disabled")) return;
+
+    const key = viewBtn.dataset.syaratKey;
+    if (!key) return;
+
+    viewBerkasFile(key);
   });
 
   // Klik tombol "Upload"/"Ganti" -> trigger file input pasangannya, lalu upload
