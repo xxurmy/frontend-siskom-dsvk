@@ -19,10 +19,12 @@
 // yang dulu dikirim ke backend DIHAPUS — dosen sekarang melihat kolokium
 // dengan status apapun (pending, approved, rejected).
 //
-// ABSENSI: tombol Absensi hanya aktif kalau dosen yang login adalah
-// MODERATOR kolokium tsb DAN status kolokium sudah "approved" (mengikuti
-// aturan yang sama dengan tabel admin — peserta baru bisa absen setelah
-// kolokium disetujui, lihat PesertaKolokiumController::store).
+// PESERTA: tombol "Peserta" (dulu "Absensi") mengarah ke halaman daftar
+// peserta forum kolokium (read-only, tanpa aksi tandai hadir/tidak hadir —
+// fitur tanda tangan/paraf sudah dihapus). Tombol hanya aktif kalau dosen
+// yang login adalah MODERATOR kolokium tsb DAN status kolokium sudah
+// "approved" (mengikuti aturan yang sama dengan tabel admin — peserta baru
+// terdaftar setelah kolokium disetujui, lihat PesertaKolokiumController::store).
 //
 // TAMPILAN KOLOM (mengikuti pola yang sama dengan tabel admin):
 // - Kolom Nama/NIM/Prodi digabung jadi satu kolom "Pemrasaran": nama (bold)
@@ -36,7 +38,7 @@
 //   hijau, rejected = merah), sama seperti tabel admin.
 // - Sel-sel tidak dipaksa satu baris (whitespace-nowrap dihapus dari sel
 //   berisi teks panjang) supaya baris melebar ke bawah, bukan ke samping,
-//   saat teks tidak muat. Kolom Absensi tetap seperti semula.
+//   saat teks tidak muat. Kolom Peserta tetap seperti semula.
 
 interface KolokiumItem {
   id: number;
@@ -313,20 +315,17 @@ function renderTable(items: KolokiumItem[]): void {
 
   tbody.innerHTML = items
     .map((item, index) => {
-      const isModerator = currentUserId !== null && item.moderator_id === currentUserId;
       const isApproved = item.status === "approved";
-      // Absensi hanya boleh dibuka kalau dosen ini moderator DAN kolokium
-      // sudah approved — sama seperti aturan di tabel admin.
-      const canAbsen = isModerator && isApproved;
+      // Tombol "Peserta" hanya boleh dibuka kalau
+      // kolokium sudah approved — sama seperti aturan sebelumnya untuk absensi.
+      const canView = isApproved;
       const disabledClass = "opacity-40 cursor-not-allowed";
 
-      let absensiTitle: string;
+      let pesertaTitle: string;
       if (!isApproved) {
-        absensiTitle = "Kolokium harus berstatus disetujui sebelum bisa diabsen";
-      } else if (!isModerator) {
-        absensiTitle = "Hanya dosen moderator yang dapat membuka absensi kolokium ini";
+        pesertaTitle = "Kolokium harus berstatus disetujui sebelum peserta bisa dilihat";
       } else {
-        absensiTitle = "Buka Absensi";
+        pesertaTitle = "Lihat Daftar Peserta";
       }
 
       return `
@@ -344,13 +343,13 @@ function renderTable(items: KolokiumItem[]): void {
           <td class="px-4 py-4 text-center whitespace-nowrap">
             <button
               type="button"
-              class="kolokium-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!canAbsen ? disabledClass : ""}"
+              class="kolokium-absensi-btn inline-flex items-center gap-1.5 bg-primary-container text-on-primary px-3 py-1.5 rounded-lg text-body-sm font-bold hover:bg-primary transition-all active:scale-95 ${!canView ? disabledClass : ""}"
               data-kolokium-id="${item.id}"
-              title="${absensiTitle}"
-              ${!canAbsen ? "disabled" : ""}
+              title="${pesertaTitle}"
+              ${!canView ? "disabled" : ""}
             >
-              <span class="material-symbols-outlined text-[18px]">fact_check</span>
-              Absensi
+              <span class="material-symbols-outlined text-[18px]">groups</span>
+              Peserta
             </button>
           </td>
         </tr>
@@ -450,7 +449,7 @@ function initPerPage(): void {
   });
 }
 
-// ---------- Tombol Absensi ----------
+// ---------- Tombol Peserta ----------
 function initAbsensiButtons(): void {
   const tbody = document.getElementById("kolokium-table-body");
   if (!tbody) return;
