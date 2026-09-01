@@ -12,7 +12,7 @@
 // Tombol Edit & Hapus hanya muncul untuk kolokium yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk kolokium yang sudah disetujui (approved).
 //
 // KOLOM PESERTA: tombol "Peserta" (dulu "Absensi") membuka halaman
-// /admin/absensi-kolokium dengan query param kolokium_id, tempat admin bisa
+// /admin/peserta-kolokium dengan query param kolokium_id, tempat admin bisa
 // melihat daftar peserta forum kolokium tsb (read-only, tanpa aksi tandai
 // hadir/tidak hadir — fitur tanda tangan/paraf sudah dihapus). Tombol hanya
 // aktif kalau status kolokium sudah "approved" — karena mahasiswa baru bisa
@@ -88,7 +88,7 @@ const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-kolokium-tbody";
 const COLSPAN = 13;
 const EDIT_FORM_PATH = "/admin/form-update-kolokium";
-const ABSENSI_PATH = "/admin/absensi-kolokium";
+const ABSENSI_PATH = "/admin/peserta-kolokium";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
 const JUDUL_WORD_LIMIT = 4;

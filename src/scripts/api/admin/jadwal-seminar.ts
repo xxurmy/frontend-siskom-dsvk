@@ -12,7 +12,7 @@
 // Tombol Edit & Hapus hanya muncul untuk seminar yang belum disetujui (pending) atau ditolak (rejected), dan tidak muncul untuk seminar yang sudah disetujui (approved).
 //
 // KOLOM PESERTA: tombol "Peserta" (dulu "Absensi") membuka halaman
-// /admin/absensi-seminar dengan query param seminar_id, tempat admin bisa
+// /admin/peserta-seminar dengan query param seminar_id, tempat admin bisa
 // melihat daftar peserta forum seminar tsb (read-only, tanpa aksi tandai
 // hadir/tidak hadir — fitur tanda tangan/paraf sudah dihapus). Tombol hanya
 // aktif kalau status seminar sudah "approved" — karena mahasiswa baru bisa
@@ -88,7 +88,7 @@ const TOKEN_KEY = "auth_token";
 const TBODY_ID = "jadwal-seminar-tbody";
 const COLSPAN = 13;
 const EDIT_FORM_PATH = "/admin/form-update-seminar";
-const ABSENSI_PATH = "/admin/absensi-seminar";
+const ABSENSI_PATH = "/admin/peserta-seminar";
 const SEARCH_DEBOUNCE_MS = 400;
 const DEFAULT_PER_PAGE = 10;
 const JUDUL_WORD_LIMIT = 4;

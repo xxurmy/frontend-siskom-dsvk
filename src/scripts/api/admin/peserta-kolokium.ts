@@ -1,4 +1,4 @@
-// src/scripts/api/admin/absensi-kolokium.ts
+// src/scripts/api/admin/peserta-kolokium.ts
 // Halaman Daftar Peserta Kolokium (admin) — dibuka dari tombol "Peserta" di
 // Jadwal Kolokium admin (?kolokium_id=...). Menampilkan info kolokium +
 // daftar peserta forum (kartu kolokium), READ-ONLY (tanpa status paraf/

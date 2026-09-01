@@ -1,4 +1,4 @@
-// src/scripts/api/admin/absensi-seminar.ts
+// src/scripts/api/admin/peserta-seminar.ts
 // Halaman Daftar Peserta Seminar (admin) — dibuka dari tombol "Peserta" di
 // Jadwal Seminar admin (?seminar_id=...). Menampilkan info seminar +
 // daftar peserta forum (kartu seminar), READ-ONLY (tanpa status paraf/
